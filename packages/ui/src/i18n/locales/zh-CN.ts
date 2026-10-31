@@ -5,6 +5,9 @@ const zhCN: Record<string, string> = {
   // XCODE: 产品账号错误不包含后端 origin 或凭据。
   "aiscoo.login.configUnavailable": "Aiscoo 登录尚未配置或暂不可用，请联系管理员。",
   "aiscoo.login.unsupported": "Aiscoo 仅支持 Aiscoo 账号登录。",
+  // XCODE: 退出只改变旧进程的展示，账号清理与重启沿用原流程。
+  "aiscoo.logout.exiting": "正在退出…",
+  "aiscoo.logout.description": "应用将自动重启，随后显示登录页。",
   // XCODE: 额度标题按后端真实周期展示，与源版剩余额度卡一致。
   "settings.usage.nativeRemaining.daily": "每日剩余",
   "settings.usage.nativeRemaining.weekly": "每周剩余",

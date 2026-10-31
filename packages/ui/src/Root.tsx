@@ -61,6 +61,11 @@ import {
   createAiscooAccountLoginPlatform,
   createAiscooAccountLoginServices,
 } from "@/aiscoo/account-login/index.js";
+// XCODE: Desktop 只追加退出展示边界，不替换上游账号清理与重启动作。
+import {
+  AiscooLogoutPresentationBoundary,
+  useAiscooLogoutPresentation,
+} from "@/aiscoo/account-login/logout-presentation.js";
 import { setDefaultFileDisplayBasePath } from "@/lib/fileDisplay.js";
 import { readRendererLaunchTimings, shouldReportLaunchToInput } from "@/lib/launchToInputReport.js";
 import { reportUiLaunchToInput } from "@/lib/uiPerfArmsTelemetry.js";
@@ -196,7 +201,18 @@ export function Root(props: RootProps) {
                             <RequestSecurityHost />
                             <MarketingTouchProvider desktop={props.isDesktop === true}>
                               <RemoteConnectionProgressProvider>
-                                <RootInner {...props} services={services} platform={platform} />
+                                <AiscooLogoutPresentationBoundary
+                                  enabled={
+                                    props.isDesktop === true &&
+                                    !props.webRemoteControlWorkspaceSwitcher
+                                  }
+                                >
+                                  <AiscooLogoutRootContent
+                                    {...props}
+                                    services={services}
+                                    platform={platform}
+                                  />
+                                </AiscooLogoutPresentationBoundary>
                               </RemoteConnectionProgressProvider>
                             </MarketingTouchProvider>
                           </RewardsProvider>
@@ -211,6 +227,23 @@ export function Root(props: RootProps) {
         </ServiceProvider>
       </TooltipProvider>
     </LucideProvider>
+  );
+}
+
+// XCODE: 原生菜单事件不经过 DOM inert；只在旧窗口退出过渡期间暂停新用户意图。
+function AiscooLogoutRootContent(props: RootProps) {
+  const presentation = useAiscooLogoutPresentation();
+  const platform = useMemo(
+    () =>
+      presentation
+        ? createAiscooAccountLoginPlatform(props.platform, presentation.isExiting)
+        : props.platform,
+    [props.platform, presentation],
+  );
+  return (
+    <PlatformProvider platform={platform}>
+      <RootInner {...props} platform={platform} />
+    </PlatformProvider>
   );
 }
 
@@ -704,11 +737,13 @@ function RootInner({
   const handleReauthenticationRequired = useCallback(() => {
     setWelcomeScreenOpenReason("session-expired");
   }, []);
+  // XCODE: 仅包装动作调用与已确认通知，账号状态仍由原退出链路持有。
+  const logoutPresentation = useAiscooLogoutPresentation();
   const {
     setWorkspaceActionError,
     startDraftInWorkspace,
     startNewTaskFromActiveWorkspace,
-    handleLogout,
+    handleLogout: handleOriginalLogout,
     handleSelectProject,
     handleSelectConversationWorkspace,
     handleResolveConversationWorkspace,
@@ -735,6 +770,7 @@ function RootInner({
     updateAppSettings,
     setOAuthError,
     setUser,
+    onLogoutConfirmed: logoutPresentation?.confirmed,
     onProviderFamilyDomainClearedAfterLogout: () => {
       setWelcomeScreenOpenReason("logout-provider-required");
     },
@@ -746,6 +782,11 @@ function RootInner({
       ? "web-remote-replayable"
       : "desktop-continuous",
   });
+  const handleLogout = useCallback(
+    () =>
+      logoutPresentation ? logoutPresentation.run(handleOriginalLogout) : handleOriginalLogout(),
+    [logoutPresentation, handleOriginalLogout],
+  );
   const handleRemoteWorkspaceActivated = useCallback(
     ({
       workspacePath,

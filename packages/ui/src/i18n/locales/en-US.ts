@@ -6,6 +6,9 @@ const enUS: Record<string, string> = {
   "aiscoo.login.configUnavailable":
     "Aiscoo sign-in is not configured or is unavailable. Contact your administrator.",
   "aiscoo.login.unsupported": "Aiscoo supports Aiscoo account sign-in only.",
+  // XCODE: Presentation only; account cleanup and relaunch keep their existing order.
+  "aiscoo.logout.exiting": "Signing out…",
+  "aiscoo.logout.description": "The app will restart automatically, then show the sign-in page.",
   // XCODE: Match upstream quota labels using the actual backend reset period.
   "settings.usage.nativeRemaining.daily": "Daily",
   "settings.usage.nativeRemaining.weekly": "Weekly",

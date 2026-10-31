@@ -239,7 +239,10 @@ def load_spec():
 
 
 def desktop_environment(spec, path):
-    return {**spec["desktopEnvironment"], "HOME": str(HOME), "PATH": path, "AISCOO_ADMIN_BASE_URL": ORIGIN}
+    # 修复原因：上游开发 Vite 默认注入含 FPS 的 React Scan；仅下游默认关闭，保留显式启用。
+    react_scan = "1" if os.environ.get("ZCODE_REACT_SCAN") == "1" else "0"
+    return {"ZCODE_REACT_SCAN": react_scan, **spec["desktopEnvironment"],
+            "HOME": str(HOME), "PATH": path, "AISCOO_ADMIN_BASE_URL": ORIGIN}
 
 
 def ensure_desktop_job(spec, path):

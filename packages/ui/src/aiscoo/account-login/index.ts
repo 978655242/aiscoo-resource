@@ -141,12 +141,36 @@ export function createAiscooAccountLoginServices(services: IServiceAccessor): IS
   });
 }
 
+const userIntentSubscriptions = new Set<keyof IPlatformService>([
+  "onFocusTab",
+  "onNewTab",
+  "onNewTask",
+  "onOpenWorkspace",
+  "onOpenWorkspacePath",
+  "onCloseActiveContextRequest",
+  "onOpenBrowserUrl",
+  "onOpenFeedbackDialog",
+  "onOpenTicketsPanel",
+  "onShareImport",
+  "onTaskNotificationClick",
+]);
+
 export function createAiscooAccountLoginPlatform(
   platform: IPlatformService,
+  isInteractionBlocked: () => boolean = () => false,
 ): OAuthLifecyclePlatform {
   return new Proxy(platform as OAuthLifecyclePlatform, {
     get(target, property) {
       if (property === "oauthAccountPolicy") return aiscooAccountPolicy;
+      // inert 无法拦截 Main 原生菜单投递；仅暂停新用户意图，不截断身份/任务事件或窗控。
+      if (userIntentSubscriptions.has(property as keyof IPlatformService)) {
+        const subscribe = Reflect.get(target, property);
+        if (typeof subscribe === "function")
+          return (listener: (...args: unknown[]) => void) =>
+            subscribe.call(target, (...args: unknown[]) => {
+              if (!isInteractionBlocked()) listener(...args);
+            });
+      }
       if (property === "registerOAuthState")
         return (registration: Parameters<IPlatformService["registerOAuthState"]>[0]) => {
           if (

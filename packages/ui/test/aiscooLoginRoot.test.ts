@@ -730,6 +730,60 @@ describe("Aiscoo Root 登录展示", () => {
     expect(underlying.logout).toHaveBeenCalledWith("new-api");
   });
 
+  it("退出过渡仅阻止原生菜单的新用户意图，失败恢复后重新放行且窗控和认证事件保持", async () => {
+    const handlers = new Map<string, (...args: unknown[]) => void>();
+    const controls = vi.fn(async () => {});
+    let blocked = false;
+    const source = {
+      executeDesktopCommand: controls,
+      onOpenWorkspace(handler: () => void) {
+        handlers.set("workspace", handler);
+        return () => handlers.delete("workspace");
+      },
+      onNewTask(handler: () => void) {
+        handlers.set("task", handler);
+        return () => handlers.delete("task");
+      },
+      onOAuthCallback(handler: (event: OAuthCallbackEvent) => void) {
+        handlers.set("oauth", handler as (...args: unknown[]) => void);
+        return () => handlers.delete("oauth");
+      },
+    };
+    const platform = createAiscooAccountLoginPlatform(
+      source as unknown as IPlatformService,
+      () => blocked,
+    );
+    const workspace = vi.fn();
+    const task = vi.fn();
+    const callback = vi.fn();
+    const disposeWorkspace = platform.onOpenWorkspace(workspace);
+    platform.onNewTask(task);
+    platform.onOAuthCallback(callback);
+    handlers.get("workspace")?.();
+    handlers.get("task")?.();
+    expect(workspace).toHaveBeenCalledOnce();
+    expect(task).toHaveBeenCalledOnce();
+    blocked = true;
+    handlers.get("workspace")?.();
+    handlers.get("task")?.();
+    expect(workspace).toHaveBeenCalledOnce();
+    expect(task).toHaveBeenCalledOnce();
+    handlers.get("oauth")?.({
+      provider: "new-api",
+      purpose: "primary-account",
+      url: "aiscoo-dev://oauth/callback?provider=new-api",
+    });
+    expect(callback).toHaveBeenCalledOnce();
+    await platform.executeDesktopCommand("minimizeWindow");
+    expect(controls).toHaveBeenCalledWith("minimizeWindow");
+    blocked = false;
+    handlers.get("workspace")?.();
+    expect(workspace).toHaveBeenCalledTimes(2);
+    disposeWorkspace();
+    expect(handlers.has("workspace")).toBe(false);
+    expect(source.executeDesktopCommand).toBe(controls);
+  });
+
   it("平台拒绝官方 state 注册且回调不触发官方处理器", () => {
     const registerOAuthState = vi.fn();
     let receive: ((event: OAuthCallbackEvent) => void) | undefined;

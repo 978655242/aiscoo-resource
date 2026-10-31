@@ -2,10 +2,12 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
   NewApiSessionBundleSchema,
+  isCredentialDecryptError,
   normalizeNewApiOrigin,
   type NewApiSessionBundle,
 } from "@zcode/shared";
 import {
+  commitHostCredentialRecords,
   readHostCredentialRecords,
   updateHostCredentialRecords,
   withHostCredentialRefreshLease,
@@ -82,11 +84,80 @@ export class NewApiSessionRepo {
           [key, JSON.stringify(next)],
           [
             this.#activeKey,
-            JSON.stringify({ userId: next.bundle.user.id, sid: next.bundle.session_id }),
+            JSON.stringify({
+              userId: next.bundle.user.id,
+              sid: next.bundle.session_id,
+            }),
           ],
         ]),
         result: undefined,
       }),
+      this.#store,
+    );
+  }
+
+  // 新登录已通过换码与 Me 核验，才能恢复旧记录；冷恢复和 refresh 仍失败关闭。
+  async commitVerifiedLogin(
+    session: NewApiStoredSession,
+    assertCurrent: () => void,
+  ): Promise<NewApiStoredSession | null> {
+    const next = this.#validateSession(session);
+    const key = this.#recordKey(next.bundle.user.id, next.bundle.session_id);
+    return commitHostCredentialRecords(
+      [key, this.#activeKey],
+      (load) => {
+        let recoveryRequired = false;
+        const recover = <T>(read: () => T): T | null => {
+          try {
+            return read();
+          } catch (error) {
+            if (
+              !isCredentialDecryptError(error) &&
+              !(
+                error instanceof Error &&
+                "code" in error &&
+                error.code === "XCODE_CREDENTIAL_RECORD_INVALID"
+              )
+            )
+              throw error;
+            recoveryRequired = true;
+            return null;
+          }
+        };
+        const previous = recover(() => {
+          const active = load(this.#activeKey);
+          if (active === null) return null;
+          const owner = this.#parseActive(active);
+          const raw = load(this.#recordKey(owner.userId, owner.sid));
+          if (raw === null) throw credentialRecoveryRequired();
+          const stored = this.#parseSession(raw);
+          if (!this.#matchesActive(owner, stored)) throw credentialRecoveryRequired();
+          return stored;
+        });
+        // 新 SID 也可能与不可读历史记录重名，覆盖前同样保留其密文证据。
+        recover(() => {
+          const raw = load(key);
+          if (raw !== null) {
+            const stored = this.#parseSession(raw);
+            if (!this.#matchesOwner(stored, next)) throw credentialRecoveryRequired();
+          }
+        });
+        return {
+          changes: new Map([
+            [key, JSON.stringify(next)],
+            [
+              this.#activeKey,
+              JSON.stringify({
+                userId: next.bundle.user.id,
+                sid: next.bundle.session_id,
+              }),
+            ],
+          ]),
+          result: previous,
+          recoveryRequired,
+        };
+      },
+      assertCurrent,
       this.#store,
     );
   }
@@ -109,7 +180,10 @@ export class NewApiSessionRepo {
         if (!current || !this.#matchesCredential(this.#parseSession(current), expected)) {
           return { changes: new Map<string, string | null>(), result: false };
         }
-        return { changes: new Map([[key, JSON.stringify(next)]]), result: true };
+        return {
+          changes: new Map([[key, JSON.stringify(next)]]),
+          result: true,
+        };
       },
       this.#store,
     );
@@ -197,7 +271,10 @@ export class NewApiSessionRepo {
       (records) => {
         const current = records.get(key);
         if (!current || !this.#matchesCredential(this.#parseSession(current), committed)) {
-          return { changes: new Map<string, string | null>(), result: undefined };
+          return {
+            changes: new Map<string, string | null>(),
+            result: undefined,
+          };
         }
         const changes = new Map<string, string | null>([[key, null]]);
         const active = records.get(this.#activeKey);
@@ -206,7 +283,10 @@ export class NewApiSessionRepo {
           changes.set(
             this.#activeKey,
             prior && previous
-              ? JSON.stringify({ userId: previous.bundle.user.id, sid: previous.bundle.session_id })
+              ? JSON.stringify({
+                  userId: previous.bundle.user.id,
+                  sid: previous.bundle.session_id,
+                })
               : null,
           );
         }

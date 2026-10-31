@@ -1,5 +1,6 @@
 import {
   NEW_API_PROVIDER_ID,
+  isCredentialDecryptError,
   type NewApiOwner,
   type NewApiSessionBundle,
   type OAuthCachedSessionRestoreResult,
@@ -70,8 +71,10 @@ export class NewApiAccountService {
   #owner: NewApiOwner | null = null;
   #mutations: Promise<unknown> = Promise.resolve();
   #refreshFlight: NewApiSessionRefreshFlight | null = null;
-  #restoreFlight: { generation: number; promise: Promise<OAuthCachedSessionRestoreResult> } | null =
-    null;
+  #restoreFlight: {
+    generation: number;
+    promise: Promise<OAuthCachedSessionRestoreResult>;
+  } | null = null;
   #authorization?: NewApiHostAuthorization;
   #authorizationAttempt: NewApiHostAuthorizationAttempt | null = null;
   #authorizationStarting = false;
@@ -103,7 +106,9 @@ export class NewApiAccountService {
       ...(this.#authorization
         ? {
             onDidFailAuthorization: this.#authorizationFailures.event,
-            getLocalWebAuthorizationCapabilities: async () => ({ failureEvents: true as const }),
+            getLocalWebAuthorizationCapabilities: async () => ({
+              failureEvents: true as const,
+            }),
           }
         : {}),
       getProviders: async () => [{ ...this.#adapter.meta }],
@@ -354,9 +359,14 @@ export class NewApiAccountService {
       const result = await this.#mutate<OAuthCallbackResult | null>(async () => {
         if (!isPendingAuthorizationCurrent(this.#pending, pending, this.#generation, this.#readNow))
           return null;
-        const previous = await this.#repo.loadActive();
-        if (this.#pending !== pending || pending.generation !== this.#generation) return null;
-        await this.#repo.commit(record);
+        // 旧密文不可读时，普通 load/commit 都会解密失败；只对已验证的新登录持锁恢复，
+        // 并在等锁与备份后复核代次，防止取消或迟到回调覆盖另一窗口的新登录。
+        const previous = await this.#repo.commitVerifiedLogin(record, () => {
+          if (
+            !isPendingAuthorizationCurrent(this.#pending, pending, this.#generation, this.#readNow)
+          )
+            throw sessionError("XCODE_STALE_OWNER");
+        });
         // XCODE: 取消可发生在文件锁持有期间；提交后必须补偿，不能复活旧登录。
         if (
           !isPendingAuthorizationCurrent(this.#pending, pending, this.#generation, this.#readNow)
@@ -393,7 +403,20 @@ export class NewApiAccountService {
         return { kind: "session", provider: NEW_API_PROVIDER_ID, userInfo };
       });
       if (published && displaced && displaced.bundle.session_id !== bundle.session_id) {
-        const removed = await this.#mutate(async () => this.#repo.remove(displaced!));
+        const removed = await this.#mutate(async () => {
+          try {
+            return await this.#repo.remove(displaced!);
+          } catch (error) {
+            // 同进程恢复已发布新登录；旧坏记录保留备份，不能让清理再次解密失败反转成功结果。
+            // 仅记录损坏使用已确认内存 SID 撤销；存储 IO 和安全库错误仍原样传播。
+            if (
+              !isCredentialDecryptError(error) &&
+              errorCode(error) !== "XCODE_CREDENTIAL_RECORD_INVALID"
+            )
+              throw error;
+            return null;
+          }
+        });
         await revokeSession(this.#adapter, (removed ?? displaced).bundle);
       }
       return pending.generation === this.#generation ? result : null;

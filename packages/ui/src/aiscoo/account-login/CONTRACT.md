@@ -8,6 +8,10 @@
 
 `createAiscooAccountLoginPlatform` 注入可选通用 `oauthAccountPolicy`，拒绝 official state 注册并过滤官方 callback。未注入的通用组件仍使用上游默认行为。登录面板按此策略过滤渠道与成功信号，不将旧 user 或官方成功序号认作 Aiscoo 登录。现有本机 Web 生命周期若已装配则继续保留。
 
+`AiscooLogoutPresentationBoundary` / `useAiscooLogoutPresentation` 只协调当前 Desktop 本地 Root 的展示。原退出动作通过可选 `onLogoutConfirmed` 在确认后同步通知；边界显示不透明过渡并隔离旧内容的交互，但保持 Root/effects 挂载。`run(action)` 只委托同一个原动作，合并重复调用；取消保持原界面，错误复原并原样传播，成功确认重启后持续 busy 到旧边界卸载。展示状态仅由边界的 React 局部状态与在途调用引用持有，不进入共享 Zustand、持久化或广播，不保存账号、凭据、pending、generation 或任务事实。`isExiting()` 是对同一局部状态的只读查询，供已有 `createAiscooAccountLoginPlatform` 的可选交互门禁使用：只暂停原生菜单/快捷键的新建、打开项目等用户意图订阅，不拦截 OAuth 回调、Host 业务事件、清理命令或窗控；错误复原后自动放行。Web、手机远控不挂边界；原退出和 Main 重启顺序不变。
+
+`logout-presentation.tsx` 是本模块追加的公开 UI 入口，使用自身 `contract.ts` 的窄展示契约与既有 hooks/共享组件；账号过滤适配器仍位于原 adapters 层。
+
 ```mermaid
 sequenceDiagram
   participant R as Root 产品装配

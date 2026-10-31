@@ -311,7 +311,8 @@ modules:
     publicEntrypoints:
       - packages/ui/src/aiscoo/account-login/index.ts
       - packages/ui/src/aiscoo/account-login/contract.ts
-    layers: { contract: contract.ts, adapters: . }
+      - packages/ui/src/aiscoo/account-login/logout-presentation.tsx
+    layers: { contract: contract.ts, adapters: ., ui: logout-presentation.tsx }
     owner: account
   - id: aiscoo-account-login-web
     roots: [packages/web/src/aiscoo-account-login]

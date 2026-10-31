@@ -101,6 +101,7 @@ export function useRootWorkspaceActions({
   setOAuthError,
   setUser,
   logoutOverride,
+  onLogoutConfirmed,
   onProviderFamilyDomainClearedAfterLogout,
   userId,
   onOpenRemoteConnection,
@@ -125,6 +126,8 @@ export function useRootWorkspaceActions({
   setOAuthError: (error: string | null) => void;
   setUser: (user: UserInfo | null) => void;
   logoutOverride?: () => Promise<void>;
+  // XCODE: 只通知展示层已确认，不接管退出副作用或改变未注入时的顺序。
+  onLogoutConfirmed?: () => void;
   onProviderFamilyDomainClearedAfterLogout?: () => void;
   userId?: string;
   onOpenRemoteConnection?: (preference?: RemoteConnectionOpenPreference) => void;
@@ -495,6 +498,8 @@ export function useRootWorkspaceActions({
     if (!confirmed) {
       return;
     }
+    // XCODE: 同步展示退出过渡，后续原有清理和重启步骤保持原样。
+    onLogoutConfirmed?.();
 
     // Bug 原因：telemetry 是辅助链路；等待网络重试会延迟退出登录，甚至在旧的无超时实现里
     // 无限阻塞主流程。这里只调度事件，Main 侧负责有界重试与退出 drain。
@@ -535,6 +540,7 @@ export function useRootWorkspaceActions({
     intl,
     requestConfirmation,
     logoutOverride,
+    onLogoutConfirmed,
     refreshProviderState,
     onProviderFamilyDomainClearedAfterLogout,
     platform,
