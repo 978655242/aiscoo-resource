@@ -1,5 +1,5 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
-import { lstat, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 // XCODE: 凭据错误仅投影静态提示前缀，文件路径与凭据内容保持原样。
 import { brandProductText } from "@zcode/shared/aiscoo-brand";
 import { join } from "node:path";
@@ -192,56 +192,13 @@ export async function updateHostCredentialRecords<T>(
   });
 }
 
-// XCODE: 已验证的新登录需要在同一锁内读取 previous、备份不可读记录并替换指定 key；
-// 普通 update 先解密旧值，不能承载重新登录恢复，也不能向 Renderer 暴露此能力。
-export async function commitHostCredentialRecords<T>(
-  keys: readonly string[],
-  resolve: (load: (key: string) => string | null) => {
-    changes: ReadonlyMap<string, string>;
-    result: T;
-    recoveryRequired: boolean;
-  },
-  assertCurrent: () => void,
-  dependencies: HostCredentialStoreDependencies = {},
-): Promise<T> {
-  for (const key of keys) assertHostCredentialKey(key);
-  const credentialsFile = dependencies.credentialsFile ?? getCredentialsFile();
-  return withFileLock(credentialsFile, async () => {
-    assertCurrent();
-    // 整份文件损坏必须在恢复回调之外报错，不能误当成单条坏记录覆盖。
-    const records = await readAll(credentialsFile);
-    const cipher = dependencies.cipherProvider ?? createPrivateCredentialCipherProvider();
-    assertCurrent();
-    const { changes, result, recoveryRequired } = resolve((key) => {
-      assertHostCredentialKey(key);
-      const encrypted = records[key];
-      if (encrypted === undefined) return null;
-      if (!encrypted.startsWith("enc:v1:")) {
-        throw Object.assign(new Error("Private credentials require encrypted storage recovery"), {
-          code: CREDENTIAL_DECRYPT_ERROR_CODE,
-        });
-      }
-      return cipher.decrypt(encrypted);
-    });
-    const declaredKeys = new Set(keys);
-    for (const [key, value] of changes) {
-      if (!declaredKeys.has(key)) throw new Error("Undeclared private credential mutation");
-      records[key] = cipher.encrypt(credentialValueSchema.parse(value));
-    }
-    assertCurrent();
-    // 保留原始密文字节；备份失败必须阻止写入，不能吞错后继续覆盖。
-    if (recoveryRequired) {
-      const backupPath = await backupCorruptFile(credentialsFile);
-      const backup = await lstat(backupPath);
-      // 已有同名目录或链接不能算成功备份；必须确认保留的是原始文件字节。
-      if (!backup.isFile() || !(await readFile(backupPath)).equals(await readFile(credentialsFile)))
-        throw new Error("Private credential recovery backup is invalid");
-    }
-    assertCurrent();
-    if (changes.size > 0) await writeAll(credentialsFile, records);
-    return result;
-  });
-}
+// XCODE: 为下游私有事务开放现有文件操作，调用方负责同一文件锁；不注册到 RPC。
+export const hostCredentialStoragePort = {
+  path: getCredentialsFile,
+  read: readAll,
+  write: writeAll,
+  assertKey: assertHostCredentialKey,
+};
 
 /** Host 私有缓存恢复能力，不进入 Renderer 的 ICredentialService 契约。 */
 export interface LocalCredentialService extends ICredentialService {

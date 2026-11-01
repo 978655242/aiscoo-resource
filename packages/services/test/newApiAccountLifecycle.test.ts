@@ -832,6 +832,29 @@ for (const fault of ["ciphertext", "schema"] as const) {
   });
 }
 
+test("recovery can retry after an interrupted partial backup", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    const records: Record<string, string> = JSON.parse(await readFile(f.credentialsFile, "utf8"));
+    const active = Object.keys(records).find((key) => key.endsWith(":active"))!;
+    records[active] = "enc:v1:invalid";
+    const before = JSON.stringify(records);
+    await writeFile(f.credentialsFile, before);
+    const id = createHash("sha256").update(before).digest("hex").slice(0, 24);
+    await writeFile(`${f.credentialsFile}.corrupt-${id}.bak`, "partial", { mode: 0o600 });
+    const cold = f.newService();
+    f.setExchange(async () => bundle("2", "sid-new", "refresh-new"));
+    const start = await cold.oauth.startOAuth("new-api");
+    assert.equal((await cold.oauth.handleCallback(f.callback(start.state)))?.kind, "session");
+    const backups = (await readdir(f.dir)).filter((name) => name.endsWith(".bak"));
+    const contents = await Promise.all(backups.map((name) => readFile(join(f.dir, name), "utf8")));
+    assert.ok(contents.includes(before));
+  } finally {
+    await f.dispose();
+  }
+});
+
 test("verified login recovers unreadable records at the exact new SID without clearing other sessions", async () => {
   const f = await fixture();
   try {
@@ -891,6 +914,36 @@ test("failed recovery backup keeps unreadable ciphertext and rejects the new log
     const start = await cold.oauth.startOAuth("new-api");
     await assert.rejects(cold.oauth.handleCallback(f.callback(start.state)));
     assert.equal(await readFile(f.credentialsFile, "utf8"), before);
+    assert.equal(cold.getOwner(), null);
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("verified login does not treat a non-decrypt storage failure as recoverable", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    const before = await readFile(f.credentialsFile, "utf8");
+    const cold = f.newService();
+    // 解密抛出的不是“密文损坏”而是安全库/IO 故障：必须原样失败，不能备份、覆盖或登录。
+    const decrypt = f.cipherProvider.decrypt.bind(f.cipherProvider);
+    f.cipherProvider.decrypt = () => {
+      throw Object.assign(new Error("keystore unavailable"), {
+        code: "XCODE_SECURE_STORAGE_UNAVAILABLE",
+      });
+    };
+    f.setExchange(async () => bundle("2", "sid-storage-fault", "refresh-fault"));
+    const start = await cold.oauth.startOAuth("new-api");
+    await assert.rejects(cold.oauth.handleCallback(f.callback(start.state)), {
+      code: "XCODE_SECURE_STORAGE_UNAVAILABLE",
+    });
+    f.cipherProvider.decrypt = decrypt;
+    assert.equal(await readFile(f.credentialsFile, "utf8"), before);
+    assert.equal(
+      (await readdir(f.dir)).some((name) => name.endsWith(".bak") || name.endsWith(".tmp")),
+      false,
+    );
     assert.equal(cold.getOwner(), null);
   } finally {
     await f.dispose();
@@ -975,6 +1028,37 @@ test("canceled recovered login cannot remove another window's newly committed ow
     assert.equal(cold.getOwner(), null);
     assert.ok(f.revoked.includes("sid-recovered-a"));
     assert.equal(f.revoked.includes("sid-other-window"), false);
+  } finally {
+    release.resolve();
+    await f.dispose();
+  }
+});
+
+test("cancel after a same-user same-SID re-authorization restores the previous owner", async () => {
+  const f = await fixture();
+  const entered = barrier<void>();
+  const release = barrier<void>();
+  try {
+    await f.login();
+    assert.equal((await f.repo.loadActive())?.bundle.refresh_token, "refresh-1");
+    const commit = f.repo.commitVerifiedLogin.bind(f.repo);
+    f.repo.commitVerifiedLogin = async (record, assertCurrent) => {
+      const previous = await commit(record, assertCurrent);
+      entered.resolve();
+      await release.promise;
+      return previous;
+    };
+    f.setExchange(async () => bundle("1", "sid-1", "refresh-new"));
+    const start = await f.service.oauth.startOAuth("new-api");
+    const callback = f.service.oauth.handleCallback(f.callback(start.state));
+    await entered.promise;
+    await f.service.oauth.cancelPending();
+    release.resolve();
+    assert.equal(await callback, null);
+    // 同键补偿不能删除记录后让 active 指向空记录；取消的授权不得留下它的 refresh secret。
+    const restored = await f.repo.loadActive();
+    assert.equal(restored?.bundle.session_id, "sid-1");
+    assert.equal(restored?.bundle.refresh_token, "refresh-1");
   } finally {
     release.resolve();
     await f.dispose();

@@ -147,6 +147,10 @@ const NON_LOG_STATE_ARCHIVE_PATHS = [
   "checkpoints",
 ] as const;
 const SENSITIVE_CREDENTIAL_ARCHIVE_FILE_NAMES = new Set(["credentials.json", ".credentials.json"]);
+// XCODE: 凭据损坏/恢复备份保存整份密文（含其他 origin 与官方云旧密文），命名为 `<file>.corrupt-<id>[.<uuid>].bak|.tmp`，
+// 与 credentials.json 同样不是排障日志，不能因文件名不再精确相等而被打进日志包。
+const SENSITIVE_CREDENTIAL_BACKUP_FILE_NAME_REGEX =
+  /^\.?credentials\.json\.corrupt-[0-9a-f]+(?:\.[0-9a-f-]+)?\.(?:bak|tmp)$/u;
 const EXCLUDED_ARCHIVE_DIRECTORY_NAMES = new Set(["debug"]);
 const DEFAULT_LOG_EXPORT_LOOKBACK_DAYS = 3;
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -712,7 +716,10 @@ function isNonLogStateArchivePath(relativePath: string): boolean {
 function isSensitiveCredentialArchivePath(relativePath: string): boolean {
   const normalizedRelativePath = normalizeArchivePath(relativePath).toLowerCase();
   const fileName = normalizedRelativePath.split("/").at(-1) ?? "";
-  return SENSITIVE_CREDENTIAL_ARCHIVE_FILE_NAMES.has(fileName);
+  return (
+    SENSITIVE_CREDENTIAL_ARCHIVE_FILE_NAMES.has(fileName) ||
+    SENSITIVE_CREDENTIAL_BACKUP_FILE_NAME_REGEX.test(fileName)
+  );
 }
 
 function isExcludedDirectoryArchivePath(relativePath: string): boolean {

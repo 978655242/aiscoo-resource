@@ -80,6 +80,42 @@ Account refresh 的过期失败不能恢复启动请求时捕获的旧授权；�
 
 历史官方云凭据保留安全存储，但 Aiscoo 产品不再读取、恢复或认领；再次登录相同 Aiscoo 用户也不恢复官方连接。不因移除登录能力而删除真实 token 或改变历史密文格式。以下官方 Project Token 契约仅供未注入 Aiscoo 策略的通用上游实现，不代表产品允许官方登录。
 
+### 已验证 Native 登录的凭据恢复
+
+当旧 Native 凭据无法解密或其 owner 记录无效时，只有当前代次的交互式授权完成换码、bundle 校验和真实 Me 身份核对后，才能在原凭据文件锁内恢复。浏览器仍持有自己的 New API 凭据；官方登录、冷恢复、refresh、退出和公共凭据 RPC 不获得恢复能力，也不引入 Host local-web。
+
+- 同一锁内读取当前 origin 的 active 指针与精确 owner 记录；仅替换该指针和新授权的 `userId:sid` 记录，其他 origin、SID、官方及第三方密文保留。
+- 被覆盖的指定记录不可解密、明文、schema 无效或 owner 不一致时，先保存完整原始密文字节的私有备份并确认备份有效；备份失败、整份文件损坏、IO 或安全库故障必须失败关闭。健康记录不产生备份。
+- 等锁后、备份后和写入前重新校验 pending、代次和期限；写入后取消或换号复用现有精确 CAS 补偿并撤销未发布 SID，不能删除另一窗口已提交的 owner。
+- 换号后对旧 SID 的本地删除与远端撤销保持现有行为（`remove` 后 `revokeSession`），本补丁不改变它。多窗口共享同一 SID 时，一个窗口换号可能撤销另一窗口仍在使用的会话；该风险属于既有共享 SID 模型，不由本补丁引入也不由本补丁解决，设计与前置条件见 [SID 协调与按窗口会话草案](new-api-sid-coordination-draft.md)。
+- 定向恢复的备份先写私有临时文件，再以不覆盖方式原子发布；既有同名不完整普通文件予以保留并另存完整备份，目录、链接或备份 IO 异常失败关闭。中断后重试不依赖覆盖旧证据。
+- New API 专属事务实现位于既有下游 New API 模块；上游凭据服务只提供最小的内部存储访问端口，复用现有锁、读写和加密能力，不进入 Renderer RPC。
+- 回归使用隔离的合成凭据和假后端，覆盖：坏 active、坏 owner、外来密钥、明文与无效 owner 记录；与新 SID 同名的不可读旧记录；同用户同 SID 重新授权后取消的补偿（恢复旧记录，不留下指向空记录的 active）；备份失败、中断后重试；Me 失败；整份 JSON 损坏；非“密文损坏”类的安全库/IO 故障（必须原样失败，不备份、不覆盖）；等锁期间取消；取消后不删除另一窗口刚提交的 owner。不读取真实用户凭据。
+- 未覆盖，需要在后续验收或变更中处理：真实多进程并发提交；备份在 Windows 上的权限（POSIX 下为 0600，Windows 依赖目录 ACL）；备份与残留 `.tmp` 的数量上限与清理（目前不会自动清理，存储管理页的“备份”类别可手动清理 `.bak`）；密钥文件被重建时所有旧私有记录都会表现为“解密失败”，会被当作可恢复场景并保留在备份里。
+- 恢复后旧 active 指向的旧 SID 记录若仍可读，会成为不可达的孤立记录：冷启动恢复时没有内存中的旧 owner，因此不会对它执行本地删除或远端撤销。
+- 备份内容是整份 `credentials.json` 的原始字节（含其他 origin 与官方云旧密文）。日志导出必须排除它们：`exportLogs` 按 `credentials.json.corrupt-<id>[.<uuid>].bak|.tmp` 命名排除，回归见 `scripts/test/aiscoo-export-logs-credential-backup.test.mjs`。
+
+```mermaid
+sequenceDiagram
+  participant U as 用户
+  participant A as Native account owner
+  participant N as New API
+  participant F as 私有凭据文件与锁
+  U->>A: 当前授权回调
+  A->>N: 换码与 Me 核验
+  A->>F: 持锁检查旧记录和当前代次
+  F->>F: 必要时备份原字节，再替换指定记录
+  F-->>A: 同锁内的旧 owner
+  alt 仍为当前授权
+    A-->>U: 发布 signed-in
+  else 已取消或换号
+    A->>F: 精确 CAS 补偿
+    A->>N: 撤销未发布 SID
+  end
+```
+
+官方云凭据退出主账号时锁定/隐藏，按用户要求保留安全存储；再次登录**同一个原生 user_id**才允许恢复。切换其他主用户不得迁移、借用或暴露它们。旧全局、没有明确主账号 owner 的官方凭据不自动认领给第一位私有用户；保留原数据，要求该用户独立完成真实官方登录后形成新 namespace。
+
 官方云 Project Access Token 使用上游 material 的真实 `expiresAt` 与刷新规则；请求期由既有官方凭据 resolver 解析，过期 token 不因安全库中仍有记录就继续执行。刷新前后校验主 owner 与官方 credential generation，静态 Registry 投影不发起网络刷新。
 
 官方云项目定位复用上游 `ProjectAccessTokenClient` 的分接口鉴权契约：两个 family 的 `getCustomerInfo` 均使用裸业务 token；个人 Key 管理仅 Z.ai 添加 Bearer，团队 Key 管理使用裸业务 token 和组织/项目 header；项目短期 Token 签发使用 Bearer。目录加载器的首次身份读取与后续项目定位必须遵守同一契约，不复制长期 Key secret，也不回退私有主账号凭据。

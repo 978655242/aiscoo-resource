@@ -40,6 +40,7 @@ try {
       "scripts/test/aiscoo-desktop-packaging-identity.test.mjs",
       "scripts/test/aiscoo-desktop-data-identity.test.mjs",
       "scripts/test/aiscoo-desktop-deep-link-identity.test.mjs",
+      "scripts/test/aiscoo-export-logs-credential-backup.test.mjs",
     ],
     {
       cwd,
