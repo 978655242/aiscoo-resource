@@ -225,6 +225,29 @@ sequenceDiagram
 
 本轮 14 个任务文件通过临时 Git index 与 `upstream/main@a60ba6a7` 预演合并，退出 0、无冲突，实际暂存区 SHA-256 前后相同。该上游已经是本地基线祖先，结果仅证明与当前基线可合并，不覆盖前述 origin/release 分叉或未来上游改动。
 
+## 12. 兼容残留清理（2026-11-01）
+
+用户明确要求清理兼容残留。以当前检出的源码为准，残留分三类；每类只清理已确认无生产调用方或仅为转发的部分，持久化身份与协议名保持原样。
+
+**A. 旧本机 Web 方案（Host 持有凭据）。** 现行本机 Web 规范是 [browser-new-api.md](browser-new-api.md)：浏览器持有凭据，产品 HTTP 入口 `entry-http.ts` 装配 `aiscoo-browser-account`，没有任何生产代码调用 `startAiscooLocalWebHttpEntry`、`createLocalWebNewApiAccountFactory` 或 `oauthLifecycle` 工厂。以下仅被旧方案使用，整体删除：`services/local-web-new-api`、`server/aiscoo-local-web`、`ui/aiscoo/local-web-oauth`、`scripts/aiscoo/dev-web*` 与 `pnpm dev:aiscoo:web`、`oauth-lifecycle` 中的 `OAuthLifecycleExtension` 及其 Login/Session/Logout 上下文，以及对应下游回归与 4 个违反 App 单测退役规格的 `contract.test.ts`。通用文件中仅为它保留的可选钩子随之回到上游形态：`http.ts` 的 `localWeb` 选项与子协议处理、`node.ts` 的工厂导出、`newApiAccountService.ts` 的回环授权/本机退出状态与 `onDidFailAuthorization`、`oauth.ts` 的同名可选成员、`platform.ts` 的 `prepareLocalWebOAuthWindow`、`useOAuth.ts` 与 `WelcomeScreen.tsx` 的手动授权链接和用户手势入口、`useRootOAuthEffects.ts` 的会话生命周期、`useRootWorkspaceActions.ts` 的 `logoutOverride`、`web/env.d.ts` 的 `VITE_AISCOO_LOCAL_WEB`。**保留**浏览器账号 authority、`acceptRequest`/`attachBrowserPeer`、`oauthAccountPolicy` 准入、`onLogoutConfirmed`、Native 身份观察与 `purpose`/provider 过滤。
+
+**B. 品牌与插件引导旧路径转发（`xwork-*` → `aiscoo-*`）。** 当前 111 个文件相对上游全是新增，约 60 处消费者仍经旧入口。先把全部消费者迁到 `aiscoo-*` 公开入口，再删除纯转发文件与 `package.json` 的 `./xwork-*` 子路径及 9 条架构别名；UI 品牌资源和 `brand.json` 迁到 `aiscoo` 目录并保持字节一致，路径由资源生成与锁定脚本同步。该例外只适用于本次用户明确授权的下游废弃条目清理：UPSTREAM-EXTENSION 的“共享清单只追加”约束对象是上游文件，下游废弃条目可以在 PR 描述中逐条登记后删除。
+
+**C. 必须保留的持久化与协议身份（不属于兼容残留）。** RPC 通道 `xwork-plugin-guides`、`zcodeProtocolMethods`/`Notifications` 中 `xwork*` 与 `aiscoo*` 的同值对照、`xwork/plugins/*` 与 `xwork/workspace/*` 线路名、macOS 钥匙串 `XWork`/`XWork Dev`/`XWork Preview`、CLI Zen 钥匙串 service `XWork CLI Zen` 与 AAD `xwork-cli`、`client_id=xcode-desktop`/`xwork-cli`、`LEGACY_PRODUCT_NAME` 展示投影、`@zcode/*` 包名、数据目录与应用 ID 的既有兼容标识。历史规格保留当时事实并标明被取代。
+
+事件顺序不变：账号 owner 仍只有 Desktop `NewApiAccountService` 与浏览器 authority；本次不新增 owner、不改变 desktop-continuous 与 web-remote-replayable 语义，也不改后端协议、API 路径或凭据格式。
+
+验收：删除前对每个符号做无范围引用确认；删除后 `typecheck`、`lint`、`architecture:check` 无新增违规；精简后的下游回归（Root、品牌入口、命名兼容、公开导出、品牌资源、浏览器 profile）与 Electron 登录/退出/快捷键/恢复矩阵通过；Desktop、Web、web-share、Server 与 CLI 品牌入口各完成一次构建；未被验证的平台、真实 OS 钥匙串、真实账号与 DMG 重打如实记录。
+
+```mermaid
+flowchart LR
+  Old["旧本机 Web: Host 持有凭据"] -->|无生产调用方| Remove["整体删除 + 钩子回到上游形态"]
+  Browser["浏览器 authority"] --> Keep["保留: 现行本机 Web"]
+  Fwd["xwork-* 纯转发"] -->|先迁消费者| Aiscoo["aiscoo-* 唯一入口"]
+  Aiscoo --> Del["删除转发 / 子路径 / 别名"]
+  Persist["通道名 / 线路名 / 钥匙串 / client_id"] --> Keep
+```
+
 | 本轮修改的上游文件                                                | 最小扩展与原因                                                                                                |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `packages/ui/src/Root.tsx`                                        | 移除强制产品依赖，只转交通用可选欢迎页配置与退出展示端口；原 Root 默认服务、平台和退出链保留。                |

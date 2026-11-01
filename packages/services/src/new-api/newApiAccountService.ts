@@ -37,28 +37,9 @@ import {
   type PendingNewApiAuthorization,
 } from "./newApiSessionValidation.js";
 
-// XCODE: 每轮 listener 独立持有回调和 redirect，不能由新登录覆盖旧轮兑换参数。
-export interface NewApiHostAuthorization {
-  start(): Promise<{
-    state: string;
-    codeVerifier: string;
-    authorizeUrl: string;
-    wait(): Promise<{ state: string; code: string }>;
-    exchange(code: string, verifier: string): Promise<NewApiSessionBundle>;
-    close(): Promise<void>;
-  }>;
-}
-
-type NewApiHostAuthorizationAttempt = Awaited<ReturnType<NewApiHostAuthorization["start"]>>;
-
 export class NewApiAccountService {
   readonly oauth: IOAuthService;
   #sessionChanges = new Emitter<OAuthSessionState>();
-  #authorizationFailures = new Emitter<{
-    provider: OAuthProviderId;
-    state: string;
-    reason: "expired" | "backend-unavailable" | "authorization-failed";
-  }>();
   #adapter: NewApiProviderAdapter;
   #repo: NewApiSessionRepo;
   #now: () => number;
@@ -75,24 +56,15 @@ export class NewApiAccountService {
     generation: number;
     promise: Promise<OAuthCachedSessionRestoreResult>;
   } | null = null;
-  #authorization?: NewApiHostAuthorization;
-  #authorizationAttempt: NewApiHostAuthorizationAttempt | null = null;
-  #authorizationStarting = false;
-  #localWebLogoutBlocked = false;
-  #localWebLogoutIncomplete = false;
-  #localWebLogoutFlight: Promise<void> | null = null;
 
   constructor(dependencies: {
     adapter: NewApiProviderAdapter;
     repo: NewApiSessionRepo;
     now?: () => number;
     onOwnerChanged?: (owner: NewApiOwner | null) => Promise<void> | void;
-    // XCODE: 仅替换授权传输；代次、凭据提交与补偿仍归同一个账号 owner。
-    authorization?: NewApiHostAuthorization;
   }) {
     this.#adapter = dependencies.adapter;
     this.#repo = dependencies.repo;
-    this.#authorization = dependencies.authorization;
     this.#now = dependencies.now ?? Date.now;
     this.#onOwnerChanged = (owner) => {
       // XCODE: 主身份失效立即通知现有 OAuth 消费者，不等待官方连接/Provider 清理或撤销网络。
@@ -102,15 +74,6 @@ export class NewApiAccountService {
     // XCODE: RPC 只注册显式公开投影，Host 的 SID、refresh 与 relay 凭据永不进入反射对象。
     this.oauth = Object.freeze({
       onDidChangeSession: this.#sessionChanges.event,
-      // XCODE: 仅本机回环登录暴露失败事件，桌面 RPC 面保持原样。
-      ...(this.#authorization
-        ? {
-            onDidFailAuthorization: this.#authorizationFailures.event,
-            getLocalWebAuthorizationCapabilities: async () => ({
-              failureEvents: true as const,
-            }),
-          }
-        : {}),
       getProviders: async () => [{ ...this.#adapter.meta }],
       getActiveProvider: async () => (this.#owner ? NEW_API_PROVIDER_ID : null),
       restoreCachedSession: async () => cachedSessionProfile(await this.#restore()),
@@ -123,9 +86,8 @@ export class NewApiAccountService {
       pollPendingOAuth: async () => {
         throw sessionError("XCODE_PRIVATE_POLLING_UNSUPPORTED");
       },
-      // XCODE: 回环 code 只能由 Host listener 送入 owner，拒绝经公共 RPC 转发。
-      handleCallback: async (url: string) =>
-        this.#authorization ? null : this.#handleCallback(url),
+      // XCODE: 回环 code 只能由 Host 送入 owner，公共 RPC 不接受转发的授权回调。
+      handleCallback: async (url: string) => this.#handleCallback(url),
       refreshToken: async (provider?: OAuthProviderId) => {
         validateProvider(provider);
         await this.#refresh();
@@ -137,15 +99,11 @@ export class NewApiAccountService {
       logoutAll: async () => this.#logout(),
       cancelPending: async (provider?: OAuthProviderId) => {
         validateProvider(provider);
-        if (!this.#pending && !this.#authorizationAttempt && !this.#authorizationStarting) return;
-        this.#authorizationStarting = false;
+        if (!this.#pending) return;
         this.#generation++;
         this.#pending = null;
         this.#owner = null;
-        const attempt = this.#authorizationAttempt;
-        this.#authorizationAttempt = null;
         await this.#onOwnerChanged(null);
-        if (attempt) await attempt.close();
       },
     });
   }
@@ -209,12 +167,6 @@ export class NewApiAccountService {
   async #start(provider: OAuthProviderId): Promise<OAuthStartResponse> {
     validateProvider(provider);
     this.#repo.assertStorageAvailable();
-    // XCODE: 新登录等本机退出完成，避免旧退出清理与新会话提交交错。
-    if (this.#authorization && this.#localWebLogoutFlight)
-      await this.#localWebLogoutFlight.catch(() => undefined);
-    if (this.#authorization && this.#localWebLogoutIncomplete)
-      throw sessionError("XCODE_LOCAL_WEB_LOGOUT_INCOMPLETE");
-    if (this.#authorization) return this.#startHostAuthorization();
     const authorization = this.#adapter.createAuthorization();
     const generation = ++this.#generation;
     this.#owner = null;
@@ -227,87 +179,6 @@ export class NewApiAccountService {
       state: authorization.state,
       authorizeUrl: authorization.authorizeUrl,
     };
-  }
-
-  async #startHostAuthorization(): Promise<OAuthStartResponse> {
-    const generation = ++this.#generation;
-    const previous = this.#authorizationAttempt;
-    this.#authorizationAttempt = null;
-    this.#authorizationStarting = true;
-    this.#pending = null;
-    this.#owner = null;
-    await this.#onOwnerChanged(null);
-    await previous?.close();
-    if (generation !== this.#generation) throw sessionError("XCODE_STALE_OWNER");
-    let attempt: NewApiHostAuthorizationAttempt;
-    try {
-      attempt = await this.#authorization!.start();
-    } catch (error) {
-      if (generation === this.#generation) this.#authorizationStarting = false;
-      throw error;
-    }
-    if (generation !== this.#generation) {
-      await attempt.close();
-      throw sessionError("XCODE_STALE_OWNER");
-    }
-    this.#authorizationStarting = false;
-    this.#authorizationAttempt = attempt;
-    const pending = pendingAuthorization(attempt, generation, this.#now());
-    this.#pending = pending;
-    void this.#receiveHostAuthorization(attempt, pending);
-    return {
-      provider: NEW_API_PROVIDER_ID,
-      purpose: "primary-account",
-      state: attempt.state,
-      authorizeUrl: attempt.authorizeUrl,
-    };
-  }
-
-  async #receiveHostAuthorization(
-    attempt: NewApiHostAuthorizationAttempt,
-    pending: PendingNewApiAuthorization,
-  ): Promise<void> {
-    try {
-      const callback = await attempt.wait();
-      if (
-        callback.state !== pending.state ||
-        pending.generation !== this.#generation ||
-        this.#pending !== pending
-      )
-        return;
-      if (pending.expiresAt <= this.#now()) throw sessionError("XCODE_AUTH_EXPIRED");
-      const promise = this.#complete(pending, callback.code, (code, verifier) =>
-        attempt.exchange(code, verifier),
-      );
-      const flight = { pending, promise };
-      this.#callbackFlight = flight;
-      try {
-        const result = await promise;
-        if (!result && pending.generation === this.#generation && pending.expiresAt <= this.#now())
-          throw sessionError("XCODE_AUTH_EXPIRED");
-      } finally {
-        if (this.#callbackFlight === flight) this.#callbackFlight = null;
-      }
-    } catch (error) {
-      // XCODE: 只发布当前代次的静态错误类别，回调 URL 与后端原始错误不进入事件或日志。
-      if (pending.generation === this.#generation && this.#authorizationAttempt === attempt) {
-        if (this.#pending === pending) this.#pending = null;
-        const code = errorCode(error);
-        this.#authorizationFailures.fire({
-          provider: NEW_API_PROVIDER_ID,
-          state: pending.state,
-          reason:
-            code === "XCODE_AUTH_EXPIRED"
-              ? "expired"
-              : code === "XCODE_BACKEND_UNAVAILABLE"
-                ? "backend-unavailable"
-                : "authorization-failed",
-        });
-      }
-    } finally {
-      if (this.#authorizationAttempt === attempt) this.#authorizationAttempt = null;
-      await attempt.close().catch(() => undefined);
-    }
   }
 
   async #handleCallback(url: string): Promise<OAuthCallbackResult | null> {
@@ -334,16 +205,12 @@ export class NewApiAccountService {
   async #complete(
     pending: PendingNewApiAuthorization,
     code: string,
-    exchange: (code: string, verifier: string) => Promise<NewApiSessionBundle> = (
-      value,
-      verifier,
-    ) => this.#adapter.exchangeCode(value, verifier),
   ): Promise<OAuthCallbackResult | null> {
     let bundle: NewApiSessionBundle | null = null;
     let published = false;
     let displaced = this.#session;
     try {
-      bundle = await exchange(code, pending.codeVerifier);
+      bundle = await this.#adapter.exchangeCode(code, pending.codeVerifier);
       if (!isPendingAuthorizationCurrent(this.#pending, pending, this.#generation, this.#readNow))
         return null;
       validateSession(bundle, this.#now(), true);
@@ -397,7 +264,6 @@ export class NewApiAccountService {
           return null;
         }
         this.#pending = null;
-        if (this.#authorization) this.#localWebLogoutBlocked = false;
         published = true;
         this.#sessionChanges.fire("signed-in");
         return { kind: "session", provider: NEW_API_PROVIDER_ID, userInfo };
@@ -432,9 +298,8 @@ export class NewApiAccountService {
 
   async #restore(): Promise<OAuthCachedSessionRestoreResult> {
     const generation = this.#generation;
-    // XCODE: 退出已失效 owner 但 active pointer 可能尚未删除，不能恢复旧会话。
-    if (this.#localWebLogoutBlocked || this.#pending || this.#authorizationStarting)
-      return { status: "signed-out" };
+    // 授权进行中不恢复旧会话，避免与新登录交错。
+    if (this.#pending) return { status: "signed-out" };
     if (this.#restoreFlight?.generation === generation) return this.#restoreFlight.promise;
     const promise = this.#restoreCurrent(generation);
     const flight = { generation, promise };
@@ -541,10 +406,6 @@ export class NewApiAccountService {
         }
         validateRotatedSession(rotated, expected, this.#now());
         if (generation !== this.#generation) {
-          // XCODE: 本机退出必须由 logout 撤销轮换后的凭据并报告结果，不能吞掉后继撤销失败。
-          if (this.#authorization && this.#localWebLogoutBlocked) {
-            throw sessionError("XCODE_STALE_OWNER");
-          }
           if (this.#session === null) {
             const removed = await this.#repo.remove(rotated);
             await revokeSession(this.#adapter, (removed ?? rotated).bundle);
@@ -570,62 +431,14 @@ export class NewApiAccountService {
     this.#generation++;
     this.#owner = null;
     this.#pending = null;
-    this.#authorizationStarting = false;
-    const attempt = this.#authorizationAttempt;
-    this.#authorizationAttempt = null;
     this.#session = null;
     await this.#onOwnerChanged(null);
-    if (attempt) await attempt.close();
     const removed = await this.#mutate(async () => this.#repo.remove(expected));
     await revokeSession(this.#adapter, (removed ?? expected).bundle);
   }
 
   #logout(): Promise<void> {
-    if (!this.#authorization) return this.#logoutDesktop();
-    if (this.#localWebLogoutFlight) return this.#localWebLogoutFlight;
-    this.#localWebLogoutBlocked = true;
-    this.#localWebLogoutIncomplete = true;
-    const flight = this.#logoutLocalWeb();
-    this.#localWebLogoutFlight = flight;
-    void flight
-      .finally(() => {
-        if (this.#localWebLogoutFlight === flight) this.#localWebLogoutFlight = null;
-      })
-      .catch(() => undefined);
-    return flight;
-  }
-
-  async #logoutLocalWeb(): Promise<void> {
-    const expected = this.#session;
-    this.#generation++;
-    this.#owner = null;
-    this.#pending = null;
-    this.#authorizationStarting = false;
-    const attempt = this.#authorizationAttempt;
-    this.#authorizationAttempt = null;
-    this.#session = null;
-    // XCODE: 在途 refresh 串行结束后再移除最新记录；否则旧 refresh 可掩盖后继撤销失败。
-    const removed = this.#mutate(async () => {
-      const target = expected ?? (await this.#repo.loadActive());
-      return target ? this.#repo.remove(target) : null;
-    });
-    const cleanup = Promise.resolve().then(() => this.#onOwnerChanged(null));
-    const closed = Promise.resolve().then(() => attempt?.close());
-    const [local, derived, listener] = await Promise.allSettled([removed, cleanup, closed]);
-    if (local.status === "rejected") throw local.reason;
-    // XCODE: 即使派生清理失败，也须撤销已移除的精确会话；失败仍优先报告退出未完成。
-    let revoked = true;
-    if (local.value) {
-      try {
-        await this.#adapter.logout(local.value.bundle);
-      } catch {
-        revoked = false;
-      }
-    }
-    if (derived.status === "rejected") throw derived.reason;
-    if (listener.status === "rejected") throw listener.reason;
-    this.#localWebLogoutIncomplete = false;
-    if (!revoked) throw sessionError("XCODE_LOCAL_WEB_LOGOUT_UNCONFIRMED");
+    return this.#logoutDesktop();
   }
 
   async #logoutDesktop(): Promise<void> {
@@ -633,12 +446,8 @@ export class NewApiAccountService {
     this.#generation++;
     this.#owner = null;
     this.#pending = null;
-    this.#authorizationStarting = false;
-    const attempt = this.#authorizationAttempt;
-    this.#authorizationAttempt = null;
     this.#session = null;
     await this.#onOwnerChanged(null);
-    if (attempt) await attempt.close();
     const removed = await this.#mutate(async () => (expected ? this.#repo.remove(expected) : null));
     if (expected) await revokeSession(this.#adapter, (removed ?? expected).bundle);
   }

@@ -7,8 +7,6 @@ interface ImportMetaEnv {
   readonly BASE_URL: string;
   readonly DEV: boolean;
   readonly PROD: boolean;
-  // XCODE: 本机 Web 授权与上游远控使用不同服务和会话边界。
-  readonly VITE_AISCOO_LOCAL_WEB?: string;
   readonly VITE_DEV_ORIGIN?: string;
   readonly VITE_CONVERSATION_SHARE_PREVIEW_MOCK?: string;
   readonly VITE_WEB_REMOTE_ALLOW_DEV_RETURN_TO?: string;

@@ -232,42 +232,14 @@ modules:
       - packages/server/src/aiscoo-browser-account/contract.ts
     layers: { adapters: . }
     owner: account
-  # XCODE: 本地 Web 扩展追加到唯一策略文件，复用既有品牌与账号模块身份。
-  - id: aiscoo-local-web
-    roots: [packages/server/src/aiscoo-local-web]
-    managed: true
-    requires: []
-    publicEntrypoints:
-      - packages/server/src/aiscoo-local-web/index.ts
-      - packages/server/src/aiscoo-local-web/contract.ts
-    layers: { adapters: . }
-    owner: local-web
-  - id: local-web-new-api
-    roots: [packages/services/src/local-web-new-api]
-    managed: true
-    requires: [services, shared, zcode-cli, cli-zen-auth]
-    publicEntrypoints:
-      - packages/services/src/local-web-new-api/index.ts
-      - packages/services/src/local-web-new-api/contract.ts
-    layers: { adapters: . }
-    owner: aiscoo
   - id: ui-oauth-lifecycle
     roots: [packages/ui/src/oauth-lifecycle]
     managed: true
-    requires: [shared, rpc]
+    requires: [shared]
     publicEntrypoints:
       - packages/ui/src/oauth-lifecycle/contract.ts
     layers: { contract: . }
     owner: account
-  - id: aiscoo-local-web-oauth-ui
-    roots: [packages/ui/src/aiscoo/local-web-oauth]
-    managed: true
-    requires: [ui, shared, rpc, ui-oauth-lifecycle]
-    publicEntrypoints:
-      - packages/ui/src/aiscoo/local-web-oauth/index.ts
-      - packages/ui/src/aiscoo/local-web-oauth/contract.ts
-    layers: { ui: . }
-    owner: local-web
   # aiscoo-desktop-identity：由 architecture:adopt 登记
   - id: aiscoo-desktop-identity
     roots:

@@ -113,43 +113,6 @@ test("Dev plist replaces old and duplicate protocol declarations without retaini
   }
 });
 
-test("Desktop services bundles leave the native keyring for runtime platform selection", async () => {
-  // XCODE: 本地 Web 的适配器会进入桌面依赖图；真实打包不能解析其他平台的原生钥匙串文件。
-  const { stdout } = await execFileAsync(
-    process.execPath,
-    [
-      "--import",
-      "tsx",
-      "--input-type=module",
-      "-e",
-      `
-      import assert from "node:assert/strict";
-      import { build } from "esbuild";
-      import configs from "./packages/desktop/tsup.config.ts";
-      for (const name of ["main", "host", "scheduler"]) {
-        const config = configs.find((entry) => entry.name === name);
-        const result = await build({
-          entryPoints: ["packages/services/src/local-web-new-api/index.ts"],
-          bundle: true, write: false, logLevel: "silent",
-          platform: config.platform, format: config.format, target: config.target,
-          external: config.external, define: config.define,
-        });
-        const output = result.outputFiles[0].text;
-        assert.match(output, /import\\("@napi-rs\\/keyring"\\)/);
-        assert.doesNotMatch(output, /keyring\\.android-arm64\\.node/);
-      }
-      process.stdout.write("NATIVE_KEYRING_RUNTIME_VERIFIED");
-    `,
-    ],
-    {
-      cwd: repositoryRoot,
-      env: { ...process.env, NODE_ENV: "production", ZCODE_ENV: "production" },
-      maxBuffer: 1024 * 1024,
-    },
-  );
-  assert.match(stdout, /NATIVE_KEYRING_RUNTIME_VERIFIED/);
-});
-
 test("macOS PTY helper remains executable after the real archive repack and final hook", async () => {
   if (process.platform === "win32") return;
   const root = await mkdtemp(join(tmpdir(), "aiscoo-pty-packaging-"));

@@ -20,14 +20,6 @@ import { createServiceDescriptor } from "../descriptors.js";
 export interface IOAuthService {
   /** 凭据变更完成后发布，早于 provider 清理及调用方的 UI/设置后处理。 */
   readonly onDidChangeSession: Event<OAuthSessionState>;
-  // XCODE: 异步回环登录失败仅发布固定错误类别，不暴露回调或凭据。
-  readonly onDidFailAuthorization?: Event<{
-    provider: OAuthProviderId;
-    state: string;
-    reason: "expired" | "backend-unavailable" | "authorization-failed";
-  }>;
-  /** 仅表示 Host 支持失败事件，不表示远端事件订阅已确认。 */
-  getLocalWebAuthorizationCapabilities?(): Promise<{ failureEvents: true }>;
 
   /** 获取可用 provider 列表（仅返回 enabled=true） */
   getProviders(): Promise<OAuthProviderMeta[]>;

@@ -121,7 +121,6 @@ export function LoginPanel({
   const accountPolicy = (usePlatform() as OAuthLifecyclePlatform).oauthAccountPolicy;
   const {
     startLogin,
-    startLoginFromUserGesture,
     cancel,
     reset,
     status,
@@ -131,7 +130,6 @@ export function LoginPanel({
     loadingProviders,
     pendingProvider,
     authorizeUrl,
-    manualAuthorizationUrl,
     refreshProviders,
   } = useOAuth();
   const providers = useMemo(
@@ -175,7 +173,6 @@ export function LoginPanel({
       provider: OAuthProviderMeta["id"],
       options?: Parameters<typeof startLogin>[1],
       loginEntryAttemptId?: number,
-      userGesture = false,
     ) => {
       const activeAttempt = activeLoginEntryAttemptRef.current;
       if (activeAttempt && activeAttempt.id !== loginEntryAttemptId) {
@@ -193,18 +190,9 @@ export function LoginPanel({
         markLoginEntryAttemptStatus(loginEntryAttemptId, "waiting");
       }
       lastAttemptProviderRef.current = provider;
-      // XCODE: 可选生命周期仅响应真实点击，未装配时沿用 release 原登录入口。
-      return userGesture && startLoginFromUserGesture
-        ? startLoginFromUserGesture(provider, options)
-        : startLogin(provider, options);
+      return startLogin(provider, options);
     },
-    [
-      finishActiveLoginEntryAttempt,
-      markLoginEntryAttemptStatus,
-      setOAuthError,
-      startLogin,
-      startLoginFromUserGesture,
-    ],
+    [finishActiveLoginEntryAttempt, markLoginEntryAttemptStatus, setOAuthError, startLogin],
   );
 
   const providerNameMap = useMemo(
@@ -436,7 +424,7 @@ export function LoginPanel({
                         ? TID_OAUTH_LOGIN_BUTTON
                         : testId(TID_OAUTH_LOGIN_BUTTON, provider.id)
                     }
-                    onClick={() => void startTrackedLogin(provider.id, undefined, undefined, true)}
+                    onClick={() => void startTrackedLogin(provider.id)}
                   >
                     {renderOAuthProviderIcon(provider.id, "size-4")}
                     <span className="min-w-0 truncate">
@@ -495,14 +483,6 @@ export function LoginPanel({
                 },
               )}
             </div>
-            {/* XCODE: 可选生命周期提供当前手动授权地址，release 的复制登录链接继续保留。 */}
-            {manualAuthorizationUrl ? (
-              <Button asChild variant="outline" className="h-10 w-full text-ui-base" size="lg">
-                <a href={manualAuthorizationUrl} target="_blank" rel="noopener noreferrer">
-                  {intl.formatMessage({ id: "login.oauth.openAuthorization" })}
-                </a>
-              </Button>
-            ) : null}
             <Button
               variant="outline"
               className="h-10 w-full text-ui-base"
@@ -562,7 +542,7 @@ export function LoginPanel({
                 // OAuth 回调失败会触发 reset()，它会清空 pendingProvider。
                 // 重新登录必须沿用刚才失败的渠道，不能因为 providers[0] 的原始顺序退回 BigModel。
                 // store 残留错误由 startTrackedLogin 发起前统一清理。
-                void startTrackedLogin(retryProvider, undefined, undefined, true);
+                void startTrackedLogin(retryProvider);
               }}
             >
               {intl.formatMessage({ id: "login.oauth.retry" })}

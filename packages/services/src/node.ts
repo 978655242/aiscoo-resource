@@ -175,15 +175,6 @@ export {
   createSettingServiceWithMigrations,
 } from "./setting/settingService.js";
 export { createCredentialService } from "./credential/credentialService.js";
-// XCODE: 保留旧本机 Web 工厂供未接入代码使用，惰性加载且不接入 Host 的账号装配。
-export async function createLocalWebNewApiAccountFactory(
-  options: import("./local-web-new-api/contract.js").LocalWebNewApiAccountFactoryOptions,
-): Promise<import("./local-web-new-api/contract.js").LocalWebNewApiAccountFactory> {
-  const { createLocalWebNewApiAccountFactory: createFactory } =
-    await import("./local-web-new-api/index.js");
-  return createFactory(options);
-}
-export type { LocalWebNewApiAccountFactory } from "./local-web-new-api/contract.js";
 export { NewApiClient, NewApiClientError } from "./new-api/newApiClient.js";
 export { NewApiAccountService } from "./new-api/newApiAccountService.js";
 export { NewApiSessionRepo } from "./new-api/newApiSessionRepo.js";

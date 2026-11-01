@@ -22,7 +22,6 @@
     "./aiscoo-brand": "./src/xwork/brand/index.ts",
     "./xwork-account-avatar": "./src/xwork/account-avatar/index.ts",
     "./aiscoo-startup-context": "./src/aiscoo/startup-context/index.ts",
-    "./aiscoo-local-web-oauth": "./src/aiscoo/local-web-oauth/index.ts",
     "./aiscoo-account-login-root": "./src/aiscoo/account-login/logout-presentation.tsx"
   },
   "scripts": {
