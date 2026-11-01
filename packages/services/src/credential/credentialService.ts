@@ -13,7 +13,6 @@ import {
   CREDENTIAL_DECRYPT_ERROR_CODE,
   isCredentialDecryptError,
 } from "@zcode/shared";
-import { createPrivateCredentialCipherProvider } from "./providers/privateCredentialCipherProvider.js";
 import type { ICredentialService } from "./credential.js";
 import {
   createCredentialCipherProvider,
@@ -26,7 +25,7 @@ import { getAppConfigDir } from "../paths.js";
  * 凭据存储路径
  *
  * 当前持久化格式仍是 JSON，但 value 会在写入前加密，读取时自动解密。
- * 后续可切换到 Electron safeStorage（钥匙串）托管密钥，
+ * 后续可切换到 Electron safeStorage（钥匙串）托管密钥（Aiscoo 已于 2026-11-01 决定不采用，见 new-api-integration §4.2），
  * 届时 host process 需要向 main 进程请求 encrypt/decrypt。
  */
 const logger = createServiceLogger("credentialService");
@@ -138,7 +137,8 @@ export async function readHostCredentialRecords<T>(
         code: CREDENTIAL_DECRYPT_ERROR_CODE,
       });
     }
-    cipher ??= createPrivateCredentialCipherProvider();
+    // XCODE: 2026-11-01 起私有记录与上游同一 cipher，不依赖 Main 下发的 OS 密钥。
+    cipher ??= createCredentialCipherProvider();
     return cipher.decrypt(encrypted);
   });
 }
@@ -167,7 +167,7 @@ export async function updateHostCredentialRecords<T>(
   const credentialsFile = dependencies.credentialsFile ?? getCredentialsFile();
   return withFileLock(credentialsFile, async () => {
     const records = await readAll(credentialsFile);
-    const cipher = dependencies.cipherProvider ?? createPrivateCredentialCipherProvider();
+    const cipher = dependencies.cipherProvider ?? createCredentialCipherProvider();
     const selected = new Map<string, string | null>();
     for (const key of keys) {
       const encrypted = records[key];

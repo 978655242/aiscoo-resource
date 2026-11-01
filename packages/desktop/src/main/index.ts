@@ -74,7 +74,6 @@ import {
   resolveDefaultZCodeAgentCommand,
   startupStorage,
 } from "@zcode/services/node";
-import { loadPrivateCredentialSecret } from "./privateCredentialKey.js";
 import {
   desktopMenuMessageIds,
   type Locale,
@@ -613,8 +612,7 @@ mainMemoryDiagnosticsRegistry.register("app", () => ({
   willDownloadListeners: session.defaultSession.listenerCount("will-download"),
 }));
 const hostProcessLocalEnv = loadHostProcessEnvFromLocalFiles();
-delete hostProcessLocalEnv.XCODE_PRIVATE_CREDENTIAL_SECRET;
-// XCODE: 与 Host 使用相同 dotenv→process 优先级，避免有私有服务但未加载 OS 加密密钥。
+// XCODE: 与 Host 使用相同 dotenv→process 优先级解析 Aiscoo 账号服务地址。
 // XCODE: 渠道只决定账号限制；实际 origin 可用性由同一严格解析器裁定。
 const mainAccountPolicy = resolveAiscooDesktopIdentity()
   ? createAiscooAccountPolicy({
@@ -631,7 +629,6 @@ const aiscooUpdateEndpointOrigin = resolveAiscooUpdateEndpointOrigin({
   hasAiscooChannel: resolveAiscooDesktopIdentity() !== null,
   accountOrigin: process.env.AISCOO_ADMIN_BASE_URL ?? hostProcessLocalEnv.AISCOO_ADMIN_BASE_URL,
 });
-let privateCredentialSecret: string | undefined;
 interface RuntimeProcessEnvPreparation {
   patchPromise: Promise<Record<string, string>>;
   fallbackPatch: Record<string, string>;
@@ -2016,9 +2013,7 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
           zcodeBuiltinProviderConfigFilePath: resolveZCodeBuiltinProviderConfigFilePath(),
         },
         {
-          // XCODE: 私有cipher key定向传窗口Host，通用env仍用于不含key的scheduler。
           hostProcessLocalEnv,
-          privateCredentialSecret,
           desktopContextPromptEnabled: resolveDesktopContextPromptEnabledForHost,
           logger,
           broadcastHub,
@@ -2270,18 +2265,6 @@ app.whenReady().then(async () => {
   } catch {
     // 读取失败不影响启动，使用默认 homedir
   }
-  // XCODE: 缺失/非法 Aiscoo origin 不访问 OS key；未注入策略保留旧启动条件。
-  if (mainAccountPolicy ? mainAccountPolicy.newApiOrigin !== null : nativePrivateMode) {
-    try {
-      privateCredentialSecret = await loadPrivateCredentialSecret();
-    } catch {
-      privateCredentialSecret = undefined;
-      logger.warn(
-        "[private-credentials] Secure storage unavailable; private login requires recovery",
-      );
-    }
-  }
-
   // scheduler 也会打开 tasks-index；等 Host 完成统一准备，避免在启动页出现前抢先迁移。
   configureDatabaseStartupQuit(() => {
     markExplicitQuit("database-startup-exit");

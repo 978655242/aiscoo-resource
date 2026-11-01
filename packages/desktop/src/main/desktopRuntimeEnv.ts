@@ -79,7 +79,8 @@ export const runtimeApplicationName =
     : isPreviewPackagedRuntime
       ? PRODUCT_BRAND.previewName
       : PRODUCT_NAME);
-// XCODE: macOS 在 ready 前固定 safeStorage 钥匙串名称，沿用旧值才能解密既有凭据。
+// XCODE: 历史钥匙串名称。2026-11-01 起登录凭据不再使用 safeStorage，这里仅为不改变既有身份而保留，
+// 清理它属于另一项需要单独评估启动顺序的改动。
 export const runtimeKeychainApplicationName =
   readRuntimeEnvOverride("ZCODE_DESKTOP_APPLICATION_NAME") ??
   (isLocalDevelopmentRuntime
@@ -587,17 +588,12 @@ export function buildHostProcessEnv(hostProcessLocalEnv: Record<string, string>)
   // 三层里有两层不写这个键，空对象无法覆盖 inheritedEnv，所以先无条件删掉继承值再按决策 spread 回去。
   // 少了这一行，production 包和 dev 的非法取值都会原样穿透到 Host。
   delete inheritedEnv[ZCODE_DYNAMIC_WORKFLOW_MODE_ENV];
-  delete inheritedEnv.XCODE_PRIVATE_CREDENTIAL_SECRET;
 
   return {
     ...inheritedEnv,
     // OTLP 凭据只定向传到 host；host 初始化 services 时会立即捕获并从 process.env 清除，
     // 后续只在启动 Agent 时短暂注入，不会进入 Bash/MCP/tool env。
     ...agentTelemetryEnv,
-    // XCODE: Main的OS保护key优先于外部env；Host导入cipher时立即消费并移出继承环境。
-    ...(hostProcessLocalEnv.XCODE_PRIVATE_CREDENTIAL_SECRET
-      ? { XCODE_PRIVATE_CREDENTIAL_SECRET: hostProcessLocalEnv.XCODE_PRIVATE_CREDENTIAL_SECRET }
-      : {}),
     // ZCode 运行时不再使用 NODE_ENV；它会被用户 shell、包管理器和测试框架复用。
     // 这里显式下发 ZCODE_RUNTIME_ENV，并在继承环境里清掉 NODE_ENV，避免 host/agent/Bash 被污染。
     [ZCODE_RUNTIME_ENV_KEY]: resolveHostProcessNodeEnv(),

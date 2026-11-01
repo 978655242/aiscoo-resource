@@ -39,6 +39,8 @@ try {
       // XCODE: 下游桌面身份与数据路径回归进入现有独立门禁。
       "scripts/test/aiscoo-desktop-packaging-identity.test.mjs",
       "scripts/test/aiscoo-desktop-data-identity.test.mjs",
+      // XCODE: 桌面登录凭据不触发系统钥匙串授权的门禁（2026-11-01 决定，规格 new-api-integration §4.2）。
+      "scripts/test/aiscoo-desktop-credential-no-keychain.test.mjs",
       "scripts/test/aiscoo-desktop-deep-link-identity.test.mjs",
       "scripts/test/aiscoo-export-logs-credential-backup.test.mjs",
     ],

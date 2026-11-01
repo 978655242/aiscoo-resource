@@ -45,7 +45,7 @@ flowchart LR
 
 `@zcode/*` 包名、协议字段、URL scheme、环境变量、数据库与目录 key、应用 ID、CLI 命令、Linux 可执行文件/package identity、服务端与更新地址继续使用既有兼容标识。Windows 主程序显式保留原可执行文件名，macOS `.app` 的展示文件名随产品名更新。Finder 服务显示 Aiscoo，旧 workflow 只有在 bundle ID 确认为本应用时才清理。
 
-桌面展示身份与存储身份仍由 `desktopRuntimeEnv.ts` 分离派生：`process.title` 消费品牌显示名，userData/sessionData 沿用原有数据身份，不生成新的空历史目录。macOS Electron 41 在应用 ready 前按当时的 `app.getName()` 固定 `safeStorage` 钥匙串服务／账号，因此启动早期 `app.setName` 必须使用历史名称：Dev 为 `XWork Dev`，正式版为 `XWork`，Preview 为 `XWork Preview`；显式测试身份覆盖继续隔离。`app.whenReady()` 后恢复 Aiscoo 展示名，`.app`、plist 与 Helper 保持同一新品牌命名，不迁移或重置凭据。历史钥匙串名称由桌面身份配置唯一提供。CLI Zen 钥匙串 service 与加密 AAD 也是持久化身份，不更名。验收断言 ready 前后的名称顺序，并使用真实 Electron／macOS safeStorage 的跨进程烟测：历史名称写入合成密文，新展示名称直接启动时应解密失败，按当前源码的历史名称→ready→展示名称顺序启动时应解密成功且密文不变。烟测使用临时 profile 与合成内容，不读取真实凭据。修复启用必须完整重建并重启 Main 和 Local Host；仅刷新 Renderer 不会重新选择钥匙串身份。
+桌面展示身份与存储身份仍由 `desktopRuntimeEnv.ts` 分离派生：`process.title` 消费品牌显示名，userData/sessionData 沿用原有数据身份，不生成新的空历史目录。macOS Electron 41 在应用 ready 前按当时的 `app.getName()` 固定 `safeStorage` 钥匙串服务／账号，因此启动早期 `app.setName` 必须使用历史名称：Dev 为 `XWork Dev`，正式版为 `XWork`，Preview 为 `XWork Preview`；显式测试身份覆盖继续隔离。`app.whenReady()` 后恢复 Aiscoo 展示名，`.app`、plist 与 Helper 保持同一新品牌命名，不迁移或重置凭据。历史钥匙串名称由桌面身份配置唯一提供。**2026-11-01 起 New API 登录凭据不再使用 `safeStorage`**（见 [客户端集成规格 §4.2](../specs/new-api-integration.md#42-安全持久化与恢复)），该名称顺序不再影响登录；保留它是为了不改变 Electron 自身及此前已写入的钥匙串条目的身份，下面的烟测验证的是该顺序本身，不代表登录凭据依赖它。CLI Zen 钥匙串 service 与加密 AAD 也是持久化身份，不更名。验收断言 ready 前后的名称顺序，并使用真实 Electron／macOS safeStorage 的跨进程烟测：历史名称写入合成密文，新展示名称直接启动时应解密失败，按当前源码的历史名称→ready→展示名称顺序启动时应解密成功且密文不变。烟测使用临时 profile 与合成内容，不读取真实凭据。修复启用必须完整重建并重启 Main 和 Local Host；仅刷新 Renderer 不会重新选择钥匙串身份。
 
 ```mermaid
 flowchart LR

@@ -17,7 +17,7 @@ import {
   withHostCredentialRefreshLease,
   type HostCredentialStoreDependencies,
 } from "../credential/credentialService.js";
-import { createPrivateCredentialCipherProvider } from "../credential/providers/privateCredentialCipherProvider.js";
+import { createCredentialCipherProvider } from "../credential/providers/credentialCipherProvider.js";
 
 export interface NewApiStoredSession {
   schemaVersion: 1;
@@ -90,7 +90,7 @@ async function commitHostCredentialRecords<T>(
   return withFileLock(file, async () => {
     assertCurrent();
     const records = await hostCredentialStoragePort.read(file);
-    const cipher = dependencies.cipherProvider ?? createPrivateCredentialCipherProvider();
+    const cipher = dependencies.cipherProvider ?? createCredentialCipherProvider();
     assertCurrent();
     const { changes, result, recoveryRequired } = resolve((key) => {
       hostCredentialStoragePort.assertKey(key);
@@ -128,10 +128,6 @@ export class NewApiSessionRepo {
     this.#prefix = `new-api:${createHash("sha256").update(this.#origin).digest("hex")}:`;
     this.#activeKey = `${this.#prefix}active`;
     this.#store = dependencies;
-  }
-
-  assertStorageAvailable(): void {
-    if (!this.#store.cipherProvider) createPrivateCredentialCipherProvider();
   }
 
   async loadActive(): Promise<NewApiStoredSession | null> {

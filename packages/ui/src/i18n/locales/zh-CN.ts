@@ -26,9 +26,9 @@ const zhCN: Record<string, string> = {
   "settings.modelProvider.native.duration.day": "{count} 天",
   "settings.modelProvider.native.duration.hour": "{count} 小时",
   "settings.modelProvider.native.duration.custom": "{count} 秒",
-  "login.privateCredentialRecovery.title": "私有凭据需要人工恢复",
+  "login.privateCredentialRecovery.title": "需要重新登录",
   "login.privateCredentialRecovery.description":
-    "请解锁操作系统凭据存储，或恢复 XWork 凭据备份后重启。现有凭据未被删除，也不会改用其他密钥或官方账号。",
+    "已保存的登录凭据无法读取，请重新登录。登录成功后，原有凭据会先备份再替换，不会被直接删除。",
   "settings.modelProvider.native.viewPlans": "查看订阅套餐",
   "settings.usage.nativeAuthorization.active": "授权有效",
   "settings.usage.nativeAuthorization.exhausted": "额度已耗尽",

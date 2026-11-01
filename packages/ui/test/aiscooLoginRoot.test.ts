@@ -521,7 +521,6 @@ describe("Aiscoo Root 登录展示", () => {
         );
       });
       const repo = {
-        assertStorageAvailable: vi.fn(),
         loadActive: vi.fn(async () => ({
           schemaVersion: 1,
           origin: "https://native.example",
@@ -611,7 +610,6 @@ describe("Aiscoo Root 登录展示", () => {
       throw new Error("Unexpected synthetic endpoint");
     });
     const repo = {
-      assertStorageAvailable: vi.fn(),
       loadActive: vi.fn(async () => stored),
       commit: vi.fn(async (next) => {
         stored = next;

@@ -166,7 +166,6 @@ export class NewApiAccountService {
 
   async #start(provider: OAuthProviderId): Promise<OAuthStartResponse> {
     validateProvider(provider);
-    this.#repo.assertStorageAvailable();
     const authorization = this.#adapter.createAuthorization();
     const generation = ++this.#generation;
     this.#owner = null;
@@ -314,7 +313,6 @@ export class NewApiAccountService {
   async #restoreCurrent(generation: number): Promise<OAuthCachedSessionRestoreResult> {
     let record: NewApiStoredSession | null = null;
     try {
-      this.#repo.assertStorageAvailable();
       record = this.#session ?? (await this.#repo.loadActive());
       if (generation !== this.#generation || this.#pending) return { status: "signed-out" };
       if (!record) return { status: "signed-out" };

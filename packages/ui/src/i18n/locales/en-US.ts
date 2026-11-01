@@ -28,9 +28,9 @@ const enUS: Record<string, string> = {
   "settings.modelProvider.native.duration.day": "{count} day(s)",
   "settings.modelProvider.native.duration.hour": "{count} hour(s)",
   "settings.modelProvider.native.duration.custom": "{count} second(s)",
-  "login.privateCredentialRecovery.title": "Private credentials need recovery",
+  "login.privateCredentialRecovery.title": "Sign in again",
   "login.privateCredentialRecovery.description":
-    "Unlock your OS credential store or restore your XWork credential backup, then restart. Existing credentials have not been deleted; no alternative key or official account will be used.",
+    "Your saved sign-in could not be read, so please sign in again. After you sign in, the old credentials are backed up before being replaced, not deleted outright.",
   "settings.modelProvider.native.viewPlans": "View subscription",
   "settings.usage.nativeAuthorization.active": "Active authorization",
   "settings.usage.nativeAuthorization.exhausted": "Quota exhausted",
