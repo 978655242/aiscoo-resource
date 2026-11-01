@@ -1,5 +1,7 @@
 # macOS 公证续跑
 
+状态：已实现，2026-11-01。离线脚本回归通过，未使用真实 Apple 提交验证。
+
 ## 产品规则与边界
 
 `scripts/aiscoo/notarize-macos.sh <APP> <OUT_DIR> [--no-notarize]` 在入口按 `AISCOO_NOTARY_SUBMISSION_ID` 分流。设置 id 时，第一个位置参数仍必填，但不解析或读取 APP；续跑不依赖 Info.plist、entitlements、签名身份，不重新签名、制盘或提交。id 与 `--no-notarize` 同时出现立即失败。
@@ -9,6 +11,8 @@
 续跑只解锁查询所需的专用 keychain，并沿用 `AISCOO_SIGN_DIR`、`AISCOO_NOTARY_PROFILE` 与已有轮询配置。新任务保持原 APP 检查、拒覆盖、签名、制盘、提交顺序，已有同名 DMG 仍拒绝覆盖。两种模式共用轮询、失败日志、staple、validate、spctl；任何最终验收失败均非零退出。等待超时保留 DMG 和原提交记录，输出包含 id、原目录及正确 shell 转义的可执行续跑命令。
 
 本修复只核对记录关联与文件位置；id/path 不证明 DMG 字节未变。调用者应保留原产物，不新增 artifact hash 侧文件或发布状态体系。
+
+续跑依赖 `notarytool submit --output-format json` 输出中的 `path` 字段。离线回归的命令替身按 `{id, path, message}` 输出；尚未用真实 Apple 提交记录核对，首次真实超时续跑时需确认该字段存在。
 
 ## 所有者与事件顺序
 

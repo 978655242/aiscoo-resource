@@ -158,7 +158,7 @@ import { applyAppIcon } from "./desktopWindowChrome.js";
 import { resolveWindowsAppUserModelIdForFlavor } from "../../scripts/desktop-product-identity.mjs";
 // XCODE: 开发与正式 Aiscoo 都使用自身 AUMID，保留通用未注入身份的上游默认。
 import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
-// XCODE: Aiscoo 自有更新源解析，只读账号源，不持有更新状态。
+// XCODE: Aiscoo 更新源解析只读账号源；CLI 会话库根在 Host 启动前绑定一次，不随 App 数据迁移。
 import {
   initializeAiscooDesktopStorage,
   isAiscooDesktopStorageReady,
@@ -1975,8 +1975,6 @@ function openUpdateStatusWindow() {
 }
 
 function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
-  // XCODE: 所有建窗入口共享绑定完成边界，未注入 Aiscoo 时保持原行为。
-  if (!isAiscooDesktopStorageReady()) return;
   const runtimeProcessEnvPreparation = takeRuntimeProcessEnvPreparation();
   const win = createWindow({
     iconPath,
@@ -2278,9 +2276,15 @@ app.whenReady().then(async () => {
     await initializeAiscooDesktopStorage({ settingsFile, dataBaseDir: getDataBaseDir() });
   } catch (error) {
     logger.error("[startup] Aiscoo CLI root binding failed", error);
+    const isZh = currentApplicationLocale === "zh-CN";
+    const detail = error instanceof Error ? error.message : String(error);
     dialog.showErrorBox(
-      `${runtimeApplicationName} — Storage initialization failed`,
-      error instanceof Error ? error.message : String(error),
+      isZh ? `${runtimeApplicationName} 无法启动` : `${runtimeApplicationName} cannot start`,
+      `${
+        isZh
+          ? "无法确定会话数据位置，已停止启动以免打开空的会话库。"
+          : "The session data location could not be determined. Startup stopped to avoid opening an empty session database."
+      }\n\n${detail}`,
     );
     markExplicitQuit("aiscoo-storage-initialization-failed");
     app.quit();

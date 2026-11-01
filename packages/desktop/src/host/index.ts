@@ -170,6 +170,7 @@ import { initializeHostApiNetworkTransportOwner } from "./hostInitialization.js"
 // XCODE: Native 回调由构建渠道配置，不用环境变量动态放宽回调地址。
 import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
 // XCODE: 只在本地服务注册点追加默认目录包装，不改上游路径与设置实现。
+import { AISCOO_DESKTOP_DEFAULT_DATA_BASE_DIR_ENV } from "@zcode/shared/aiscoo-desktop-identity";
 import { registerAiscooDataDirectoryServices } from "./aiscoo-data-directory/index.js";
 import { createHostUncaughtExceptionHandler } from "./hostUncaughtExceptionGuard.js";
 import {
@@ -4259,7 +4260,7 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
             registerAiscooDataDirectoryServices(
               initializedServices,
               resolveAiscooDesktopIdentity()
-                ? process.env.AISCOO_DESKTOP_DEFAULT_DATA_BASE_DIR
+                ? process.env[AISCOO_DESKTOP_DEFAULT_DATA_BASE_DIR_ENV]
                 : undefined,
             );
             activeServices = initializedServices;
