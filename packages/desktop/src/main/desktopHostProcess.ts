@@ -173,8 +173,6 @@ export function spawnHostProcess(
   initMessage: HostInitMessage,
   dependencies: {
     hostProcessLocalEnv: Record<string, string>;
-    /** XCODE: Main safeStorage解锁，只定向传给该窗口Local Host。 */
-    privateCredentialSecret?: string;
     /** Main 进程已完成服务端灰度裁决；Host 只消费这个快照，不自行请求或分桶。 */
     desktopContextPromptEnabled?: () => boolean;
     logger: {
@@ -286,9 +284,6 @@ export function spawnHostProcess(
     env: {
       ...buildHostProcessEnv(dependencies.hostProcessLocalEnv),
       ...buildHostE2ECoverageEnv(),
-      ...(initMessage.type === HostMessageTypes.InitLocal && dependencies.privateCredentialSecret
-        ? { XCODE_PRIVATE_CREDENTIAL_SECRET: dependencies.privateCredentialSecret }
-        : {}),
       ZCODE_PROCESS_LABEL: label,
       // macOS-only: the Computer Use Helper launcher runs inside this forked host utilityProcess, whose
       // code-signing identity is a nested Electron helper (NOT dev.zcode.app). Publish THIS (main

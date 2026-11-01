@@ -11,7 +11,6 @@ import {
 } from "@zcode/shared";
 import type { ModelSelectionView } from "@zcode/provider";
 import type { HostCredentialStoreDependencies } from "../credential/credentialService.js";
-import { createPrivateCredentialCipherProvider } from "../credential/providers/privateCredentialCipherProvider.js";
 import { createOAuthProviderAdapters } from "../oauth/providers/index.js";
 import { createOAuthRuntimeConfig } from "../oauth/runtimeConfig.js";
 import type { OAuthProviderAdapter } from "../oauth/providers/providerAdapter.js";
@@ -186,7 +185,6 @@ export function createOfficialCloudConnectionHost(
       const owner = dependencies.account.getOwner();
       if (!owner || !current(owner))
         throw new Error("Official cloud requires Native account login");
-      if (!store.cipherProvider) createPrivateCredentialCipherProvider();
       const adapter = adapters.find(
         (candidate) => candidate.providerId === family && candidate.meta.enabled,
       );

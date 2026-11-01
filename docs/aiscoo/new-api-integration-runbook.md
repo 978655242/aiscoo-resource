@@ -94,7 +94,7 @@ XCODE_NEW_API_SOURCE_DIR=../aiscoo-admin node packages/desktop/test/runNewApiEle
 ## Aiscoo 主账号与历史官方凭据
 
 1. 主登录打开 New API 原生认证页面，复用原生注册、密码、2FA/Passkey 流程。桌面只持有 PKCE flow，不保存密码；浏览器会话与专用客户端 Session 分开。
-2. Local Host 是 Native 身份与三类凭据的唯一业务 owner。Main 的 OS keystore 仅保护安全库密钥；Renderer、配置、Web Storage、日志及普通凭据 RPC 不得到 control、refresh 或 relay secret。
+2. Local Host 是 Native 身份与三类凭据的唯一业务 owner。凭据使用上游 cipher 加密（2026-11-01 起不再经 Main 的 OS keystore，见 [规格 §4.2](./specs/new-api-integration.md)）；Renderer、配置、Web Storage、日志及普通凭据 RPC 不得到 control、refresh 或 relay secret。
 3. 恢复前校验 origin、用户、SID、期限及真实 Me。明确撤销会失效模型/权限并清理只读 WebView；503、离线或安全库不可用不是成功退出、无套餐或零用量。
 4. 产品不再提供 BigModel/Z.ai 独立连接。依赖该连接的官方 MCP、闲时任务和受保护分享动作明确不可用，不附 Aiscoo token、不恢复旧官方会话；公开只读分享继续按匿名规则处理。
 5. 官方历史安全记录保留原样，Aiscoo 不读取、自动认领或恢复；即使同一 Aiscoo 用户重新登录也不启用官方账号。自配模型及第三方 MCP 登录保持原行为。
@@ -123,7 +123,7 @@ sequenceDiagram
   H->>M: 清理 owner 对应只读分区
 ```
 
-macOS/Windows 使用 Electron `safeStorage`；Linux 的 `basic_text`、无可用 OS keystore 或无法保护密钥时私有登录 fail-closed，不降级到旧机器 key。跨平台真实 keystore 验收单独记录，不能以注入测试 key 的 AES-GCM 测试代替。
+2026-11-01 起，私有凭据不再使用 Electron `safeStorage`，三个平台的行为一致：使用上游 cipher，不弹出系统钥匙串授权，也不要求输入电脑密码；该密钥可由系统信息推导，保护级别与上游相同（取舍与理由见 [规格 §4.2](./specs/new-api-integration.md)）。此前各条里“真实 OS keystore / safeStorage / 0600 密钥文件”的验收记录是历史事实，只代表当时的实现，不适用于当前版本。
 
 ## 手工套餐与模型维护
 

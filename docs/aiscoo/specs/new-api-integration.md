@@ -186,14 +186,34 @@ sequenceDiagram
 
 安全凭据域按 `new-api:<origin-key>:<user-id>:<sid>` 命名，保存 control、refresh、relay 的类型/expiry。origin-key 是规范化 origin 的稳定非秘密标识；不能同用户名不同服务器复用 token。
 
-复用现有 `credentials.json`、目录锁和原子替换。私有 typed bundle 与 active pointer 同次加密落盘，refresh/delete/取消补偿按精确 owner 与前继 refresh CAS；公共 `ICredentialService` 拒绝 `new-api:` / `official-cloud:` 秘密域。Desktop Main 使用平台 `safeStorage` 保护独立随机私有加密 key，仅传给 Host；拒绝 Linux `basic_text` 或无安全 keystore 的降级。旧官方密文不改 key，Headless 缺私有 cipher 时明确不可用。
+复用现有 `credentials.json`、目录锁和原子替换。私有 typed bundle 与 active pointer 同次加密落盘，refresh/delete/取消补偿按精确 owner 与前继 refresh CAS；公共 `ICredentialService` 拒绝 `new-api:` / `official-cloud:` 秘密域。
+
+**加密密钥（2026-11-01 决定，取代此前的 `safeStorage` 随机私有 key 方案）。** 私有记录与上游一致，使用上游 `createCredentialCipherProvider()` 的密钥来源：环境变量 `ZCODE_CREDENTIAL_SECRET`，未设置时由 `platform + homedir + username` 推导。Desktop Main 不再读取 Electron `safeStorage`、不再创建或读取 `private-credential-key.v1`、不再向 Host 下发 `XCODE_PRIVATE_CREDENTIAL_SECRET`；因此应用启动和登录**不会触发系统钥匙串授权，也不会要求用户输入电脑密码**。旧官方密文、私有记录、`official-cloud:` 记录使用同一个 cipher。
+
+- **原因**：产品要求最终用户不被要求输入电脑密码，且上游 ZCode 的登录凭据路径没有这一步。此前的 `safeStorage` 方案在 macOS 上读取由其他签名身份创建的钥匙串条目会弹出授权窗，读取失败时登录在联网前被拦截，界面只显示泛化的“登录失败”。
+- **接受的安全取舍**：该密钥可由系统公开信息推导（仓库审计文档 `docs/security/security-audit-2026-06-09.md` 与 `docs/analysis/credentials-json-code-audit.md` 已记录）。同一台电脑上能读取 `credentials.json` 的同用户本地进程，可以离线推导密钥并解密其中的登录会话；AES-GCM 只防止未获得推导信息的读取者，不是操作系统级保护。该风险与上游相同，由用户在知情后接受。需要更强保护时，部署方设置 `ZCODE_CREDENTIAL_SECRET`（Host 与 CLI 对空白字符的处理不同，设置值不得含首尾空白）。文件权限仍为 0600，`credentials.json` 不进入日志导出。
+- **旧记录**：此前由 `safeStorage` 密钥加密的私有记录，使用上游 cipher 无法解密，按“解密失败”处理：启动恢复显示需要重新登录，用户重新登录时，已验证登录的恢复路径（见 §3“已验证 Native 登录的凭据恢复”）先保存原始密文备份再覆盖。不尝试读取旧 `private-credential-key.v1` 或钥匙串，不做迁移。旧密钥文件不再被使用，留在磁盘上无害，可以手动删除。
+- **不再有“存储不可用”分支**：Host 创建 cipher 不会因缺少 OS 密钥而失败，`XCODE_SECURE_STORAGE_UNAVAILABLE` 不再由 Desktop 产生；校验层仍把该码按“需要恢复凭据”分类，以兼容测试夹具注入的故障。
+
+**范围。** 只涉及桌面端 New API 私有凭据。CLI 的 Zen 凭据存储（服务 `XWork CLI Zen`，`@napi-rs/keyring`）是独立入口，由用户运行 CLI 登录命令触发，桌面端不调用，不在本次范围内；Chrome 登录状态导入读取 Chrome Safe Storage 是用户主动发起的功能，也不变。
+
+```mermaid
+sequenceDiagram
+  participant M as Main
+  participant H as Local Host
+  participant C as credentials.json
+  M->>H: 启动 Host（不携带任何加密密钥）
+  H->>H: 上游 cipher：ZCODE_CREDENTIAL_SECRET，缺省按平台、家目录、用户名推导
+  H->>C: 加密读写 new-api 私有记录
+  Note over M,C: 全程不访问 Electron safeStorage 与系统钥匙串
+```
 
 原生 JWT本地 exp 解析只作刷新提示；身份、SID、授权最终由服务端确认。Opaque/不可解析不等于已经登录。刷新采用 Host 内单飞，复用原生 refresh 轮换和竞态恢复，及时原子替换安全库中的后继 refresh。
 
 - control 过期：允许一次正常 refresh 后重试原只读请求；不要对安全拒绝无限重试。
 - Native 明确 session/key 已撤销：主登录失效，清可执行私有授权，要求重新登录。
 - 503/网络故障：显示暂不可用，不伪装 signed-out/no_plan，不删除可恢复凭据。
-- 解密失败：沿用稳定错误及人工恢复提示，不能静默换到官方或环境变量 key。
+- 解密失败：沿用稳定错误及重新登录提示，不能静默换到其他 key（环境变量 `ZCODE_CREDENTIAL_SECRET` 是上游 cipher 自身的一部分，不属于“换 key”）。
 - 取消/新登录覆盖：迟到回调不持久化；若已兑换到有效 SID，按 canonical 撤销，不发布错误主用户。
 
 同 SID 的正常 refresh 不重建 relay key；删 key 后不通过 refresh 自动“修复”用户的明确撤销。

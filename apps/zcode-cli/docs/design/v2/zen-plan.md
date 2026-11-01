@@ -12,7 +12,7 @@
 
 - CLI `login-command.ts` 仅接受 zai/bigmodel，TUI `command-center/login-flow.ts` 仅有官方 OAuth/API Key 选项。
 - `process-provider-registry-runtime.ts` 的 standalone account source 仍读取官方凭据；托管 Worker 已支持 New API Account overlay，不等于独立 CLI 已支持登录。
-- 桌面 `NewApiAccountService` 使用窗口 Host owner 和 Main 提供的安全密钥；普通 Node 进程不能读取 Electron safeStorage 密钥。
+- 桌面 `NewApiAccountService` 使用窗口 Host owner；2026-11-01 起它与上游一致使用上游 cipher 加密，不再经 Main 提供安全密钥或 Electron safeStorage（见 [客户端集成规格 §4.2](../../../../../docs/aiscoo/specs/new-api-integration.md)）。CLI 的 Zen 凭据仍使用下文的系统钥匙串条目，与桌面互相独立。
 - New API canonical spec `docs/specs/xcode-integration.md` §4.2/§6 目前只允许 `xcode-desktop` 与精确 `zcode://oauth/callback`，且明确不提供 CLI polling。必须先扩展后端契约，不能把动态回调直接塞入现有客户端。
 
 ## 产品规则

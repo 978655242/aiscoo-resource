@@ -29,8 +29,6 @@ for (const adminBaseUrl of [undefined, "", "  ", "http://untrusted.example", "no
       ZCODE_DESKTOP_HOME_DIR: home,
       ZCODE_SETTINGS_FILE_PATH: join(home, ".zcode", "v2", "setting.json"),
     });
-    // XCODE: 私有密钥模块在 import 时捕获环境，测试隔离必须先于 Host 实现加载。
-    delete process.env.XCODE_PRIVATE_CREDENTIAL_SECRET;
     delete process.env.AISCOO_ADMIN_BASE_URL;
     mock.method(Socket.prototype, "connect", () => {
       throw new Error("Network is forbidden");

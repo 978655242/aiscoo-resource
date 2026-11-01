@@ -13,7 +13,6 @@ import {
   CREDENTIAL_DECRYPT_ERROR_CODE,
   isCredentialDecryptError,
 } from "@zcode/shared";
-import { createPrivateCredentialCipherProvider } from "./providers/privateCredentialCipherProvider.js";
 import type { ICredentialService } from "./credential.js";
 import {
   createCredentialCipherProvider,
@@ -138,7 +137,8 @@ export async function readHostCredentialRecords<T>(
         code: CREDENTIAL_DECRYPT_ERROR_CODE,
       });
     }
-    cipher ??= createPrivateCredentialCipherProvider();
+    // XCODE: 2026-11-01 起私有记录与上游同一 cipher，不依赖 Main 下发的 OS 密钥。
+    cipher ??= createCredentialCipherProvider();
     return cipher.decrypt(encrypted);
   });
 }
@@ -167,7 +167,7 @@ export async function updateHostCredentialRecords<T>(
   const credentialsFile = dependencies.credentialsFile ?? getCredentialsFile();
   return withFileLock(credentialsFile, async () => {
     const records = await readAll(credentialsFile);
-    const cipher = dependencies.cipherProvider ?? createPrivateCredentialCipherProvider();
+    const cipher = dependencies.cipherProvider ?? createCredentialCipherProvider();
     const selected = new Map<string, string | null>();
     for (const key of keys) {
       const encrypted = records[key];
