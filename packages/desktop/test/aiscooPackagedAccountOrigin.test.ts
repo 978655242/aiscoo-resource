@@ -88,6 +88,11 @@ describe("build-time validator stays identical to the runtime validator", () => 
     "https://Account.Example.test:8443",
     "https://112.124.202.60",
     "https://112.124.202.60:8443",
+    "https://112.124.202.60:8443/",
+    "https://112.124.202.60:0",
+    "https://112.124.202.60:65536",
+    "https://112.124.202.60:",
+    "https://112.124.202.60:8443/api",
     "http://127.0.0.1:3001",
     "http://localhost:3001",
     "http://[::1]:3001",
@@ -234,5 +239,46 @@ describe("compiled-constant wrapper used by the Main early bootstrap", () => {
     };
     expect(applyCompiledAiscooAccountOrigin({ isPackaged: false, env })).toBeUndefined();
     expect(env[AISCOO_ADMIN_BASE_URL_ENV]).toBe("http://127.0.0.1:3001");
+  });
+});
+
+describe("the account origin includes its port", () => {
+  it("keeps an explicit port exactly as written, in both validators", () => {
+    expect(normalizeAiscooAccountOrigin("https://112.124.202.60:8443")).toBe(
+      "https://112.124.202.60:8443",
+    );
+    expect(normalizeNewApiOrigin("https://112.124.202.60:8443")).toBe(
+      "https://112.124.202.60:8443",
+    );
+    expect(normalizeAiscooAccountOrigin("https://112.124.202.60:8443/")).toBe(
+      "https://112.124.202.60:8443",
+    );
+  });
+
+  it("treats the same host on another port as a different origin", () => {
+    // 回归依据：账号服务从 443 移到 8443 后，旧包仍指向 443 的官网。服务端 XCODE_PUBLIC_ORIGIN 按整串比较，
+    // 所以带端口与不带端口必须是不同的值，不能被归一成同一个。
+    expect(normalizeAiscooAccountOrigin("https://112.124.202.60:8443")).not.toBe(
+      normalizeAiscooAccountOrigin("https://112.124.202.60"),
+    );
+  });
+
+  it("compiles and applies the port-bearing origin end to end", () => {
+    const origin = resolveBuildAiscooAccountOrigin({
+      env: { [AISCOO_ADMIN_BASE_URL_ENV]: "https://112.124.202.60:8443" },
+      channel: "production",
+    });
+    const env: Record<string, string | undefined> = {
+      [AISCOO_ADMIN_BASE_URL_ENV]: "https://112.124.202.60",
+    };
+    expect(
+      applyPackagedAiscooAccountOrigin({
+        compiledOrigin: origin,
+        hasAiscooChannel: true,
+        isPackaged: true,
+        env,
+      }),
+    ).toBe("https://112.124.202.60:8443");
+    expect(env[AISCOO_ADMIN_BASE_URL_ENV]).toBe("https://112.124.202.60:8443");
   });
 });

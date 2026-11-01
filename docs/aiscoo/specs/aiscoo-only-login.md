@@ -28,6 +28,8 @@ Desktop Aiscoo 渠道始终启用产品账号限制。Main、Host、scheduler �
 - 未打包的开发运行不被覆盖，继续使用环境变量或 `.env`。未编译账号源的构建（上游通用构建）不改变任何行为。
 - 编译值是公开 origin，不含凭据。它同时是凭据命名空间的一部分，因此更换账号服务域名需要发新版本，旧 origin 下的登录不会迁移。
 - 账号服务端必须同时满足：监听同一个 HTTPS origin，设置 `XCODE_INTEGRATION_ENABLED=true`，并让 `XCODE_PUBLIC_ORIGIN` 与编译值逐字一致。否则授权入口返回 `XCODE_AUTHORIZATION_DISABLED`，登录无法完成。
+- origin 含端口时端口属于 origin 的一部分，编译值与 `XCODE_PUBLIC_ORIGIN` 都必须写出同样的端口（例如 `https://112.124.202.60:8443`）。同一主机上不同端口是不同的 origin：端口约定变化（例如账号服务被移到别的端口）会使已发布的安装包连到错误的服务，必须用新 origin 重新构建并发新版本，不能只改服务器。
+- 发布前除校验格式外，还要用与应用相同的网络栈对编译值实际访问一次：`/api/status` 返回账号服务的 JSON（而不是别的站点），`/api/xcode/v1/auth/authorize` 用应用发出的参数返回 302 到同一 origin 的授权页。
 
 Aiscoo CLI 复用已有 Zen/Aiscoo 命令与安全存储。默认登录只引导 Aiscoo；指定 Z.ai/BigModel 或旧官方自动登录/恢复路径在产品入口拒绝并提示 Aiscoo。通用 CLI 实现仍可按上游扩展原则保留，产品命令不可绕回官方登录。
 
