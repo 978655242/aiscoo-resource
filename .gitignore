@@ -83,3 +83,5 @@ __pycache__/
 /packages/server/.video_agent/
 /.video_agent/
 /packages/server/.zcodeignore
+# XCODE: ZCode 本地会话计划与验收截图不入库。
+/.zcode/
