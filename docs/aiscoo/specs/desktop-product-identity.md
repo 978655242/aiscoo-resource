@@ -14,7 +14,11 @@ Aiscoo 正式版、开发版、Preview 和上游 ZCode 必须能够共存。Aisc
 
 唯一身份配置位于 @zcode/shared/aiscoo-desktop-identity，构建工具和运行时复用。Desktop 构建显式固化渠道；未注入 Aiscoo 渠道的通用运行时保持上游默认值。系统应用 ID、Windows executable/AUMID、Linux executable/package/desktop MIME、macOS开发副本与正式协议声明均须与该配置一致。
 
-Aiscoo 桌面打包入口使用独立配置包装上游 afterPack：先等待原 hook 完成全部 asar 重打包，再为 macOS 的 node-pty spawn-helper 恢复执行权限，随后由 Electron Builder 执行签名。原配置单独使用时行为不变；原 hook 失败时不得继续修复或签名。工程回归覆盖 hook 次序、真实重打包和执行权限恢复；最终安装包须以实际 PTY spawn 验收，不能仅检查文件存在。
+macOS 的 `node-pty` `spawn-helper` 经 asar 解包再重打包后会丢失执行权限：应用能构建成功，但终端启动时 `posix_spawnp` 失败。修复位于 `electron-builder.config.js` 的 `afterPack`，由 `ensurePackagedNodePtyHelperExecutable` 在原生资源策略校验之后、`assertPackagedNodePtyPrebuild` 之前恢复执行位，仅对 macOS 目标生效。
+
+位置必须在最后一次重打包之后：`injectHoistedRuntimeModulesIntoAsar` 与 `stripPackagedSourcemapReferences` 都会解包并重打包 `app.asar`，helper 位于 `app.asar.unpacked` 中，此后再增加任何重打包步骤都会让执行位再次丢失，因此新的 `afterPack` 步骤不得放在它之前，若新增了会重打包的步骤，需同步更新工程回归中的顺序断言。修复直接放在配置内，不依赖入口脚本选择哪个配置文件，`bundle.mjs` 与直接运行 `electron-builder --config electron-builder.config.js` 均有效。现有 `assertPackagedNodePtyPrebuild` 只检查 helper 存在，不检查执行位；执行位与上述顺序由工程回归守护。
+
+工程回归覆盖真实 asar 重打包后的执行权限恢复。最终安装包须以实际 PTY spawn 验收，不能仅检查文件存在；该验收不涉及签名与公证。
 
 ## 授权接口与所有者
 

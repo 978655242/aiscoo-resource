@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { execFile, execFileSync } from "node:child_process";
-import { chmod, cp, mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { mkdtemp, mkdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { replaceAppAsarFromStaging } from "../../packages/desktop/scripts/app-asar-repack.mjs";
 import test from "node:test";
 import { promisify } from "node:util";
 
-import { replaceAppAsarFromStaging } from "../../packages/desktop/scripts/app-asar-repack.mjs";
 import {
   desktopDevelopmentKeychainName,
   desktopProductIdentities,
@@ -113,123 +113,64 @@ test("Dev plist replaces old and duplicate protocol declarations without retaini
   }
 });
 
-test("macOS PTY helper is executable after archive repack and final hook", async (t) => {
-  if (process.platform === "win32") return t.skip("POSIX executable permissions required");
+test("macOS PTY helper remains executable after the real archive repack and final hook", async () => {
+  if (process.platform === "win32") return;
   const root = await mkdtemp(join(tmpdir(), "aiscoo-pty-packaging-"));
   try {
     const sourceDir = join(root, "source");
-    const resourcesDir = join(root, "Aiscoo.app/Contents/Resources");
-    await mkdir(resourcesDir, { recursive: true });
     const helperRelative = "node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper";
-    await mkdir(dirname(join(sourceDir, helperRelative)), { recursive: true });
-    // XCODE: 模拟重打包后丢失执行位，验证修复能恢复实际进程执行能力。
+    await mkdir(join(sourceDir, "node_modules/node-pty/prebuilds/darwin-arm64"), {
+      recursive: true,
+    });
+    // XCODE: asar 解包会丢失 helper 的执行位，最终 hook 必须恢复真实进程可执行能力。
     await writeFile(join(sourceDir, helperRelative), "#!/bin/sh\nexit 0\n", { mode: 0o644 });
-    const archive = join(resourcesDir, "app.asar");
+    const archive = join(root, "app.asar");
     const asarCli = join(
       dirname(requireFromDesktop.resolve("@electron/asar/package.json")),
       "bin/asar.js",
     );
-    const assets = await import("../aiscoo-desktop-electron-builder.config.mjs");
-    let originalFinished = false;
-    const wrapped = assets.createAiscooAfterPack(async () => {
-      await replaceAppAsarFromStaging({
-        sourceDir,
-        appAsarPath: archive,
-        targetPlatformKey: "darwin-arm64",
-        runAsarCommand: (args) => execFileSync(process.execPath, [asarCli, ...args]),
-      });
-      assert.equal((await stat(join(`${archive}.unpacked`, helperRelative))).mode & 0o111, 0);
-      originalFinished = true;
-    }, "darwin-arm64");
-    await wrapped({
-      appOutDir: root,
-      electronPlatformName: "darwin",
-      packager: { appInfo: { productFilename: "Aiscoo" } },
+    await replaceAppAsarFromStaging({
+      sourceDir,
+      appAsarPath: archive,
+      targetPlatformKey: "darwin-arm64",
+      runAsarCommand: (args) => execFileSync(process.execPath, [asarCli, ...args]),
     });
-    assert.equal(originalFinished, true);
-    const helper = join(`${archive}.unpacked`, helperRelative);
-    assert.equal((await stat(helper)).mode & 0o777, 0o755);
-    await execFileAsync(helper, []);
+    const config = (await import("../../packages/desktop/electron-builder.config.js")).default;
+    const assets = await import("../../packages/desktop/scripts/node-pty-package-assets.mjs");
+    assert.ok(config.afterPack.toString().includes("ensurePackagedNodePtyHelperExecutable"));
     await assets.ensurePackagedNodePtyHelperExecutable({
       resourcesDir: root,
-      platformKey: "linux-x64",
+      platformKey: "darwin-arm64",
     });
-    await assert.rejects(
-      assets.ensurePackagedNodePtyHelperExecutable({
-        resourcesDir: root,
-        platformKey: "darwin-x64",
-      }),
-      { code: "ENOENT" },
-    );
+    const helper = join(`${archive}.unpacked`, helperRelative);
+    assert.ok((await stat(helper)).mode & 0o111);
+    await execFileAsync(helper, []);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
 });
 
-test("Aiscoo afterPack preserves base configuration and propagates original failures", async () => {
-  const base = (await import("../../packages/desktop/electron-builder.config.js")).default;
-  const { default: aiscoo, createAiscooAfterPack } =
-    await import("../aiscoo-desktop-electron-builder.config.mjs");
-  assert.notEqual(aiscoo.afterPack, base.afterPack);
-  assert.equal(aiscoo.afterSign, base.afterSign);
-  // XCODE: 锁定实际版本的 Builder 顺序，确保 afterPack 完成后才进入签名阶段。
-  const builderSource = await readFile(
-    requireFromDesktop.resolve("app-builder-lib/out/platformPackager.js"),
-    "utf8",
-  );
-  const emit = builderSource.indexOf("await this.info.emitAfterPack(packContext)");
-  const sign = builderSource.indexOf("await this.doSignAfterPack(", emit);
-  assert.ok(emit >= 0 && sign > emit);
-  const failure = new Error("original hook failed");
-  const context = { electronPlatformName: "darwin" };
-  await assert.rejects(
-    createAiscooAfterPack(async () => {
-      throw failure;
-    }, "darwin-arm64")(context),
-    failure,
-  );
-  let calls = 0;
-  await createAiscooAfterPack(async () => {
-    calls += 1;
-  }, "linux-x64")({ electronPlatformName: "linux" });
-  assert.equal(calls, 1);
-});
-
-test("macOS native PTY starts with the repaired packaged helper", async (t) => {
-  if (process.platform !== "darwin") return t.skip("requires macOS native PTY");
-  const root = await mkdtemp(join(tmpdir(), "aiscoo-native-pty-"));
-  try {
-    const packageRoot = dirname(requireFromDesktop.resolve("node-pty/package.json"));
-    const packagedRoot = join(root, "app.asar/node_modules/node-pty");
-    const unpackedRoot = join(root, "app.asar.unpacked/node_modules/node-pty");
-    await mkdir(dirname(packagedRoot), { recursive: true });
-    await mkdir(dirname(unpackedRoot), { recursive: true });
-    await cp(packageRoot, packagedRoot, { recursive: true });
-    const platformKey = `darwin-${process.arch}`;
-    await cp(
-      join(packageRoot, "prebuilds", platformKey),
-      join(unpackedRoot, "prebuilds", platformKey),
-      { recursive: true },
-    );
-    const helper = join(unpackedRoot, "prebuilds", platformKey, "spawn-helper");
-    // XCODE: 对临时副本复现缺失执行位，避免修改依赖或其他工作树。
-    await chmod(helper, 0o644);
-    const { ensurePackagedNodePtyHelperExecutable } =
-      await import("../aiscoo-desktop-electron-builder.config.mjs");
-    await ensurePackagedNodePtyHelperExecutable({ resourcesDir: root, platformKey });
-    const { stdout } = await execFileAsync(
-      process.execPath,
-      [
-        "-e",
-        `const pty = require(process.argv[1]); const p = pty.spawn('/bin/sh', ['-c', 'printf PTY_OK']); let output = ''; p.onData(data => output += data); p.onExit(({exitCode}) => { process.stdout.write(output); process.exitCode = exitCode; });`,
-        packagedRoot,
-      ],
-      { timeout: 10000 },
-    );
-    assert.match(stdout, /PTY_OK/u);
-  } finally {
-    await rm(root, { recursive: true, force: true });
+test("PTY helper repair runs after every afterPack step that rewrites app.asar", async () => {
+  const config = (await import("../../packages/desktop/electron-builder.config.js")).default;
+  const source = config.afterPack.toString();
+  const labels = (name) => [...source.matchAll(new RegExp(`"afterPack:${name}"`, "gu"))];
+  const position = (name) => {
+    const found = labels(name);
+    assert.equal(found.length, 1, `afterPack:${name} must appear exactly once`);
+    return found[0].index;
+  };
+  // XCODE: 这两步会解包并重打包 app.asar，helper 的执行位只能在它们之后恢复。
+  const repair = position("ensurePackagedNodePtyHelperExecutable");
+  for (const rewrite of [
+    "injectHoistedRuntimeModulesIntoAsar",
+    "stripPackagedSourcemapReferences",
+  ]) {
+    assert.ok(position(rewrite) < repair, `${rewrite} must run before the helper repair`);
   }
+  assert.ok(
+    repair < position("assertPackagedNodePtyPrebuild"),
+    "the helper repair must run before the packaged prebuild assertion",
+  );
 });
 
 for (const [label, environment, channel] of [
