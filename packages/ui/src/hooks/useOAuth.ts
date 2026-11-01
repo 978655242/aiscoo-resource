@@ -6,8 +6,6 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { OAuthProviderId, OAuthProviderMeta } from "@zcode/shared";
-// XCODE: 产品账号准入合同由入口可选注入，缺省时保留原路径。
-import type { OAuthLifecyclePlatform } from "@/oauth-lifecycle/contract.js";
 import {
   BIGMODEL_PROVIDER_ID,
   NEW_API_PROVIDER_ID,
@@ -28,8 +26,6 @@ type OAuthStatus = "idle" | "waiting" | "error";
 export function useOAuth() {
   const { oauthService } = useServices();
   const platform = usePlatform();
-  // XCODE: 可选产品准入在 hook 命令边界执行，未注入时原渠道行为不变。
-  const accountPolicy = (platform as OAuthLifecyclePlatform).oauthAccountPolicy;
   const { intl } = useZCodeIntl();
   const [status, setStatus] = useState<OAuthStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -45,19 +41,11 @@ export function useOAuth() {
     try {
       setLoadingProviders(true);
       const providerList = await oauthService.getProviders();
-      setProviders(
-        accountPolicy
-          ? providerList.filter(
-              (provider) => provider.enabled && accountPolicy.acceptsProvider(provider.id),
-            )
-          : providerList,
-      );
+      setProviders(providerList);
 
       try {
         const active = await oauthService.getActiveProvider();
-        setActiveProvider(
-          active && accountPolicy && !accountPolicy.acceptsProvider(active) ? null : active,
-        );
+        setActiveProvider(active);
       } catch (err) {
         // 只有本地 OAuth 凭据解密失败才可恢复为未登录态；RPC/存储权限等错误需要走外层错误路径。
         if (!isCredentialDecryptError(err)) {
@@ -76,7 +64,7 @@ export function useOAuth() {
     } finally {
       setLoadingProviders(false);
     }
-  }, [accountPolicy, oauthService]);
+  }, [oauthService]);
 
   useEffect(() => {
     void refreshProviders();
@@ -85,27 +73,20 @@ export function useOAuth() {
   const startLogin = useCallback(
     async (provider: OAuthProviderId, options: { purpose?: LoginEntryPurpose } = {}) => {
       const loginAttempt = ++loginAttemptRef.current;
-      // XCODE: 设置页的登录请求也必须经过准入，拒绝后不创建 polling。
-      if (accountPolicy && !accountPolicy.acceptsProvider(provider)) {
-        setOAuthPollingActive(false);
-        setStatus("error");
-        setError(intl.formatMessage({ id: accountPolicy.unsupportedMessageId }));
-        setPendingProvider(null);
-        setAuthorizeUrl(null);
-        return;
-      }
       try {
         setStatus("waiting");
         setError(null);
         setPendingProvider(provider);
         setAuthorizeUrl(null);
 
-        // XCODE: New API 只走精确回调授权，不使用官方 polling。
-        const response =
-          provider === NEW_API_PROVIDER_ID
-            ? await oauthService.startOAuth(provider)
-            : await oauthService.startOAuthWithPolling(provider);
-        const { authorizeUrl, state, provider: startedProvider, purpose } = response;
+        const {
+          authorizeUrl,
+          state,
+          provider: startedProvider,
+          purpose,
+        } = provider === NEW_API_PROVIDER_ID
+          ? await oauthService.startOAuth(provider)
+          : await oauthService.startOAuthWithPolling(provider);
 
         if (loginAttemptRef.current !== loginAttempt) {
           return;
@@ -147,15 +128,11 @@ export function useOAuth() {
         setAuthorizeUrl(null);
         // OAuth 启动失败也属于登录失败，不把服务端或平台错误原文展示给用户。
         // 原文通过 i18n 渲染，避免登录页出现 provider/token 等具体失败原因。
-        setError(
-          intl.formatMessage({
-            id: accountPolicy?.errorMessageId(err) ?? "login.oauth.loginFailure",
-          }),
-        );
+        setError(intl.formatMessage({ id: "login.oauth.loginFailure" }));
         setPendingProvider(null);
       }
     },
-    [accountPolicy, intl, oauthService, platform, setOAuthPollingActive],
+    [intl, oauthService, platform, setOAuthPollingActive],
   );
 
   const cancel = useCallback(

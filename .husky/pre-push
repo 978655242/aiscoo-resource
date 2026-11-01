@@ -13,7 +13,6 @@ fi
 # shellcheck disable=SC2046
 unset $(git rev-parse --local-env-vars)
 # XCODE: 先执行分支策略检查，阻止直接推送已存在的 release、非上游 main 及不合规分支名。
-# 修复原因：release 的策略脚本保留在 xcode 目录，品牌显示名迁移不改变门禁入口。
 printf '%s\n' "$pre_push_stdin" | node scripts/xcode/branch-policy.mjs push
 # 修复原因：强制 mise 会阻止已用其他方式准备好 Node/pnpm 的开发者推送；沿用当前环境。
 ZCODE_PRE_PUSH_STDIN="$pre_push_stdin" pnpm run verify:pre-push

@@ -100,7 +100,8 @@ export function parseOAuthStateRegistration(payload: unknown): OAuthStateRegistr
     (candidate.purpose !== "primary-account" && candidate.purpose !== "official-cloud") ||
     (candidate.provider === "new-api" && candidate.purpose !== "primary-account") ||
     (candidate.provider === "new-api" && candidate.state.length < 22) ||
-    // XCODE: Aiscoo 渠道只接收主账号登录，旧官方注册不能进入窗口路由或 pending 槽。
+    // XCODE: Aiscoo 渠道只接收主账号登录。路由表只经 IPC 登记，此处是唯一入口，
+    // 官方 state 进不了路由表，后续回调派发与 pending 投递无需重复判断。
     (desktopIdentity &&
       (candidate.provider !== "new-api" || candidate.purpose !== "primary-account"))
   ) {
@@ -394,9 +395,6 @@ export function handleDeepLink(
   const purposes = parsedUrl.searchParams.getAll("purpose");
   if (
     !routeTarget ||
-    // XCODE: 派发边界再次执行产品限制，历史 state 也不能恢复官方流程。
-    (desktopIdentity &&
-      (routeTarget.provider !== "new-api" || routeTarget.purpose !== "primary-account")) ||
     parsedUrl.searchParams.getAll("state").length !== 1 ||
     parsedUrl.username ||
     parsedUrl.password ||
@@ -505,8 +503,6 @@ export function registerDeepLinkProtocol(
 }
 
 export function registerOAuthState(windowId: number, registration: OAuthStateRegistration): void {
-  // XCODE: 直接调用同样经过渠道校验，不能绕过 IPC parser 注册官方登录。
-  if (desktopIdentity && !parseOAuthStateRegistration(registration)) return;
   if (oauthStateToWindow.has(registration.state)) return;
   // XCODE: 新flow退休同窗口同purpose的旧state，不触碰其他窗口/用途。
   for (const [state, target] of oauthStateToWindow) {
@@ -543,11 +539,7 @@ export function deliverPendingDeepLink(webContents: WebContents): boolean {
   }
   pendingShareImports.push(...undeliveredShareImports);
   for (const [state, pending] of pendingOAuthCallbacks) {
-    if (
-      (desktopIdentity &&
-        (pending.target.provider !== "new-api" || pending.target.purpose !== "primary-account")) ||
-      oauthStateToWindow.get(state) !== pending.target
-    ) {
+    if (oauthStateToWindow.get(state) !== pending.target) {
       pendingOAuthCallbacks.delete(state);
       continue;
     }

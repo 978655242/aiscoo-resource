@@ -74,10 +74,6 @@ ZCODE_DATA_BASE_DIR="$HOME/.zcode-dev-home" pnpm dev:desktop:test
 
 ### Web Development
 
-Aiscoo product entrypoints support Aiscoo accounts only. Use `pnpm dev:web` with explicit `AISCOO_BROWSER_NEW_API=1` and `AISCOO_ADMIN_BASE_URL` configuration. The browser uses the existing same-origin proxy and strict loopback PKCE callback; open an `http://127.0.0.1` address with an explicit port. Missing or invalid configuration reports that login is unavailable and never restores Z.ai or BigModel login. See the [browser account specification](docs/aiscoo/specs/browser-new-api.md) and [account policy](docs/aiscoo/specs/aiscoo-only-login.md).
-
-The old Host-owned credential flow behind `pnpm dev:aiscoo:web` is a historical snapshot, not the current login entrypoint. The retired `NEW_API_BASE_URL` key is no longer read.
-
 Use development mode when editing Web or backend source code:
 
 ```bash
@@ -131,7 +127,7 @@ pnpm --filter @zcode/cli... build
 node apps/zcode-cli/packages/cli/dist/zcode.cjs --help
 ```
 
-This entry runs the Agent CLI directly and does not handle the distribution's `--web` switch. Use `pnpm dev:web` with the Aiscoo browser configuration described above, or the extracted `bin/zcode.mjs` shown below to test the unified command.
+This entry runs the Agent CLI directly and does not handle the distribution's `--web` switch. Use `pnpm dev:web` for Web development, or the extracted `bin/zcode.mjs` shown below to test the unified command.
 
 ### UI Plugin development
 

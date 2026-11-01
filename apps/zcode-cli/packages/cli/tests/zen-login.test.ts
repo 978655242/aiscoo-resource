@@ -211,3 +211,55 @@ test("SIGINT during Zen login aborts the flow and waits for compensation before 
   assert.equal(exitedEarly, false, "process did not exit before compensation finished");
   assert.equal(listeners.size, 0, "signal handlers are removed afterwards");
 });
+
+// XCODE: 上游 tui-prompt-handler 只读取可选的 createTuiCommandCenter；下面两条回归证明产品入口真的注入了它。
+test("runAiscoo injects the Aiscoo TUI command center through the optional run dependency", async () => {
+  const { withAiscooTuiCommandCenter } = await import("../src/aiscoo/tui-zen.js");
+  const refreshReasons: string[] = [];
+  let authorizeShown = "";
+  const runtime = {
+    zenAccount: {
+      async login(options: { onAuthorizeUrl?: (url: string) => Promise<void> }) {
+        await options.onAuthorizeUrl?.("https://login.example.test/authorize?state=zen");
+        return { user: { display_name: "Test User", username: "test-account" } };
+      },
+      async logout() {
+        return { localCleared: true, serverRevoked: true };
+      },
+    },
+    async refreshStandaloneAccount(reason: string) {
+      refreshReasons.push(reason);
+    },
+    async readZenModelStatus() {
+      return { available: true, reason: null };
+    },
+  };
+  const deps = withAiscooTuiCommandCenter({
+    startProcessProviderRegistryRuntime: (async () => runtime) as never,
+  });
+  assert.ok(deps.createTuiCommandCenter, "product entry must inject a TUI command center");
+  // TUI 启动时由上游 runtime 准备逻辑调用一次；包装后的启动函数必须记下同一 runtime。
+  await deps.startProcessProviderRegistryRuntime!({} as never, {} as never);
+  const center = deps.createTuiCommandCenter!({
+    ...baseDeps("en-US"),
+    getApp: async () => ({ sessionId: "zen-session" }) as never,
+  });
+  const picker = await center("/login", {} as never);
+  assert.equal(picker.response, "Sign in to Aiscoo, or configure your own API key.");
+  assert.equal(picker.selection?.items[0]?.command, "/login zen");
+  const login = await center("/login zen", {
+    onEvent: async (event: { payload?: { content?: string } }) => {
+      authorizeShown += JSON.stringify(event);
+    },
+  } as never);
+  assert.match(authorizeShown, /login\.example\.test\/authorize/);
+  assert.deepEqual(refreshReasons, ["zen-login"]);
+  assert.match(login.response, /Signed in to Aiscoo Zen Plan as Test User/);
+});
+
+test("without injection the upstream TUI keeps its own command center", async () => {
+  const { withAiscooTuiCommandCenter } = await import("../src/aiscoo/tui-zen.js");
+  // 上游默认依赖不含工厂；只有经过 runAiscoo 的产品依赖才有。
+  assert.equal(({} as import("../src/cli-types.js").RunDependencies).createTuiCommandCenter, undefined);
+  assert.equal(typeof withAiscooTuiCommandCenter({}).createTuiCommandCenter, "function");
+});

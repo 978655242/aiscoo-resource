@@ -13,6 +13,7 @@ import { registerCliShutdownHandlers } from "../shutdown.js";
 import { setZenKeyringModuleLoader } from "@zcode/adapters/auth";
 import { loadCliKeyringModule } from "../sea-keyring/index.js";
 import { parseSlashCommand } from "../command-center/slash-commands.js";
+import { withAiscooTuiCommandCenter } from "./tui-zen.js";
 
 // 撤销请求本身有 15 秒 HTTP 期限；给补偿留出完成时间，超时仍退出不挂起终端。
 const ZEN_LOGIN_SHUTDOWN_TIMEOUT_MS = 16_000;
@@ -71,7 +72,8 @@ export async function runAiscoo(ctx: RunContext, deps: AiscooRunDependencies = {
   const invocation = parseZenInvocation(ctx.argv);
   // 产品依赖固定拒绝官方 polling；通用 run 和第三方 MCP OAuth 实现保持原样。
   const rejectOfficial = async (): Promise<never> => { throw new Error(`Use login zen to sign in to ${PRODUCT_NAME}.`); };
-  const productDeps = { ...deps, loginZCodeCli: rejectOfficial, loginBigmodelCodingPlan: rejectOfficial, logoutZCodeCli: rejectOfficial };
+  // TUI 命令中心经 RunDependencies 的可选工厂注入，上游 tui-prompt-handler 只做一次可选回退。
+  const productDeps = withAiscooTuiCommandCenter({ ...deps, loginZCodeCli: rejectOfficial, loginBigmodelCodingPlan: rejectOfficial, logoutZCodeCli: rejectOfficial });
   if (!invocation) return run(ctx, productDeps);
   const env = deps.env ?? process.env;
   if (invocation.command === "help") {

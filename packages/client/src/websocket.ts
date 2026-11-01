@@ -22,8 +22,6 @@ interface WebSocketConnectionOptions {
   onOpenSocket?: (socket: WebSocket) => void;
   // XCODE: 可选反向服务只注册调用方声明的 channel，默认仍为单向客户端。
   registerChannels?: (server: IChannelServer) => void;
-  // XCODE: 可选协议保留为未接线扩展，默认连接与浏览器账号反向 channel 不变。
-  protocols?: string[];
 }
 
 function wrapBrowserWebSocket(ws: WebSocket): ISocket {
@@ -70,8 +68,7 @@ export function connectViaWebSocket(
   options?: WebSocketConnectionOptions,
 ): Promise<IServiceAccessor> {
   return new Promise((resolve, reject) => {
-    // XCODE: 未传协议时保留上游连接行为。
-    const ws = options?.protocols ? new WebSocket(wsUrl, options.protocols) : new WebSocket(wsUrl);
+    const ws = new WebSocket(wsUrl);
     let settled = false;
 
     ws.addEventListener("error", () => {

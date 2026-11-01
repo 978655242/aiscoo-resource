@@ -14,6 +14,7 @@ import {
   ICredentialService,
   IModelSelectionService,
 } from "../src/index.js";
+import type { LocalCredentialService } from "../src/credential/credentialService.js";
 
 const configError = /AISCOO_ACCOUNT_CONFIG_UNAVAILABLE/;
 const loginError = /AISCOO_ACCOUNT_LOGIN_UNSUPPORTED/;
@@ -203,7 +204,6 @@ test("Aiscoo policy keeps the existing configured PKCE owner and unrelated crede
     { NewApiClient },
     { NewApiProviderAdapter },
     { createCredentialCipherProvider },
-    { createCredentialService },
     { createTelemetryUserIdLoader, createTelemetryAuthorizationLoader },
   ] = await Promise.all([
     import("../src/aiscoo-account-policy/index.js"),
@@ -212,7 +212,6 @@ test("Aiscoo policy keeps the existing configured PKCE owner and unrelated crede
     import("../src/new-api/newApiClient.js"),
     import("../src/oauth/providers/newApiProviderAdapter.js"),
     import("../src/credential/providers/credentialCipherProvider.js"),
-    import("../src/credential/credentialService.js"),
     import("../src/node.js"),
   ]);
   const origin = "https://account.example.com";
@@ -233,7 +232,14 @@ test("Aiscoo policy keeps the existing configured PKCE owner and unrelated crede
   });
   const oauth = policy.wrapOAuth(owner.oauth);
   try {
-    const raw = createCredentialService({ credentialsFile, cipherProvider });
+    // 策略只包装凭据端口；历史凭据用内存仓储模拟，上游凭据服务无需为测试开放文件路径注入。
+    const records = new Map<string, string>();
+    const raw: LocalCredentialService = {
+      load: async (key) => records.get(key) ?? null,
+      save: async (key, value) => void records.set(key, value),
+      delete: async (key) => void records.delete(key),
+      recoverUnreadable: async (key) => records.get(key) ?? null,
+    };
     await raw.save("oauth:active_provider", "zai");
     await raw.save(
       "oauth:zai:user_info",

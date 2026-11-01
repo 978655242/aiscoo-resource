@@ -261,11 +261,50 @@ flowchart LR
   Persist["通道名 / 线路名 / 钥匙串 / client_id"] --> Keep
 ```
 
-| 本轮修改的上游文件                                                | 最小扩展与原因                                                                                                |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `packages/ui/src/Root.tsx`                                        | 移除强制产品依赖，只转交通用可选欢迎页配置与退出展示端口；原 Root 默认服务、平台和退出链保留。                |
-| `packages/ui/src/root/types.ts`                                   | 追加两个窄展示契约及可选 props；既有 Root 未提供扩展点，无法从外层转交展示或确认通知。                        |
-| `packages/desktop/src/renderer/src/main.tsx`                      | 在唯一业务 Root 组合点追加公开产品包装器。                                                                    |
-| `packages/web/src/main.tsx`                                       | 在共同组合点追加产品包装器，覆盖普通 Web 与两条远控 Root 路径。                                               |
-| `packages/ui/package.json`                                        | 只追加产品装配公开子路径，原 Root 导出不替换；严格 JSON 的原因在此登记。                                      |
-| `packages/web/test/e2e/manual-review/pending/remote-login-v2.mjs` | 在既有下游产品 admission 矩阵追加首页、旧官方 callback 和 remote query，对历史 JWT 与无网络请求断言保持原样。 |
+| 本轮修改的上游文件                                                | 最小扩展与原因                                                                                 |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `packages/ui/src/Root.tsx`                                        | 移除强制产品依赖，只转交通用可选欢迎页配置与退出展示端口；原 Root 默认服务、平台和退出链保留。 |
+| `packages/ui/src/root/types.ts`                                   | 追加两个窄展示契约及可选 props；既有 Root 未提供扩展点，无法从外层转交展示或确认通知。         |
+| `packages/desktop/src/renderer/src/main.tsx`                      | 在唯一业务 Root 组合点追加公开产品包装器。                                                     |
+| `packages/web/src/main.tsx`                                       | 在共同组合点追加产品包装器，覆盖普通 Web 与两条远控 Root 路径。                                |
+| `packages/ui/package.json`                                        | 只追加产品装配公开子路径，原 Root 导出不替换；严格 JSON 的原因在此登记。                       |
+| `packages/web/test/e2e/manual-review/pending/remote-login-v2.mjs` | 已于第 13 节恢复上游原样，产品 admission 断言迁到 `aiscoo-remote-login-admission.mjs`。        |
+
+## 13. 上游文件最小化（2026-11-01）
+
+用户要求清理旧方案残留、非必需不改上游、不改上游测试。以当前源码为准，按"产品差异只在一处执行"收口；行为不变，只删除重复判断和无调用方的接点。
+
+**provider ID 说明。** `new-api` 是 Aiscoo 账号的内部稳定 provider ID，写入凭据键（`new-api:<origin hash>:`）、OAuth 回调参数 `provider=new-api` 与协议字段 `accountType`；CLI Zen 与 Desktop/Web 账号访问同一后端 `/api/xcode/v1/`。改名会使已有登录失效并破坏后端已登记的回调，因此 ID 保留；代码命名、文件名与用户可见文案统一用 Aiscoo，不新增 `newApiAiscoo*` 这类组合命名。
+
+**唯一执行点。** "只接受 Aiscoo 账号"由以下两处执行，其他上游文件不再重复判断：
+
+- Host：`aiscoo-account-policy` 包装 OAuth、凭据、订阅与用量服务。
+- Renderer：`aiscoo/account-login` 包装 `oauthService`（过滤 provider、拒绝官方 start/polling/callback/refresh、恢复前确认来源）与 platform（拒绝官方 `registerOAuthState`、过滤 `onOAuthCallback`）。
+- Desktop Main：IPC 登记入口 `parseOAuthStateRegistration` 拒绝官方 state；路由表只经此登记，回调派发与 pending 投递不再重复判断。
+
+**删除的重复与残留。**
+
+| 文件                                                                                                                                                              | 处理                                                                       | 依据                                                                                                                                      |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/ui/src/WelcomeScreen.tsx`、`packages/ui/src/hooks/useOAuth.ts`                                                                                          | 恢复 origin/release                                                        | 渠道过滤、登录拒绝与完成信号已由 Renderer 服务包装保证：`user` 只来自经包装的恢复/回调结果，`lastOAuthSuccessProvider` 只来自经包装的回调 |
+| `packages/ui/src/settings/ModelProviderSection.tsx`                                                                                                               | 只删除对已移除 `useOfficialCloudConnection` 的调用                         | 登录意图经 `requestLoginEntry` 进入同一被包装的 `useOAuth`；未配置时服务包装返回空渠道                                                    |
+| `packages/ui/src/root/useRootOAuthEffects.ts`                                                                                                                     | 只删除下游追加的 official-cloud 回调分支；`isCurrent` 重构与空行恢复       | 与功能无关的重排违反 §3.4                                                                                                                 |
+| `packages/desktop/src/main/desktopOAuthDeepLink.ts`                                                                                                               | 只保留 parser 中的渠道判断                                                 | 见上文唯一执行点                                                                                                                          |
+| `packages/client/src/websocket.ts`、`packages/services/src/credential/credentialService.ts`、`packages/server/src/http.ts`                                        | 恢复 origin/release                                                        | `protocols`、`credentialsFile` 仅为旧本机 Web 方案保留，无生产调用方                                                                      |
+| `packages/server/package.json`、`tsup.config.ts`、`build-remote.ts`、`packages/desktop/tsup.config.ts`、`scripts/zcode-distribution/assets.mjs`、`pnpm-lock.yaml` | 删除 `@napi-rs/keyring`                                                    | Desktop/Server 依赖图已不引入原生钥匙串；Zen CLI 由其构建自行外置                                                                         |
+| `README.md`、`README.en.md`、`.husky/pre-push`、`docs/testing/pre-push-hook.md`、`docs/architecture/architecture-governance.md`                                   | 恢复 origin/release                                                        | 产品说明已在下游规格；注释与改写不承载行为                                                                                                |
+| `packages/ui/src/i18n/locales/*.ts`                                                                                                                               | 删除未使用的 `login.oauth.openAuthorization` 与 `aiscoo.login.unsupported` | 无调用方                                                                                                                                  |
+
+账号未配置时，上游登录页按原逻辑显示 `login.oauth.noProviders`；产品词典 `AiscooIntlProvider` 把该键投影为 `aiscoo.login.configUnavailable`，上游组件不感知策略。`OAuthAccountPolicy` 收窄为只读 `acceptsProvider`，唯一消费点是设置页导航（未配置时没有 `new-api-family` 供应商，需隐藏官方账号套餐节点）。
+
+**上游测试不再修改。**
+
+| 上游测试                                                                                      | 处理                                                                                                                                                                                                             |
+| --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/zcode-cli/packages/cli/tests/cli.unit.test.ts`、`tui-login-polling.test.ts`             | 恢复上游。根因是 `tui-prompt-handler.ts` 直接调用产品命令中心；改为 `RunDependencies.createTuiCommandCenter` 可选工厂，由 `runAiscoo` 注入，上游文件只多一行回退。Zen TUI 接线回归迁到 `tests/zen-login.test.ts` |
+| `packages/web/test/e2e/manual-review/pending/remote-login-v2.mjs`、`share-oauth-callback.mjs` | 恢复上游；产品断言迁到同目录 `aiscoo-remote-login-admission.mjs`、`aiscoo-share-entry.mjs`，截图目录独立                                                                                                         |
+| `apps/zcode-cli/packages/core/tests/provider-request-messages.test.ts`                        | 保留 5 行：源码 `incoming-message.ts` 的提示文案由品牌常量投影，上游测试写死 "ZCode"。不改断言即需撤回源码品牌投影，属于产品取舍，留待确认                                                                       |
+
+`newApiAiscooOnlyHost.test.ts` 改名为 `aiscooOnlyHost.test.ts`，显式登记到 `scripts/run-native-unit-tests.mjs`（原 `newApi*` glob 不再匹配）；历史凭据改用内存端口模拟，不再依赖上游凭据服务的文件路径注入。
+
+验收：`typecheck`（根与 CLI）、`lint`（0 error，warning 数与 origin/release 一致）、`architecture:check`、`format-changed`、`test:unit:node`、`test:aiscoo`、CLI `test`/`test:aiscoo` 与 `git merge-tree` 对 `upstream/main` 无冲突。

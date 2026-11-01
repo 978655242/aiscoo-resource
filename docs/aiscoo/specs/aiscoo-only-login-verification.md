@@ -63,10 +63,8 @@ Web 的旧远控登录及分享回调页显示不可用，不扩展公网 Aiscoo
 
 | 上游同路径文件                                                                  | 最小变更与理由                                                                             |
 | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `README.md`                                                                     | 更新当前产品登录命令与失败关闭说明                                                         |
-| `README.en.md`                                                                  | 同步英文产品登录规则                                                                       |
 | `packages/desktop/src/host/index.ts`                                            | 在服务工厂组合点注入产品策略；通用工厂不自行决定产品渠道                                   |
-| `packages/desktop/src/main/desktopOAuthDeepLink.ts`                             | 在已有渠道路由边界拒绝官方 state/回调；保留未注入的通用路由                                |
+| `packages/desktop/src/main/desktopOAuthDeepLink.ts`                             | 仅在 IPC 登记 parser 拒绝官方 state；路由表只经此登记，派发与 pending 投递不再重复判断     |
 | `packages/desktop/src/main/index.ts`                                            | 同一策略包装 Main 凭据读取，分开 scheduler 限制与有效配置下的私有 key 初始化               |
 | `packages/server/src/entry-http.ts`                                             | 产品入口注入策略及现有 browser authority                                                   |
 | `packages/server/src/stdioServices.ts`                                          | 远端产品服务装配拒绝恢复官方身份，复用原 attachment                                        |
@@ -74,18 +72,16 @@ Web 的旧远控登录及分享回调页显示不可用，不扩展公网 Aiscoo
 | `packages/services/src/model-provider/providerProvisioningTarget.ts`            | 追加可选账号凭据 allowlist；空清单不读写/删除历史账号，默认清单保留                        |
 | `packages/services/src/node.ts`                                                 | 追加可选策略与公开导出，组合既有 authority、目录/用量/套餐和不可用官方能力；未注入保留默认 |
 | `packages/ui/src/Root.tsx`                                                      | 产品 Root 必然组合服务与平台包装，effects 与 Context 使用同一实例                          |
-| `packages/ui/src/WelcomeScreen.tsx`                                             | 使用可选准入策略过滤渠道与成功信号，避免旧缓存触发产品登录完成                             |
-| `packages/ui/src/hooks/useOAuth.ts`                                             | 可选策略在发起命令与展示错误前执行，未注入保留通用渠道                                     |
 | `packages/ui/src/i18n/locales/en-US.ts`                                         | 追加产品静态错误；删除四个下游独立连接专属条目，未删除上游通用文案                         |
 | `packages/ui/src/i18n/locales/zh-CN.ts`                                         | 同步中文产品静态错误及下游专属连接条目清理                                                 |
 | `packages/ui/src/root/useRootOAuthEffects.ts`                                   | 移除先前下游追加的 official-cloud callback 消费分支                                        |
-| `packages/ui/src/settings/ModelProviderSection.tsx`                             | 移除下游独立连接接线，借可选策略拒绝旧登录意图/凭据读取                                    |
+| `packages/ui/src/settings/ModelProviderSection.tsx`                             | 只删除对已移除 `useOfficialCloudConnection` 的调用，其余与 origin/release 相同             |
 | `packages/ui/src/settings/model-provider-section/useModelProviderNavigation.ts` | 可选策略只过滤账号套餐节点，保留自配/API Key 供应商                                        |
 | `packages/ui/src/settings/usage-stats/CodingPlanUsagePanel.tsx`                 | 移除下游 NativeOfficialMcpCard 与其连接按钮，上游原用量组件保留                            |
 | `packages/web/src/main.tsx`                                                     | 仅组合产品不可用账号适配器、匿名分享及 bootstrap entry gate，不改通用浏览器 OAuth owner    |
-| `packages/web/test/e2e/manual-review/pending/remote-login-v2.mjs`               | 维护当前产品旧登录拒绝的真实浏览器验收，不把退役登录当成功场景                             |
-| `packages/web/test/e2e/manual-review/pending/share-oauth-callback.mjs`          | 维护公开匿名与受保护入口不可用场景                                                         |
 | `packages/web/vite.config.ts`                                                   | 在插件组合列表追加产品 HTTP 拒绝边界                                                       |
+
+2026-11-01 上游文件最小化后（见 [唯一登录规格](aiscoo-only-login.md) 第 13 节），`README.md`、`README.en.md`、`WelcomeScreen.tsx`、`useOAuth.ts` 与两个 Web pending E2E 已恢复 origin/release；渠道过滤、登录拒绝与完成信号由 Renderer 服务包装唯一执行，产品 E2E 断言迁到 `aiscoo-remote-login-admission.mjs` 与 `aiscoo-share-entry.mjs`。
 
 上游 TS/TSX 接线与可选端口带 `XCODE` 原因注释。被删除的专属下游 hook 与文案不再保留空调用。没有改共享上游架构清单、依赖锁或通用 provider 协议。
 

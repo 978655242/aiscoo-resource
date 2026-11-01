@@ -1,8 +1,7 @@
 # Pre-push Hook
 
-Husky 的 `.husky/pre-push` 使用当前 PATH 中的 Node / pnpm；依赖安装的 `prepare` 脚本安装 Husky。
-Hook 先将 Git ref 输入传给 `scripts/xcode/branch-policy.mjs push`，再以 `ZCODE_PRE_PUSH_STDIN` 传给 `pnpm verify:pre-push`，随后独立执行 Aiscoo 原生和 Vitest 回归；任一步失败均阻止推送。
-不强制依赖 mise，也不自动安装工具、stash 工作区或跳过失败检查。真实 push 回归在临时 Git 仓库中核对受保护分支、合法分支、ref 传递和失败退出码。
+Husky 的 `.husky/pre-push` 使用当前 PATH 中的 Node / pnpm，执行 `pnpm verify:pre-push`。
+不强制依赖 mise，也不自动安装工具、stash 工作区或跳过失败检查。
 
 ```text
 Git push ref 输入 → 清理 Git local env → 分支策略 → 工作区与目标检查
