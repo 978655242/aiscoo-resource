@@ -187,6 +187,29 @@ test("macOS PTY helper remains executable after the real archive repack and fina
   }
 });
 
+test("PTY helper repair runs after every afterPack step that rewrites app.asar", async () => {
+  const config = (await import("../../packages/desktop/electron-builder.config.js")).default;
+  const source = config.afterPack.toString();
+  const labels = (name) => [...source.matchAll(new RegExp(`"afterPack:${name}"`, "gu"))];
+  const position = (name) => {
+    const found = labels(name);
+    assert.equal(found.length, 1, `afterPack:${name} must appear exactly once`);
+    return found[0].index;
+  };
+  // XCODE: 这两步会解包并重打包 app.asar，helper 的执行位只能在它们之后恢复。
+  const repair = position("ensurePackagedNodePtyHelperExecutable");
+  for (const rewrite of [
+    "injectHoistedRuntimeModulesIntoAsar",
+    "stripPackagedSourcemapReferences",
+  ]) {
+    assert.ok(position(rewrite) < repair, `${rewrite} must run before the helper repair`);
+  }
+  assert.ok(
+    repair < position("assertPackagedNodePtyPrebuild"),
+    "the helper repair must run before the packaged prebuild assertion",
+  );
+});
+
 for (const [label, environment, channel] of [
   ["production", { ZCODE_ENV: "production" }, "production"],
   ["test preview", { ZCODE_ENV: "test" }, "preview"],
