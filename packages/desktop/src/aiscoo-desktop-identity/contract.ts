@@ -14,3 +14,10 @@ export interface PackagedAiscooAccountOriginRuntime {
   readonly isPackaged: boolean;
   readonly env: Record<string, string | undefined>;
 }
+
+export interface AiscooUpdateEndpointRuntime {
+  /** 仅 Aiscoo 渠道才把更新源改到账号服务；未注入渠道时保持上游官方更新源。 */
+  readonly hasAiscooChannel: boolean;
+  /** 当前账号源（打包态已被编译值覆盖），可缺失或非法。 */
+  readonly accountOrigin: string | undefined;
+}

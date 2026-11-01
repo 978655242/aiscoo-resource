@@ -97,6 +97,7 @@ export default defineConfig({
       "packages/services/test/aiscooNativeRedirect.test.ts",
       "packages/services/test/aiscooSettingsFilePath.test.ts",
       "packages/desktop/test/aiscooPackagedAccountOrigin.test.ts",
+      "packages/desktop/test/aiscooUpdateEndpoint.test.ts",
     ],
   },
 });

@@ -120,6 +120,8 @@ interface InitAutoUpdaterOptions {
   updateFeedSource?: RuntimeUpdateFeedSource;
   deviceMid?: string;
   resolveEndpointOrigin?: () => string | Promise<string>;
+  // XCODE: 下游产品自有更新服务的发布授权；不传时只信任官方入口，上游行为不变。
+  trustedEndpointOrigins?: readonly string[];
 }
 
 let quitAndInstallState: "idle" | "preparing" | "installing" | "recovering" = "idle";
@@ -852,7 +854,9 @@ function applyManifestUpdateProvider(options: InitAutoUpdaterOptions): void {
       if (
         app.isPackaged &&
         origin !== DEFAULT_ZCODE_ENDPOINT_ORIGIN &&
-        origin !== TEST_ZCODE_ENDPOINT_ORIGIN
+        origin !== TEST_ZCODE_ENDPOINT_ORIGIN &&
+        // XCODE: 显式受信的下游更新源同样是发布授权，不能被改回官方地址。
+        !options.trustedEndpointOrigins?.includes(origin)
       ) {
         return DEFAULT_ZCODE_ENDPOINT_ORIGIN;
       }
