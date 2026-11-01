@@ -12,6 +12,8 @@
 #   AISCOO_SIGN_IDENTITY   默认 "Developer ID Application: xi yu (5G9ZLJPH2B)"
 #   AISCOO_NOTARY_PROFILE  默认 aiscoo-notary（notarytool 凭据 profile，存放在专用钥匙串）
 #   AISCOO_ENTITLEMENTS    主 app 的 entitlements，默认取仓库内 packages/desktop/build/entitlements.mac.plist
+#   AISCOO_NOTARY_TIMEOUT_MIN  最长等待分钟数，默认 180；超时不等于失败，提交仍在 Apple 处理
+#   AISCOO_NOTARY_SUBMISSION_ID  已有提交的 id；设置后跳过提交，只继续等待并 staple
 set -euo pipefail
 export LC_ALL=en_US.UTF-8
 
@@ -128,12 +130,40 @@ if [ "$DO_NOTARIZE" -eq 0 ]; then
   exit 0
 fi
 
-log "步骤 5/6：提交 Apple 公证并等待结果（通常数分钟）"
+log "步骤 5/6：提交 Apple 公证并轮询结果"
+# 提交与等待分开：notarytool 的 --wait/--timeout 到期只是本地停止等待，Apple 仍在处理，
+# 不能把“等待超时”当成“公证失败”。新开发者账号的首次提交可能排队数十分钟甚至更久。
 RESULT_JSON="$OUT_DIR/notary-result.json"
-xcrun notarytool submit "$OUT_DIR/$DMG_NAME" --keychain-profile "$PROFILE" --keychain "$KEYCHAIN" --wait --output-format json > "$RESULT_JSON"
-STATUS="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("status",""))' "$RESULT_JSON")"
-SUB_ID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("id",""))' "$RESULT_JSON")"
-log "  公证状态：$STATUS（submission $SUB_ID）"
+SUBMIT_JSON="$OUT_DIR/notary-submit.json"
+NOTARY_TIMEOUT_MIN="${AISCOO_NOTARY_TIMEOUT_MIN:-180}"
+NOTARY_POLL_SEC="${AISCOO_NOTARY_POLL_SEC:-30}"
+json_field() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get(sys.argv[2],""))' "$1" "$2"; }
+if [ -n "${AISCOO_NOTARY_SUBMISSION_ID:-}" ]; then
+  SUB_ID="$AISCOO_NOTARY_SUBMISSION_ID"
+  log "  复用已有提交 ${SUB_ID}（不重复提交）"
+else
+  xcrun notarytool submit "$OUT_DIR/$DMG_NAME" --keychain-profile "$PROFILE" --keychain "$KEYCHAIN" --output-format json > "$SUBMIT_JSON"
+  SUB_ID="$(json_field "$SUBMIT_JSON" id)"
+  [ -n "$SUB_ID" ] || die "提交公证失败，未拿到 submission id；见 ${SUBMIT_JSON}"
+  log "  已提交：${SUB_ID}（可用 AISCOO_NOTARY_SUBMISSION_ID 在中断后继续等待）"
+fi
+STATUS=""; waited=0
+while :; do
+  if xcrun notarytool info "$SUB_ID" --keychain-profile "$PROFILE" --keychain "$KEYCHAIN" --output-format json > "$RESULT_JSON" 2>/dev/null; then
+    STATUS="$(json_field "$RESULT_JSON" status)"
+  else
+    STATUS="(查询失败，稍后重试)"
+  fi
+  case "$STATUS" in
+    Accepted|Invalid|Rejected) break ;;
+  esac
+  if [ $((waited / 60)) -ge "$NOTARY_TIMEOUT_MIN" ]; then
+    die "等待超过 ${NOTARY_TIMEOUT_MIN} 分钟，Apple 仍未给出结论（状态：${STATUS}）。提交仍在 Apple 处理，不是失败；稍后用 AISCOO_NOTARY_SUBMISSION_ID=${SUB_ID} 重新运行即可继续。"
+  fi
+  [ $((waited % 300)) -eq 0 ] && log "  状态：${STATUS}，已等待 $((waited / 60)) 分钟"
+  sleep "$NOTARY_POLL_SEC"; waited=$((waited + NOTARY_POLL_SEC))
+done
+log "  公证状态：${STATUS}（submission ${SUB_ID}）"
 if [ "$STATUS" != "Accepted" ]; then
   xcrun notarytool log "$SUB_ID" --keychain-profile "$PROFILE" --keychain "$KEYCHAIN" "$OUT_DIR/notary-log.json" >/dev/null 2>&1 || true
   die "公证未通过；详情见 ${OUT_DIR}/notary-log.json"
