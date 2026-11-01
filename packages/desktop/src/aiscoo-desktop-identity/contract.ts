@@ -6,6 +6,13 @@ export interface AiscooDesktopDataBootstrapOptions {
 
 export type DesktopDataBootstrap = (settingsFile?: string) => string | null;
 
+export interface AiscooDesktopStorageInitialization {
+  /** 固定设置文件；绑定记录与它同目录，不随 App 数据迁移。 */
+  readonly settingsFile: string;
+  /** 原 paths owner 已恢复的当前 App 根 D，首次绑定使用它。 */
+  readonly dataBaseDir: string;
+}
+
 export interface PackagedAiscooAccountOriginRuntime {
   /** 构建期编译常量；上游通用构建与未注入时为 undefined。 */
   readonly compiledOrigin: string | undefined;

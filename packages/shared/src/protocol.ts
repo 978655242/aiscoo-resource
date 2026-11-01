@@ -71,6 +71,8 @@ export interface WorkspaceFileEntry {
 export interface SystemInfo {
   homedir: string;
   platform: string;
+  // XCODE: 产品可追加默认 App 根，未提供时界面保持上游 HOME 默认值。
+  defaultDataBaseDir?: string;
 }
 
 /** 支持的语言 */

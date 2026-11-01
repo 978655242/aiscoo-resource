@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "caseName": "aiscoo-data-directory",
+  "spec": "./test/e2e/conversation-session/aiscoo-data-directory.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/aiscoo-data-directory.json"
+  ],
+  "fileFixtures": [],
+  "requests": [
+    {
+      "id": "acdd-title",
+      "description": "Aiscoo 目录验收的稳定任务标题。",
+      "kind": "common",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "标题使用本例 marker 隔离，不访问真实模型。"
+    },
+    {
+      "id": "acdd-before-main",
+      "description": "真实只读工具返回后完成迁移前任务。",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "common fixture 发起真实 Read，此响应只在真实 tool_result 返回后完成任务。"
+    },
+    {
+      "id": "acdd-after-main",
+      "description": "完整冷重启后在原任务消费旧历史并完成续聊。",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "请求必须携带迁移前 assistant 与真实只读工具结果，避免新空会话假装恢复成功。"
+    }
+  ]
+}

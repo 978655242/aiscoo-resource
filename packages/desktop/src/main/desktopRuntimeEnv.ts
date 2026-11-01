@@ -30,7 +30,10 @@ import {
 import { PRODUCT_BRAND, PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 // XCODE: 应用与数据身份由独立下游配置提供，历史钥匙串名称另行保留。
 import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
-import { buildAiscooDesktopStorageEnv } from "../aiscoo-desktop-identity/index.js";
+import {
+  buildAiscooDesktopStorageEnv,
+  getAiscooDesktopCliBaseDir,
+} from "../aiscoo-desktop-identity/index.js";
 import {
   desktopDevelopmentKeychainName,
   desktopProductIdentities,
@@ -612,8 +615,8 @@ export function buildHostProcessEnv(hostProcessLocalEnv: Record<string, string>)
     // 工作树或根据安装路径猜测；否则同一产品版本的不同修复包无法在 ARMS 中区分。
     [ZCODE_BUILD_COMMIT_ID_ENV]: ZCODE_COMMIT,
     ...(dataBaseDir !== homedir() ? { ZCODE_DATA_BASE_DIR: dataBaseDir } : {}),
-    // XCODE: CLI 默认路径不跟随业务根，显式补齐已有覆盖键，防止写回 ZCode 用户库。
-    ...buildAiscooDesktopStorageEnv(dataBaseDir, rawInheritedEnv),
+    // XCODE: v2 迁移不搬 CLI 库；最终合并环境后用已绑定 B 派生，保留三键覆盖和当前 App 根 D。
+    ...buildAiscooDesktopStorageEnv(dataBaseDir, rawInheritedEnv, getAiscooDesktopCliBaseDir()),
     ...(windowsAppInstallDir ? { [ZCODE_WINDOWS_APP_INSTALL_DIR_ENV]: windowsAppInstallDir } : {}),
     ...(bundledCuaHelperAppPath
       ? { [ZCODE_CUA_BUNDLED_HELPER_APP_PATH_ENV]: bundledCuaHelperAppPath }

@@ -15,7 +15,7 @@
 #   AISCOO_DMG_TEMPLATE    作为安装盘布局模板的 DMG（含背景图、图标位置、卷图标）。默认取 electron-builder
 #                          在 mac-arm64 同级输出的 DMG；找不到时退化为无背景图的简易 DMG
 #   AISCOO_NOTARY_TIMEOUT_MIN  最长等待分钟数，默认 180；超时不等于失败，提交仍在 Apple 处理
-#   AISCOO_NOTARY_SUBMISSION_ID  已有提交的 id；设置后跳过提交，只继续等待并 staple
+#   AISCOO_NOTARY_SUBMISSION_ID  已有提交的 id；续跑要求原输出目录、notary-submit.json 与原 DMG，APP 参数不读取
 set -euo pipefail
 export LC_ALL=en_US.UTF-8
 
@@ -23,10 +23,55 @@ usage() { awk 'NR==1{next} /^set -/{exit} {sub(/^# ?/, ""); print}' "$0"; exit "
 [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ] && usage 0
 [ $# -ge 2 ] || usage 2
 
-APP="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 OUT_DIR="$2"
 DO_NOTARIZE=1
 [ "${3:-}" = "--no-notarize" ] && DO_NOTARIZE=0
+SUB_ID="${AISCOO_NOTARY_SUBMISSION_ID:-}"
+
+log() { printf '[aiscoo-notarize] %s\n' "$*"; }
+die() { printf '[aiscoo-notarize] ERROR: %s\n' "$*" >&2; exit 1; }
+[ -z "$SUB_ID" ] || [ "$DO_NOTARIZE" -eq 1 ] || die "AISCOO_NOTARY_SUBMISSION_ID 与 --no-notarize 冲突"
+
+# 续跑必须先绑定原提交；旧入口会先读 APP、重签名并撞上已有 DMG 的拒覆盖检查。
+if [ -n "$SUB_ID" ]; then
+  [ -d "$OUT_DIR" ] || die "找不到原输出目录：${OUT_DIR}"
+  OUT_DIR="$(cd "$OUT_DIR" && pwd -P)"
+  [ -f "$OUT_DIR/notary-submit.json" ] || die "找不到原提交记录：${OUT_DIR}/notary-submit.json"
+  DMG_PATH="$(python3 -I - "$OUT_DIR" "$SUB_ID" <<'PY'
+import json
+import os
+import sys
+
+out_dir, submission_id = sys.argv[1:]
+def fail(message):
+    sys.exit("[aiscoo-notarize] ERROR: " + message)
+
+try:
+    with open(os.path.join(out_dir, "notary-submit.json"), encoding="utf-8") as file:
+        record = json.load(file)
+except (OSError, ValueError) as error:
+    fail("无法读取提交记录 JSON：" + str(error))
+if not isinstance(record, dict):
+    fail("提交记录必须是 JSON 对象")
+if not isinstance(record.get("id"), str) or not record["id"]:
+    fail("提交记录缺少有效 id")
+if record["id"] != submission_id:
+    fail("提交记录 id 与 AISCOO_NOTARY_SUBMISSION_ID 不匹配")
+path = record.get("path")
+if not isinstance(path, str) or not path.strip() or "\0" in path:
+    fail("提交记录缺少有效 path")
+if not os.path.isabs(path):
+    fail("提交记录 path 必须是原 DMG 的绝对路径")
+# realpath 同时处理目录别名和文件链接，避免字符串前缀误认目录或 /var 路径差异。
+path = os.path.realpath(path)
+if os.path.commonpath([out_dir, path]) != out_dir:
+    fail("提交记录 DMG 不在原输出目录内：" + path)
+if not os.path.isfile(path):
+    fail("提交记录 DMG 不存在或不是文件：" + path)
+print(path)
+PY
+)"
+fi
 
 SIGN_DIR="${AISCOO_SIGN_DIR:-$HOME/aiscoo-release-signing}"
 KEYCHAIN="$SIGN_DIR/aiscoo-signing.keychain-db"
@@ -40,9 +85,9 @@ if ! xcodebuild -license check >/dev/null 2>&1 && [ -d /Library/Developer/Comman
   export DEVELOPER_DIR=/Library/Developer/CommandLineTools
 fi
 
-log() { printf '[aiscoo-notarize] %s\n' "$*"; }
-die() { printf '[aiscoo-notarize] ERROR: %s\n' "$*" >&2; exit 1; }
-
+# 原签名/制盘流程只供新任务调用；续跑不触碰 APP、签名身份和 entitlements。
+prepare_new_dmg() {
+APP="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 [ -d "$APP" ] || die "找不到 app：${APP}"
 [ -f "$APP/Contents/Info.plist" ] || die "不是有效的 .app：${APP}"
 [ -f "$KEYCHAIN" ] || die "找不到专用签名钥匙串：${KEYCHAIN}"
@@ -165,6 +210,16 @@ else
 fi
 codesign --force --keychain "$KEYCHAIN" --sign "$IDENTITY" --timestamp "$OUT_DIR/$DMG_NAME" >/dev/null
 codesign --verify --verbose=2 "$OUT_DIR/$DMG_NAME" 2>&1 | tail -1
+DMG_PATH="$OUT_DIR/$DMG_NAME"
+}
+
+if [ -n "$SUB_ID" ]; then
+  [ -f "$KEYCHAIN" ] || die "找不到专用签名钥匙串：${KEYCHAIN}"
+  [ -f "$SIGN_DIR/keychain.pass" ] || die "找不到钥匙串口令文件：${SIGN_DIR}/keychain.pass"
+  security unlock-keychain -p "$(cat "$SIGN_DIR/keychain.pass")" "$KEYCHAIN"
+else
+  prepare_new_dmg "$1"
+fi
 
 if [ "$DO_NOTARIZE" -eq 0 ]; then
   log "已按要求跳过公证（--no-notarize）。产物：${OUT_DIR}/${DMG_NAME}"
@@ -178,12 +233,11 @@ RESULT_JSON="$OUT_DIR/notary-result.json"
 SUBMIT_JSON="$OUT_DIR/notary-submit.json"
 NOTARY_TIMEOUT_MIN="${AISCOO_NOTARY_TIMEOUT_MIN:-180}"
 NOTARY_POLL_SEC="${AISCOO_NOTARY_POLL_SEC:-30}"
-json_field() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get(sys.argv[2],""))' "$1" "$2"; }
-if [ -n "${AISCOO_NOTARY_SUBMISSION_ID:-}" ]; then
-  SUB_ID="$AISCOO_NOTARY_SUBMISSION_ID"
+json_field() { python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1])).get(sys.argv[2],""))' "$1" "$2"; }
+if [ -n "$SUB_ID" ]; then
   log "  复用已有提交 ${SUB_ID}（不重复提交）"
 else
-  xcrun notarytool submit "$OUT_DIR/$DMG_NAME" --keychain-profile "$PROFILE" --keychain "$KEYCHAIN" --output-format json > "$SUBMIT_JSON"
+  xcrun notarytool submit "$DMG_PATH" --keychain-profile "$PROFILE" --keychain "$KEYCHAIN" --output-format json > "$SUBMIT_JSON"
   SUB_ID="$(json_field "$SUBMIT_JSON" id)"
   [ -n "$SUB_ID" ] || die "提交公证失败，未拿到 submission id；见 ${SUBMIT_JSON}"
   log "  已提交：${SUB_ID}（可用 AISCOO_NOTARY_SUBMISSION_ID 在中断后继续等待）"
@@ -199,7 +253,11 @@ while :; do
     Accepted|Invalid|Rejected) break ;;
   esac
   if [ $((waited / 60)) -ge "$NOTARY_TIMEOUT_MIN" ]; then
-    die "等待超过 ${NOTARY_TIMEOUT_MIN} 分钟，Apple 仍未给出结论（状态：${STATUS}）。提交仍在 Apple 处理，不是失败；稍后用 AISCOO_NOTARY_SUBMISSION_ID=${SUB_ID} 重新运行即可继续。"
+    # 路径可能含空格，输出完整且可直接执行的 Bash 命令；沿用专用凭据目录，不输出口令。
+    printf -v RESUME_CMD 'AISCOO_SIGN_DIR=%q AISCOO_NOTARY_PROFILE=%q AISCOO_NOTARY_SUBMISSION_ID=%q bash %q %q %q' \
+      "$(cd "$SIGN_DIR" && pwd -P)" "$PROFILE" "$SUB_ID" "$REPO_ROOT/scripts/aiscoo/notarize-macos.sh" '-' "$OUT_DIR"
+    log "续跑命令：${RESUME_CMD}"
+    die "等待超过 ${NOTARY_TIMEOUT_MIN} 分钟，Apple 仍未给出结论（状态：${STATUS}）。提交仍在 Apple 处理，不是失败；原 DMG 与提交记录已保留，请用上述命令继续。"
   fi
   [ $((waited % 300)) -eq 0 ] && log "  状态：${STATUS}，已等待 $((waited / 60)) 分钟"
   sleep "$NOTARY_POLL_SEC"; waited=$((waited + NOTARY_POLL_SEC))
@@ -211,7 +269,7 @@ if [ "$STATUS" != "Accepted" ]; then
 fi
 
 log "步骤 6/6：staple 并做最终验收"
-xcrun stapler staple "$OUT_DIR/$DMG_NAME" >/dev/null
-xcrun stapler validate "$OUT_DIR/$DMG_NAME" 2>&1 | tail -1
-spctl -a -t open --context context:primary-signature -vv "$OUT_DIR/$DMG_NAME" 2>&1 | head -3
-log "完成：${OUT_DIR}/${DMG_NAME}"
+xcrun stapler staple "$DMG_PATH" >/dev/null
+xcrun stapler validate "$DMG_PATH" 2>&1 | tail -1
+spctl -a -t open --context context:primary-signature -vv "$DMG_PATH" 2>&1 | head -3
+log "完成：${DMG_PATH}"
