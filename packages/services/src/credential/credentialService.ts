@@ -25,7 +25,7 @@ import { getAppConfigDir } from "../paths.js";
  * 凭据存储路径
  *
  * 当前持久化格式仍是 JSON，但 value 会在写入前加密，读取时自动解密。
- * 后续可切换到 Electron safeStorage（钥匙串）托管密钥，
+ * 后续可切换到 Electron safeStorage（钥匙串）托管密钥（Aiscoo 已于 2026-11-01 决定不采用，见 new-api-integration §4.2），
  * 届时 host process 需要向 main 进程请求 encrypt/decrypt。
  */
 const logger = createServiceLogger("credentialService");

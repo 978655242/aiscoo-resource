@@ -158,6 +158,8 @@ import { applyAppIcon } from "./desktopWindowChrome.js";
 import { resolveWindowsAppUserModelIdForFlavor } from "../../scripts/desktop-product-identity.mjs";
 // XCODE: 开发与正式 Aiscoo 都使用自身 AUMID，保留通用未注入身份的上游默认。
 import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
+// XCODE: Aiscoo 自有更新源解析，只读账号源，不持有更新状态。
+import { resolveAiscooUpdateEndpointOrigin } from "../aiscoo-desktop-identity/index.js";
 import type { DesktopWindowSize } from "./desktopWindowSize.js";
 import { maybeWarnArchitectureMismatch } from "./desktopArchitectureGuard.js";
 import { maybeBlockStartupForForceUpdate } from "./forceUpdateGuard.js";
@@ -622,6 +624,11 @@ const nativePrivateMode = Boolean(
   mainAccountPolicy ||
   (process.env.AISCOO_ADMIN_BASE_URL ?? hostProcessLocalEnv.AISCOO_ADMIN_BASE_URL)?.trim(),
 );
+// XCODE: 应用内更新与强制升级改问 Aiscoo 账号服务；undefined 保持上游，null 表示关闭。
+const aiscooUpdateEndpointOrigin = resolveAiscooUpdateEndpointOrigin({
+  hasAiscooChannel: resolveAiscooDesktopIdentity() !== null,
+  accountOrigin: process.env.AISCOO_ADMIN_BASE_URL ?? hostProcessLocalEnv.AISCOO_ADMIN_BASE_URL,
+});
 interface RuntimeProcessEnvPreparation {
   patchPromise: Promise<Record<string, string>>;
   fallbackPatch: Record<string, string>;
@@ -2342,7 +2349,11 @@ app.whenReady().then(async () => {
   // 不向 Preview 渠道提供更新。构建期未启用自动更新时同样不更新
   // （见 docs/desktop/build-time-optional-capabilities.md）。
   void initAutoUpdater({
-    enabled: ZCODE_PRODUCT_FLAVOR === "production" && ZCODE_AUTO_UPDATE_ENABLED,
+    // XCODE: Aiscoo 渠道取不到自有更新源时关闭更新，不回退官方 ZCode 更新源。
+    enabled:
+      ZCODE_PRODUCT_FLAVOR === "production" &&
+      ZCODE_AUTO_UPDATE_ENABLED &&
+      aiscooUpdateEndpointOrigin !== null,
     onBeforeQuitAndInstall: async () => {
       notifyStabilityLifecycle("update_install");
       await prepareAppQuit("auto-update quitAndInstall", "update-install");
@@ -2353,7 +2364,10 @@ app.whenReady().then(async () => {
     settingService: mainSettingService,
     locale: currentApplicationLocale,
     deviceMid,
-    resolveEndpointOrigin: resolveCurrentZCodeEndpointOrigin,
+    resolveEndpointOrigin: aiscooUpdateEndpointOrigin
+      ? () => aiscooUpdateEndpointOrigin
+      : resolveCurrentZCodeEndpointOrigin,
+    ...(aiscooUpdateEndpointOrigin ? { trustedEndpointOrigins: [aiscooUpdateEndpointOrigin] } : {}),
     updateFeedSource: resolveUpdateFeedSourceFromStartupConfig({
       argv: process.argv,
       env: process.env,
@@ -2656,11 +2670,14 @@ app.whenReady().then(async () => {
   // gate 照常生效，对真实用户零影响。
   const skipForceUpdateForLocalDevRuntime = !app.isPackaged;
   const forceUpdateGuardResult =
-    ZCODE_PRODUCT_FLAVOR === "production" && !skipForceUpdateForLocalDevRuntime
+    ZCODE_PRODUCT_FLAVOR === "production" &&
+    !skipForceUpdateForLocalDevRuntime &&
+    // XCODE: Aiscoo 渠道向自有后端查询强制升级；取不到自有 origin 时跳过，不请求官方配置。
+    aiscooUpdateEndpointOrigin !== null
       ? await maybeBlockStartupForForceUpdate({
           locale: currentApplicationLocale,
           logger,
-          endpointOrigin: await resolveCurrentZCodeEndpointOrigin(),
+          endpointOrigin: aiscooUpdateEndpointOrigin ?? (await resolveCurrentZCodeEndpointOrigin()),
           onBlocked: () => {
             forceUpdateMainWindowCreationBlocked = true;
           },
@@ -2670,6 +2687,9 @@ app.whenReady().then(async () => {
     logger.info("[force-update] Preview 跳过远端强制升级检查");
   } else if (skipForceUpdateForLocalDevRuntime) {
     logger.info("[force-update] 本地 dev 构建（未打包）跳过远端强制升级检查");
+  } else if (aiscooUpdateEndpointOrigin === null) {
+    // XCODE: 不记录实际地址，只说明缺少可用的 Aiscoo 更新源。
+    logger.info("[force-update] Aiscoo 账号源不可用，跳过强制升级检查并关闭自动更新");
   }
   if (forceUpdateGuardResult.blocked) {
     return;

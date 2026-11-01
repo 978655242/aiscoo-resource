@@ -79,7 +79,8 @@ export const runtimeApplicationName =
     : isPreviewPackagedRuntime
       ? PRODUCT_BRAND.previewName
       : PRODUCT_NAME);
-// XCODE: macOS 在 ready 前固定 safeStorage 钥匙串名称，沿用旧值才能解密既有凭据。
+// XCODE: 历史钥匙串名称。2026-11-01 起登录凭据不再使用 safeStorage，这里仅为不改变既有身份而保留，
+// 清理它属于另一项需要单独评估启动顺序的改动。
 export const runtimeKeychainApplicationName =
   readRuntimeEnvOverride("ZCODE_DESKTOP_APPLICATION_NAME") ??
   (isLocalDevelopmentRuntime
