@@ -18,6 +18,7 @@ import { collectRuntimeModuleClosureEntries } from "./scripts/runtime-dependency
 import {
   resolvePackagedNodePtyPrebuildPath,
   restoreTargetNodePtyPrebuild,
+  ensurePackagedNodePtyHelperExecutable,
 } from "./scripts/node-pty-package-assets.mjs";
 import { cleanupPackagedSourcemaps } from "./scripts/packaged-sourcemap-cleanup.mjs";
 import { getTargetPlatform } from "./scripts/target-platform.mjs";
@@ -711,6 +712,13 @@ export default {
     );
     runTimedSync("afterPack:assertPackagedNativeResourcePolicy", () =>
       assertPackagedNativeResourcePolicy(context),
+    );
+    // XCODE: 最后一次 asar 重打包之后恢复 helper 执行位，避免打包通过但实际终端 posix_spawnp 失败。
+    await runTimedAsync("afterPack:ensurePackagedNodePtyHelperExecutable", () =>
+      ensurePackagedNodePtyHelperExecutable({
+        resourcesDir: resolvePackagedResourcesDir(context),
+        platformKey: targetPlatform.key,
+      }),
     );
     runTimedSync("afterPack:assertPackagedNodePtyPrebuild", () =>
       assertPackagedNodePtyPrebuild(context),

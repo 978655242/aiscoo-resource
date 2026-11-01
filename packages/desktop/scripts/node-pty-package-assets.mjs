@@ -1,4 +1,5 @@
 import { cpSync, existsSync, mkdirSync } from "node:fs";
+import { chmod, stat } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 
@@ -56,6 +57,20 @@ export function resolveSourceNodePtyPrebuildPath({ sourcePackageName, platformKe
   throw new Error(
     `缺少 node-pty 预编译产物: ${sourcePackageName}/prebuilds/${platformKey}/pty.node`,
   );
+}
+
+// XCODE: asar 解包/重打包会丢失 macOS helper 执行位，必须在最终产物签名前恢复，不能只检查存在。
+export async function ensurePackagedNodePtyHelperExecutable({ resourcesDir, platformKey }) {
+  if (!platformKey.startsWith("darwin-")) return;
+  const helperPath = resolve(
+    resourcesDir,
+    "app.asar.unpacked/node_modules/node-pty/prebuilds",
+    platformKey,
+    "spawn-helper",
+  );
+  const metadata = await stat(helperPath);
+  if (!metadata.isFile()) throw new Error(`node-pty helper 不是普通文件: ${helperPath}`);
+  await chmod(helperPath, (metadata.mode & 0o777) | 0o111);
 }
 
 export function resolvePackagedNodePtyPrebuildPath({ resourcesDir, platformKey }) {
