@@ -38,8 +38,6 @@ const buildResult = await build({
   platform: "node",
   format: "cjs",
   target: "node22",
-  // XCODE: 独立 Web 的可选安全库仅在启用时加载，不把 native 模块打进远端 stdio bundle。
-  external: ["@napi-rs/keyring"],
   plugins: [nativeAddonPlugin],
   // CJS 环境没有 import.meta.url，通过 banner 注入等价变量，
   // 再用 define 全局替换，这样源码无需关心最终打包格式。

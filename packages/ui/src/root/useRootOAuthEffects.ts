@@ -142,13 +142,13 @@ export function useRootOAuthEffects({
 
   useEffect(() => {
     let disposed = false;
-
     async function restoreOAuthSessionInBackground() {
       logger.info("[Root] 后台启动 OAuth 本地会话恢复");
       let hasRestoredUser = false;
       try {
         // XCODE: Native 恢复须由远端 Me 确认；其他提供方保持上游本地缓存恢复规则。
         const result = await services.oauthService.restoreCachedSessionState();
+
         if (disposed) {
           return;
         }
@@ -233,15 +233,14 @@ export function useRootOAuthEffects({
         if (disposed || !providers.some((provider) => provider.id === NEW_API_PROVIDER_ID)) return;
         const reconcileIdentity = () => {
           const current = ++request;
-          const isCurrent = () => !disposed && current === request;
           void services.oauthService
             .getActiveProvider()
             .then((provider) => {
-              // XCODE: owner 事件可能先于设置观察结果；旧读取不得清掉新登录。
-              if (isCurrent() && provider !== NEW_API_PROVIDER_ID) setUser(null);
+              if (!disposed && current === request && provider !== NEW_API_PROVIDER_ID)
+                setUser(null);
             })
             .catch(() => {
-              if (isCurrent()) setUser(null);
+              if (!disposed && current === request) setUser(null);
             });
         };
         subscription = services.providerSettingsService.onDidChange(reconcileIdentity);

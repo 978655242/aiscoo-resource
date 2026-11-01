@@ -253,8 +253,6 @@ const desktopNodeRuntimeExternals = [
   "node-forge",
   // ZIP 解包器内部依赖 CommonJS require("fs")，不能内联到 ESM main/host 产物。
   "yauzl",
-  // XCODE: 本地 Web 适配器引入原生钥匙串；保留运行时平台选择，避免打包解析其他系统的 .node。
-  "@napi-rs/keyring",
 ];
 
 function createDevReadyMarkerHook(target: "main" | "host" | "preload"): string {

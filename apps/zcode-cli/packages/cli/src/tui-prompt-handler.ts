@@ -6,9 +6,7 @@ import { DEFAULT_LOCALE, type SupportedLocale } from "@zcode/i18n";
 import type { TuiRequestPermission } from "@zcode/tui";
 import type { GlobalOptions } from "@zcode/shared-types";
 import type { DynamicWorkflowMode } from "@zcode/shared";
-import { parseSlashCommand } from "./command-center.js";
-// XCODE: Aiscoo Zen Plan 命令经组合层接入，上游命令中心原样委托。
-import { createTuiZenCommandDeps, createAiscooCommandCenter } from "./aiscoo/index.js";
+import { createCommandCenter, parseSlashCommand } from "./command-center.js";
 import type { CommandCenterApp } from "./command-center.js";
 import { resolveDisplayLocale } from "./locale.js";
 import { createCliHeadlessBrowserRuntime } from "./headless-browser.js";
@@ -248,7 +246,8 @@ export function createTuiSubmitPrompt(
     return modeState.current;
   };
 
-  const commandCenter = createAiscooCommandCenter({
+  // XCODE: 产品入口可注入 TUI 命令中心工厂；未注入时与上游一致使用 createCommandCenter。
+  const commandCenter = (deps.createTuiCommandCenter ?? createCommandCenter)({
     forkApp: async (targetCheckpointId) => {
       const activeApp = await getApp();
       const result = await activeApp.forkFromCheckpoint?.({ targetCheckpointId });
@@ -313,7 +312,7 @@ export function createTuiSubmitPrompt(
     },
     setMode: setCliMode,
     workflowMode,
-  }, createTuiZenCommandDeps(processRuntime)); // XCODE: Zen 依赖。
+  });
 
   const submitPrompt: TuiPromptHandler = async (input, options) => {
     const previousRequestPermission = activeRequestPermission;

@@ -13,18 +13,6 @@ function accountError(code: string): Error {
 
 export const aiscooAccountPolicy: OAuthAccountPolicy = Object.freeze({
   acceptsProvider: (provider: OAuthProviderId) => provider === NEW_API_PROVIDER_ID,
-  allowOfficialCloudConnection: false,
-  unavailableMessageId: "aiscoo.login.configUnavailable",
-  unsupportedMessageId: "aiscoo.login.unsupported",
-  errorMessageId(error: unknown) {
-    const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
-    const message = error instanceof Error ? error.message : "";
-    if (code === CONFIG_UNAVAILABLE || message === CONFIG_UNAVAILABLE)
-      return "aiscoo.login.configUnavailable";
-    if (code === LOGIN_UNSUPPORTED || message === LOGIN_UNSUPPORTED)
-      return "aiscoo.login.unsupported";
-    return undefined;
-  },
 });
 
 function acceptsCallbackUrl(raw: string): boolean {

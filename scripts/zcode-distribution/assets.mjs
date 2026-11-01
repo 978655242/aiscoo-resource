@@ -12,8 +12,6 @@ const readJson = async (file) => JSON.parse(await readFile(file, "utf8"));
 const runtimePackageNames = [
   "@hono/node-server",
   "@hono/node-ws",
-  // XCODE: 本机 Web 的 keyring 是 native 外部依赖；发行包须带加载器及平台绑定。
-  "@napi-rs/keyring",
   "ssh2",
   "node-pty",
   "undici",

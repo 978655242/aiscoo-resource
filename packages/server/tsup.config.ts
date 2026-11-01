@@ -33,8 +33,6 @@ function createSharedDefines() {
 }
 
 export const SERVER_HTTP_EXTERNAL_DEPENDENCIES = [
-  // XCODE: 本机 Web 的系统安全库依赖原生模块，保留 Node 原生加载以避免打包损坏。
-  "@napi-rs/keyring",
   "ssh2",
   "node-pty",
   "undici",

@@ -69,8 +69,6 @@ import {
 } from "@/lib/settingsNavigation.js";
 import { useEnterpriseCodingPlanProducts } from "@/settings/model-provider-section/useEnterpriseCodingPlanProducts.js";
 import { useNativePlanSettings } from "@/hooks/useNativePlanSettings.js";
-// XCODE: 产品账号准入同时约束旧凭据读取，未注入时保留上游设置行为。
-import type { OAuthLifecyclePlatform } from "@/oauth-lifecycle/contract.js";
 
 export {
   fuzzyMatch,
@@ -254,7 +252,6 @@ export function ModelProviderSection({
   const { intl, locale } = useZCodeIntl();
   const confirmDialog = useConfirmDialog();
   const platform = usePlatform();
-  const accountPolicy = (platform as OAuthLifecyclePlatform).oauthAccountPolicy;
   const { modelSelectionService, oauthService, credentialService } = useServices();
   const {
     modelProviders,
@@ -504,7 +501,7 @@ export function ModelProviderSection({
       } = {},
     ) => {
       const providers = await oauthService.getProviders();
-      if (accountPolicy || providers.some((provider) => provider.id === NEW_API_PROVIDER_ID)) {
+      if (providers.some((provider) => provider.id === NEW_API_PROVIDER_ID)) {
         const activeProvider = await oauthService.getActiveProvider();
         if (options.shouldApply && !options.shouldApply()) return null;
         setActiveOAuthProvider(activeProvider);
@@ -549,7 +546,7 @@ export function ModelProviderSection({
       }
       return normalizedActiveProvider;
     },
-    [accountPolicy, credentialService, oauthService, setOAuthError, setUser],
+    [credentialService, oauthService, setOAuthError, setUser],
   );
 
   const refreshProviderPanelAfterAuthChange = useCallback(
@@ -819,11 +816,6 @@ export function ModelProviderSection({
       status: CodingPlanStatus,
       options?: CodingPlanLoginOptions,
     ) => {
-      // XCODE: 旧链接或设置意图不可重新创建官方登录，错误投影不触碰主账号 owner。
-      if (accountPolicy && !accountPolicy.acceptsProvider(providerId)) {
-        setOAuthError(intl.formatMessage({ id: accountPolicy.unsupportedMessageId }));
-        return;
-      }
       setPresetSubscriptionProviderId(presetId);
       setCodingPlanStatusSyncProviderId(presetId);
       logger.info("[ModelProviderSection] 请求通过统一登录入口登录并连接 Coding Plan", {
@@ -846,20 +838,11 @@ export function ModelProviderSection({
       // ZAI/BigModel provider 不再有独立 connection，Connect 必须切换 App active provider。
       return requestLoginEntry(providerId);
     },
-    [
-      accountPolicy,
-      activeOAuthProvider,
-      intl,
-      setOAuthError,
-      refreshProviderPanelAfterAuthChange,
-      requestLoginEntry,
-    ],
+    [activeOAuthProvider, refreshProviderPanelAfterAuthChange, requestLoginEntry],
   );
 
   const handleCodingPlanDisconnect = useCallback(
     async (presetId: BuiltinModelProviderId, providerId: OAuthProviderId, providerName: string) => {
-      // XCODE: Aiscoo 不再拥有独立官方连接，也不读取或退出历史官方凭据。
-      if (accountPolicy && !accountPolicy.acceptsProvider(providerId)) return;
       if (providerId !== BIGMODEL_PROVIDER_ID && providerId !== ZAI_PROVIDER_ID) {
         return;
       }
@@ -907,7 +890,6 @@ export function ModelProviderSection({
       }
     },
     [
-      accountPolicy,
       oauthService,
       platform,
       updateSharedSettings,

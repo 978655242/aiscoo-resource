@@ -111,6 +111,13 @@ export interface RunDependencies extends PluginsCommandOverrides {
   logoutZCodeCli?: (options?: LogoutZCodeCliOptions) => ReturnType<typeof logoutZCodeCli>;
   runZCodeProtocolAgent?: (options?: RunZCodeProtocolAgentOptions) => Promise<void>;
   runTui?: typeof import("@zcode/tui").runTui;
+  /**
+   * XCODE: 可选的 TUI 命令中心工厂，供产品入口在 TUI 内叠加自有命令；
+   * 未注入时 tui-prompt-handler 使用上游 createCommandCenter。
+   */
+  createTuiCommandCenter?: (
+    deps: import("./command-center.js").CommandCenterDeps,
+  ) => import("@zcode/tui").TuiSubmitPrompt;
   skipUserConfig?: boolean;
   userConfigPath?: string;
   exitProcess?: (code: number) => void;

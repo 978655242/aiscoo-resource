@@ -254,6 +254,10 @@ function aiscooMessageCatalog(messages: Record<string, string>): Record<string, 
   } else if (messages["login.oauth.button.native"] === "Sign in to New API") {
     catalog["login.oauth.button.native"] = "Sign in";
   }
+  // 产品只有 Aiscoo 账号：服务包装过滤后没有可用渠道即表示账号服务未配置，
+  // 在产品词典里替换通用“无提供方”文案，上游登录页不需要感知产品策略。
+  const unavailable = messages["aiscoo.login.configUnavailable"];
+  if (unavailable) catalog["login.oauth.noProviders"] = unavailable;
   return catalog;
 }
 

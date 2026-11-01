@@ -382,7 +382,6 @@ export function createHttpServer(
       await next();
     });
   }
-
   const authToken = options.authToken?.trim();
   if (authToken) {
     app.use("*", async (c, next) => {

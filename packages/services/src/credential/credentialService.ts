@@ -95,8 +95,6 @@ async function writeAll(credentialsFile: string, data: Record<string, string>): 
 
 interface CredentialServiceDependencies {
   cipherProvider?: CredentialCipherProvider;
-  // XCODE: 本机 Web 必须指定独立文件，避免公共 RPC 读写桌面共享 OAuth 凭据。
-  credentialsFile?: string;
   /** Host 私有的持久化成功通知；不进入 Renderer/RPC 凭据接口。 */
   onDidMutate?: (event: { operation: "save" | "delete"; key: string }) => void;
 }
@@ -216,7 +214,7 @@ export function createCredentialService(
     async recoverUnreadable(key, assertCurrent) {
       const validatedKey = credentialKeySchema.parse(key);
       assertPublicCredentialKey(validatedKey);
-      const credentialsFile = dependencies.credentialsFile ?? getCredentialsFile();
+      const credentialsFile = getCredentialsFile();
       let deleted = false;
       const value = await withFileLock(credentialsFile, async () => {
         assertCurrent();
@@ -244,7 +242,7 @@ export function createCredentialService(
     async load(key: string): Promise<string | null> {
       const validatedKey = credentialKeySchema.parse(key);
       assertPublicCredentialKey(validatedKey);
-      const creds = await readAll(dependencies.credentialsFile ?? getCredentialsFile());
+      const creds = await readAll();
       const rawValue = creds[validatedKey];
       if (rawValue === undefined) {
         return null;
@@ -258,7 +256,7 @@ export function createCredentialService(
       assertPublicCredentialKey(validatedKey);
       const validatedValue = credentialValueSchema.parse(value);
       const encryptedValue = cipherProvider.encrypt(validatedValue);
-      const credentialsFile = dependencies.credentialsFile ?? getCredentialsFile();
+      const credentialsFile = getCredentialsFile();
       // desktop host 与 CLI adapter 是独立进程，进程内排队不能阻止 whole-file
       // read-modify-write 丢更新；共享目录锁必须覆盖读取、变更和原子替换全过程。
       await withFileLock(credentialsFile, async () => {
@@ -274,7 +272,7 @@ export function createCredentialService(
     async delete(key: string, assertCurrent?: () => void): Promise<void> {
       const validatedKey = credentialKeySchema.parse(key);
       assertPublicCredentialKey(validatedKey);
-      const credentialsFile = dependencies.credentialsFile ?? getCredentialsFile();
+      const credentialsFile = getCredentialsFile();
       await withFileLock(credentialsFile, async () => {
         const creds = await readAll(credentialsFile);
         assertCurrent?.();

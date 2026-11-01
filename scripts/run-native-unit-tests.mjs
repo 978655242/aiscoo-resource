@@ -24,6 +24,8 @@ try {
       "packages/services/test/tsconfig.json",
       "--test",
       ...newApiTests,
+      // XCODE: Aiscoo 唯一账号策略的 Host 失败关闭回归，不挂 newApi 前缀，需显式登记。
+      "packages/services/test/aiscooOnlyHost.test.ts",
       // XCODE: 命令同步的路径安全回归走真实服务入口，独立于已退役 App 单测。
       "packages/services/test/aiscooCommandDataSyncPathSafety.test.ts",
       "packages/services/test/officialCloudOwner.test.ts",

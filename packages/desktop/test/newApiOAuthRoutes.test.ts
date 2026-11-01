@@ -112,8 +112,10 @@ for (const channel of ["production", "development", "preview"] as const) {
     for (const provider of ["zai", "bigmodel"] as const) {
       for (const purpose of ["primary-account", "official-cloud"] as const) {
         const registration = { state: `old-${provider}-${purpose}`, provider, purpose };
-        assert.equal(routes.parseOAuthStateRegistration(registration), null);
-        routes.registerOAuthState(1, registration);
+        // 路由表只经 IPC parser 登记；parser 拒绝后 Main 不会调用 registerOAuthState。
+        const parsed = routes.parseOAuthStateRegistration(registration);
+        assert.equal(parsed, null);
+        if (parsed) routes.registerOAuthState(1, parsed);
         assert.equal(
           routes.handleDeepLink(
             `${profile.oauthRedirectUri}?provider=${provider}&purpose=${purpose}&state=${registration.state}&code=old`,

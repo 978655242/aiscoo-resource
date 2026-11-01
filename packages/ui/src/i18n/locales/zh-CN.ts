@@ -4,7 +4,6 @@ import { requestSecurityMessagesZhCN } from "@/request-security-edition/messages
 const zhCN: Record<string, string> = {
   // XCODE: 产品账号错误不包含后端 origin 或凭据。
   "aiscoo.login.configUnavailable": "Aiscoo 登录尚未配置或暂不可用，请联系管理员。",
-  "aiscoo.login.unsupported": "Aiscoo 仅支持 Aiscoo 账号登录。",
   // XCODE: 退出只改变旧进程的展示，账号清理与重启沿用原流程。
   "aiscoo.logout.exiting": "正在退出…",
   "aiscoo.logout.description": "应用将自动重启，随后显示登录页。",
@@ -1435,8 +1434,6 @@ const zhCN: Record<string, string> = {
   "login.oauth.copyLoginLink": "复制登录链接",
   "login.oauth.copyLinkSuccess": "复制成功，请到浏览器中粘贴并打开",
   "login.oauth.copyLinkFailed": "复制登录链接失败，请重试",
-  // XCODE: 可选授权生命周期的手动链接展示。
-  "login.oauth.openAuthorization": "打开登录页面",
   "login.oauth.loginFailure": "登录失败，请重试",
   "login.oauth.cancel": "取消",
   "login.oauth.retry": "重新登录",

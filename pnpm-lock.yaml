@@ -1344,9 +1344,6 @@ importers:
       '@lydell/node-pty-linux-x64':
         specifier: 1.2.0-beta.10
         version: 1.2.0-beta.10
-      '@napi-rs/keyring':
-        specifier: 2.1.2
-        version: 2.1.2
       '@zcode/client':
         specifier: workspace:*
         version: link:../client

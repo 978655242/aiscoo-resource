@@ -5,7 +5,6 @@ const enUS: Record<string, string> = {
   // XCODE: Product account errors never contain the backend origin or credentials.
   "aiscoo.login.configUnavailable":
     "Aiscoo sign-in is not configured or is unavailable. Contact your administrator.",
-  "aiscoo.login.unsupported": "Aiscoo supports Aiscoo account sign-in only.",
   // XCODE: Presentation only; account cleanup and relaunch keep their existing order.
   "aiscoo.logout.exiting": "Signing out…",
   "aiscoo.logout.description": "The app will restart automatically, then show the sign-in page.",
@@ -1575,8 +1574,6 @@ const enUS: Record<string, string> = {
   "login.oauth.copyLoginLink": "Copy login link",
   "login.oauth.copyLinkSuccess": "Copied. Paste and open it in your browser.",
   "login.oauth.copyLinkFailed": "Could not copy the login link. Please try again.",
-  // XCODE: Manual-link display for the optional authorization lifecycle.
-  "login.oauth.openAuthorization": "Open sign-in page",
   "login.oauth.loginFailure": "Login failed, please try again",
   "login.oauth.cancel": "Cancel",
   "login.oauth.retry": "Retry login",
