@@ -8,13 +8,73 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type ComponentType,
 } from "react";
 import { flushSync } from "react-dom";
+import { LucideProvider } from "lucide-react";
+import { PlatformProvider } from "@/hooks/usePlatform.js";
+import type { RootProps, RootWelcomeScreenPresentation } from "@/root/types.js";
+import { AiscooLoginHeader, resolveAiscooOAuthWaitingDisplayNames } from "@/xwork/brand/index.js";
+import { AiscooLegalLinks } from "@/aiscoo/legal/index.js";
+import { createAiscooAccountLoginPlatform, createAiscooAccountLoginServices } from "./index.js";
 import { DesktopOverlayWindowControls } from "@/DesktopOverlayWindowControls.js";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { RootStartupLoading } from "@/root/RootStartupLoading.js";
 import type { AiscooLogoutPresentation } from "./contract.js";
+
+/** 产品入口固定装配；缺配置也保留账号限制，不借共享 Root 的默认路径回退。 */
+export function createAiscooAccountLoginRoot(Root: ComponentType<RootProps>) {
+  function AccountRootContent(props: RootProps) {
+    const presentation = useAiscooLogoutPresentation();
+    const platform = useMemo(
+      () => createAiscooAccountLoginPlatform(props.platform, presentation?.isExiting),
+      [props.platform, presentation],
+    );
+    const welcomeScreenPresentation = useMemo<RootWelcomeScreenPresentation>(
+      () => ({
+        header: <AiscooLoginHeader />,
+        footer:
+          props.isDesktop && !props.webRemoteControlWorkspaceSwitcher
+            ? (providers) => <AiscooLegalLinks providers={providers} placement="login" />
+            : undefined,
+        hideApiKeyLogin: true,
+        oauthWaitingDisplayNames: resolveAiscooOAuthWaitingDisplayNames(),
+      }),
+      [props.isDesktop, props.webRemoteControlWorkspaceSwitcher],
+    );
+
+    return (
+      <PlatformProvider platform={platform}>
+        <Root
+          {...props}
+          platform={platform}
+          welcomeScreenPresentation={welcomeScreenPresentation}
+          logoutPresentation={presentation ?? undefined}
+        />
+      </PlatformProvider>
+    );
+  }
+
+  return function AiscooAccountLoginRoot(props: RootProps) {
+    const services = useMemo(
+      () => createAiscooAccountLoginServices(props.services),
+      [props.services],
+    );
+    return (
+      // 边界外移后补足原图标配置与窗控平台，避免退出窗控线宽回退；业务 Root 共用产品适配器。
+      <LucideProvider strokeWidth={1.5}>
+        <PlatformProvider platform={props.platform}>
+          <AiscooLogoutPresentationBoundary
+            enabled={props.isDesktop === true && !props.webRemoteControlWorkspaceSwitcher}
+          >
+            <AccountRootContent {...props} services={services} />
+          </AiscooLogoutPresentationBoundary>
+        </PlatformProvider>
+      </LucideProvider>
+    );
+  };
+}
 
 const LogoutPresentationContext = createContext<AiscooLogoutPresentation | null>(null);
 
