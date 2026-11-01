@@ -1432,9 +1432,6 @@ importers:
       '@larksuiteoapi/node-sdk':
         specifier: 1.64.0
         version: 1.64.0
-      '@zcode/adapters':
-        specifier: workspace:*
-        version: link:../../apps/zcode-cli/packages/adapters
       '@zcode/provider':
         specifier: workspace:*
         version: link:../provider
