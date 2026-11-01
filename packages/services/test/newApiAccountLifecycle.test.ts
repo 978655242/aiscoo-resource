@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { randomBytes, randomUUID } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import type { NewApiOwner, NewApiSessionBundle, OAuthSessionState } from "@zcode/shared";
+import { withFileLock } from "@zcode/shared/node";
 import { createCredentialCipherProvider } from "../src/credential/providers/credentialCipherProvider.js";
 import { NewApiAccountService } from "../src/new-api/newApiAccountService.js";
 import { NewApiClient } from "../src/new-api/newApiClient.js";
@@ -51,8 +52,16 @@ function bundle(
     refresh_expires_at: initialTime + 600_000,
     token_type: "Bearer",
     session_id: sid,
-    user: { id, username: `user-${id}`, display_name: `User ${id}`, avatar_url: null },
-    relay_credential: { token: `sk-relay-${sid}`, expires_at: initialTime + 600_000 },
+    user: {
+      id,
+      username: `user-${id}`,
+      display_name: `User ${id}`,
+      avatar_url: null,
+    },
+    relay_credential: {
+      token: `sk-relay-${sid}`,
+      expires_at: initialTime + 600_000,
+    },
   };
 }
 const success = (data: unknown) =>
@@ -135,7 +144,10 @@ async function fixture(onOwnerChanged?: (owner: NewApiOwner | null) => void | Pr
       throw new Error("Unexpected lifecycle endpoint");
     },
   });
-  const repo = new NewApiSessionRepo(origin, { credentialsFile, cipherProvider });
+  const repo = new NewApiSessionRepo(origin, {
+    credentialsFile,
+    cipherProvider,
+  });
   const owners: unknown[] = [];
   const service = new NewApiAccountService({
     adapter: new NewApiProviderAdapter(client),
@@ -158,6 +170,8 @@ async function fixture(onOwnerChanged?: (owner: NewApiOwner | null) => void | Pr
     revoked,
     callback,
     credentialsFile,
+    cipherProvider,
+    dir,
     legacy,
     newService: () =>
       new NewApiAccountService({
@@ -275,11 +289,12 @@ test("cancel after exchange and during atomic commit compensates persistence", a
   try {
     const entered = barrier<void>();
     const release = barrier<void>();
-    const commit = f.repo.commit.bind(f.repo);
-    f.repo.commit = async (session: NewApiStoredSession) => {
-      await commit(session);
+    const commit = f.repo.commitVerifiedLogin.bind(f.repo);
+    f.repo.commitVerifiedLogin = async (session, assertCurrent) => {
+      const previous = await commit(session, assertCurrent);
       entered.resolve();
       await release.promise;
+      return previous;
     };
     const start = await f.service.oauth.startOAuth("new-api");
     const callback = f.service.oauth.handleCallback(f.callback(start.state));
@@ -395,7 +410,10 @@ test("control expiry retries once, permission denial preserves owner, logout nev
   try {
     await f.login();
     let calls = 0;
-    const error = Object.assign(new Error("safe"), { code: "XCODE_ACCESS_EXPIRED", status: 401 });
+    const error = Object.assign(new Error("safe"), {
+      code: "XCODE_ACCESS_EXPIRED",
+      status: 401,
+    });
     await assert.rejects(
       f.service.withControlSession(async () => {
         calls++;
@@ -407,7 +425,10 @@ test("control expiry retries once, permission denial preserves owner, logout nev
     const owner = f.service.getOwner();
     await assert.rejects(
       f.service.withControlSession(async () => {
-        throw Object.assign(new Error("safe"), { code: "XCODE_PLAN_UNASSIGNED", status: 403 });
+        throw Object.assign(new Error("safe"), {
+          code: "XCODE_PLAN_UNASSIGNED",
+          status: 403,
+        });
       }),
     );
     assert.deepEqual(f.service.getOwner(), owner);
@@ -460,13 +481,14 @@ test("B started during A commit fences A and publishes only B after compensation
   try {
     const entered = barrier<void>();
     const release = barrier<void>();
-    const commit = f.repo.commit.bind(f.repo);
-    f.repo.commit = async (record) => {
-      await commit(record);
+    const commit = f.repo.commitVerifiedLogin.bind(f.repo);
+    f.repo.commitVerifiedLogin = async (record, assertCurrent) => {
+      const previous = await commit(record, assertCurrent);
       if (record.bundle.session_id === "sid-1") {
         entered.resolve();
         await release.promise;
       }
+      return previous;
     };
     const a = await f.service.oauth.startOAuth("new-api");
     const pendingA = f.service.oauth.handleCallback(f.callback(a.state));
@@ -558,7 +580,9 @@ test("late control result cannot cross account switch and accepted B revokes onl
     release.resolve();
     await assert.rejects(stale, { code: "XCODE_STALE_OWNER" });
     assert.equal(f.service.isCurrent(oldOwner), false);
-    await assert.rejects(f.service.getRelayCredential(oldOwner), { code: "XCODE_STALE_OWNER" });
+    await assert.rejects(f.service.getRelayCredential(oldOwner), {
+      code: "XCODE_STALE_OWNER",
+    });
     assert.deepEqual(f.revoked, ["sid-1"]);
     assert.equal((await f.repo.loadActive())?.bundle.session_id, "sid-2");
   } finally {
@@ -577,7 +601,9 @@ test("logout during refresh removes the actual rotated successor instead of resu
       return release.promise;
     });
     const pendingRefresh = f.service.oauth.refreshToken();
-    const rejected = assert.rejects(pendingRefresh, { code: "XCODE_STALE_OWNER" });
+    const rejected = assert.rejects(pendingRefresh, {
+      code: "XCODE_STALE_OWNER",
+    });
     await entered.promise;
     const logout = f.service.oauth.logout();
     release.resolve(bundle("1", "sid-1", "logout-successor"));
@@ -619,7 +645,9 @@ test("refresh followed by Me 503 retains the rotated secret for recovery", async
     await f.login();
     const owner = f.service.getOwner();
     f.setMeError(failure("XCODE_BACKEND_UNAVAILABLE", 503));
-    await assert.rejects(f.service.oauth.refreshToken(), { code: "XCODE_BACKEND_UNAVAILABLE" });
+    await assert.rejects(f.service.oauth.refreshToken(), {
+      code: "XCODE_BACKEND_UNAVAILABLE",
+    });
     assert.deepEqual(f.service.getOwner(), owner);
     assert.equal((await f.repo.loadActive())?.bundle.refresh_token, "refresh-2");
     f.setMeError(null);
@@ -659,7 +687,12 @@ test("server Me identity is mandatory before callback credentials can be publish
         schema_version: 1,
         server_time: initialTime,
         session_id: "sid-1",
-        user: { id: "2", username: "other", display_name: "Other", avatar_url: null },
+        user: {
+          id: "2",
+          username: "other",
+          display_name: "Other",
+          avatar_url: null,
+        },
         authorization_revision: "0",
       }),
     );
@@ -712,6 +745,321 @@ test("ciphertext corruption requires manual recovery without deleting private or
   }
 });
 
+for (const fault of ["active", "session", "foreign-key", "plaintext", "invalid-owner"] as const) {
+  test(`verified login recovers ${fault} while retaining backup and unrelated credentials`, async () => {
+    const f = await fixture();
+    try {
+      await f.login();
+      const records: Record<string, string> = JSON.parse(await readFile(f.credentialsFile, "utf8"));
+      const active = Object.keys(records).find(
+        (key) => key.startsWith("new-api:") && key.endsWith(":active"),
+      )!;
+      const ownerKey = Object.keys(records).find(
+        (key) => key.startsWith("new-api:") && key !== active,
+      )!;
+      if (fault === "session") records[ownerKey] = "enc:v1:invalid";
+      else if (fault === "foreign-key") {
+        records[active] = createCredentialCipherProvider({
+          env: { ZCODE_CREDENTIAL_SECRET: "old-synthetic-key" },
+        }).encrypt("{}");
+      } else if (fault === "plaintext") records[active] = "{}";
+      else if (fault === "invalid-owner")
+        records[active] = f.cipherProvider.encrypt('{"userId":"invalid"}');
+      else records[active] = "enc:v1:invalid";
+      const unrelatedKey = "new-api:unrelated-origin:active";
+      records[unrelatedKey] = "enc:v1:unreadable-but-untouched";
+      const before = JSON.stringify(records);
+      await writeFile(f.credentialsFile, before);
+      const cold = f.newService();
+      assert.equal((await cold.oauth.restoreCachedSessionState()).status, "unavailable");
+      f.setExchange(async () => bundle("2", "sid-recovered", "refresh-recovered"));
+      const start = await cold.oauth.startOAuth("new-api");
+      const result = await cold.oauth.handleCallback(f.callback(start.state));
+      assert.equal(result?.kind, "session");
+      assert.equal(cold.getOwner()?.userId, "2");
+      assert.equal((await f.repo.loadActive())?.bundle.session_id, "sid-recovered");
+      const after: Record<string, string> = JSON.parse(await readFile(f.credentialsFile, "utf8"));
+      for (const [key, value] of Object.entries(records)) {
+        if (key !== active) assert.equal(after[key], value, `unrelated ciphertext changed: ${key}`);
+      }
+      const backups = (await readdir(f.dir)).filter(
+        (name) => name.includes(".corrupt-") && name.endsWith(".bak"),
+      );
+      assert.equal(backups.length, 1);
+      const backup = join(f.dir, backups[0]!);
+      assert.equal(await readFile(backup, "utf8"), before);
+      if (process.platform !== "win32") assert.equal((await stat(backup)).mode & 0o777, 0o600);
+      assert.equal(
+        (await f.newService().oauth.restoreCachedSessionState()).status,
+        "authenticated",
+      );
+    } finally {
+      await f.dispose();
+    }
+  });
+}
+
+test("recovery can retry after an interrupted partial backup", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    const records: Record<string, string> = JSON.parse(await readFile(f.credentialsFile, "utf8"));
+    const active = Object.keys(records).find((key) => key.endsWith(":active"))!;
+    records[active] = "enc:v1:invalid";
+    const before = JSON.stringify(records);
+    await writeFile(f.credentialsFile, before);
+    const id = createHash("sha256").update(before).digest("hex").slice(0, 24);
+    await writeFile(`${f.credentialsFile}.corrupt-${id}.bak`, "partial", { mode: 0o600 });
+    const cold = f.newService();
+    f.setExchange(async () => bundle("2", "sid-new", "refresh-new"));
+    const start = await cold.oauth.startOAuth("new-api");
+    assert.equal((await cold.oauth.handleCallback(f.callback(start.state)))?.kind, "session");
+    const backups = (await readdir(f.dir)).filter((name) => name.endsWith(".bak"));
+    const contents = await Promise.all(backups.map((name) => readFile(join(f.dir, name), "utf8")));
+    assert.ok(contents.includes(before));
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("verified login recovers unreadable records at the exact new SID without clearing other sessions", async () => {
+  const f = await fixture();
+  try {
+    const records: Record<string, string> = JSON.parse(await readFile(f.credentialsFile, "utf8"));
+    const prefix = `new-api:${createHash("sha256").update(origin).digest("hex")}:`;
+    const key = `${prefix}1:sid-1`;
+    records[key] = "enc:v1:invalid";
+    const before = JSON.stringify(records);
+    await writeFile(f.credentialsFile, before);
+    assert.equal((await f.login())?.kind, "session");
+    assert.equal((await f.repo.loadActive())?.bundle.session_id, "sid-1");
+    const backups = (await readdir(f.dir)).filter((name) => name.endsWith(".bak"));
+    assert.equal(backups.length, 1);
+    assert.equal(await readFile(join(f.dir, backups[0]!), "utf8"), before);
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("failed Me validation cannot recover an unreadable active pointer", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    const records: Record<string, string> = JSON.parse(await readFile(f.credentialsFile, "utf8"));
+    const active = Object.keys(records).find((key) => key.endsWith(":active"))!;
+    records[active] = "enc:v1:invalid";
+    const before = JSON.stringify(records);
+    await writeFile(f.credentialsFile, before);
+    const cold = f.newService();
+    f.setExchange(async () => bundle("2", "sid-rejected", "refresh-rejected"));
+    f.setMeError(failure("XCODE_SESSION_INVALID", 401));
+    const start = await cold.oauth.startOAuth("new-api");
+    await assert.rejects(cold.oauth.handleCallback(f.callback(start.state)));
+    assert.equal(await readFile(f.credentialsFile, "utf8"), before);
+    assert.equal(
+      (await readdir(f.dir)).some((name) => name.endsWith(".bak")),
+      false,
+    );
+    assert.equal(cold.getOwner(), null);
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("failed recovery backup keeps unreadable ciphertext and rejects the new login", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    const records: Record<string, string> = JSON.parse(await readFile(f.credentialsFile, "utf8"));
+    const active = Object.keys(records).find((key) => key.endsWith(":active"))!;
+    records[active] = "enc:v1:invalid";
+    const before = JSON.stringify(records);
+    await writeFile(f.credentialsFile, before);
+    const id = createHash("sha256").update(before).digest("hex").slice(0, 24);
+    await mkdir(`${f.credentialsFile}.corrupt-${id}.bak`);
+    const cold = f.newService();
+    const start = await cold.oauth.startOAuth("new-api");
+    await assert.rejects(cold.oauth.handleCallback(f.callback(start.state)));
+    assert.equal(await readFile(f.credentialsFile, "utf8"), before);
+    assert.equal(cold.getOwner(), null);
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("verified login does not treat a non-decrypt storage failure as recoverable", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    const before = await readFile(f.credentialsFile, "utf8");
+    const cold = f.newService();
+    // 解密抛出的不是“密文损坏”而是安全库/IO 故障：必须原样失败，不能备份、覆盖或登录。
+    const decrypt = f.cipherProvider.decrypt.bind(f.cipherProvider);
+    f.cipherProvider.decrypt = () => {
+      throw Object.assign(new Error("keystore unavailable"), {
+        code: "XCODE_SECURE_STORAGE_UNAVAILABLE",
+      });
+    };
+    f.setExchange(async () => bundle("2", "sid-storage-fault", "refresh-fault"));
+    const start = await cold.oauth.startOAuth("new-api");
+    await assert.rejects(cold.oauth.handleCallback(f.callback(start.state)), {
+      code: "XCODE_SECURE_STORAGE_UNAVAILABLE",
+    });
+    f.cipherProvider.decrypt = decrypt;
+    assert.equal(await readFile(f.credentialsFile, "utf8"), before);
+    assert.equal(
+      (await readdir(f.dir)).some((name) => name.endsWith(".bak") || name.endsWith(".tmp")),
+      false,
+    );
+    assert.equal(cold.getOwner(), null);
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("cancel while verified recovery waits for the file lock keeps the original bytes", async () => {
+  const f = await fixture();
+  const locked = barrier<void>();
+  const release = barrier<void>();
+  try {
+    await f.login();
+    const records: Record<string, string> = JSON.parse(await readFile(f.credentialsFile, "utf8"));
+    const active = Object.keys(records).find((key) => key.endsWith(":active"))!;
+    records[active] = "enc:v1:invalid";
+    const before = JSON.stringify(records);
+    await writeFile(f.credentialsFile, before);
+    const held = withFileLock(f.credentialsFile, async () => {
+      locked.resolve();
+      await release.promise;
+    });
+    await locked.promise;
+    const committing = barrier<void>();
+    const commit = f.repo.commitVerifiedLogin.bind(f.repo);
+    f.repo.commitVerifiedLogin = (record, assertCurrent) => {
+      committing.resolve();
+      return commit(record, assertCurrent);
+    };
+    const cold = f.newService();
+    f.setExchange(async () => bundle("2", "sid-canceled", "refresh-canceled"));
+    const start = await cold.oauth.startOAuth("new-api");
+    const callback = cold.oauth.handleCallback(f.callback(start.state));
+    await committing.promise;
+    await cold.oauth.cancelPending();
+    release.resolve();
+    await held;
+    assert.equal(await callback, null);
+    assert.equal(await readFile(f.credentialsFile, "utf8"), before);
+    assert.equal(
+      (await readdir(f.dir)).some((name) => name.endsWith(".bak")),
+      false,
+    );
+    assert.equal(cold.getOwner(), null);
+    assert.ok(f.revoked.includes("sid-canceled"));
+  } finally {
+    release.resolve();
+    await f.dispose();
+  }
+});
+
+test("canceled recovered login cannot remove another window's newly committed owner", async () => {
+  const f = await fixture();
+  const entered = barrier<void>();
+  const release = barrier<void>();
+  try {
+    await f.login();
+    const records: Record<string, string> = JSON.parse(await readFile(f.credentialsFile, "utf8"));
+    const active = Object.keys(records).find((key) => key.endsWith(":active"))!;
+    records[active] = "enc:v1:invalid";
+    await writeFile(f.credentialsFile, JSON.stringify(records));
+    const commit = f.repo.commitVerifiedLogin.bind(f.repo);
+    f.repo.commitVerifiedLogin = async (record, assertCurrent) => {
+      const previous = await commit(record, assertCurrent);
+      entered.resolve();
+      await release.promise;
+      return previous;
+    };
+    const cold = f.newService();
+    f.setExchange(async () => bundle("2", "sid-recovered-a", "refresh-a"));
+    const start = await cold.oauth.startOAuth("new-api");
+    const callback = cold.oauth.handleCallback(f.callback(start.state));
+    await entered.promise;
+    await f.repo.commit({
+      schemaVersion: 1,
+      origin,
+      bundle: bundle("3", "sid-other-window", "refresh-b"),
+    });
+    await cold.oauth.cancelPending();
+    release.resolve();
+    assert.equal(await callback, null);
+    assert.equal((await f.repo.loadActive())?.bundle.session_id, "sid-other-window");
+    assert.equal(cold.getOwner(), null);
+    assert.ok(f.revoked.includes("sid-recovered-a"));
+    assert.equal(f.revoked.includes("sid-other-window"), false);
+  } finally {
+    release.resolve();
+    await f.dispose();
+  }
+});
+
+test("cancel after a same-user same-SID re-authorization restores the previous owner", async () => {
+  const f = await fixture();
+  const entered = barrier<void>();
+  const release = barrier<void>();
+  try {
+    await f.login();
+    assert.equal((await f.repo.loadActive())?.bundle.refresh_token, "refresh-1");
+    const commit = f.repo.commitVerifiedLogin.bind(f.repo);
+    f.repo.commitVerifiedLogin = async (record, assertCurrent) => {
+      const previous = await commit(record, assertCurrent);
+      entered.resolve();
+      await release.promise;
+      return previous;
+    };
+    f.setExchange(async () => bundle("1", "sid-1", "refresh-new"));
+    const start = await f.service.oauth.startOAuth("new-api");
+    const callback = f.service.oauth.handleCallback(f.callback(start.state));
+    await entered.promise;
+    await f.service.oauth.cancelPending();
+    release.resolve();
+    assert.equal(await callback, null);
+    // 同键补偿不能删除记录后让 active 指向空记录；取消的授权不得留下它的 refresh secret。
+    const restored = await f.repo.loadActive();
+    assert.equal(restored?.bundle.session_id, "sid-1");
+    assert.equal(restored?.bundle.refresh_token, "refresh-1");
+  } finally {
+    release.resolve();
+    await f.dispose();
+  }
+});
+
+test("verified login cannot overwrite a malformed credential file", async () => {
+  const f = await fixture();
+  try {
+    await writeFile(f.credentialsFile, "{");
+    await assert.rejects(f.login());
+    assert.equal(await readFile(f.credentialsFile, "utf8"), "{");
+    assert.equal(f.service.getOwner(), null);
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("healthy verified login does not create a recovery backup", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    f.setExchange(async () => bundle("2", "sid-healthy", "refresh-healthy"));
+    await f.login();
+    assert.equal(
+      (await readdir(f.dir)).some((name) => name.endsWith(".bak")),
+      false,
+    );
+    assert.equal((await f.repo.loadActive())?.bundle.session_id, "sid-healthy");
+  } finally {
+    await f.dispose();
+  }
+});
+
 test("malformed refresh responses retain confirmed owner and encrypted session for manual recovery", async () => {
   const f = await fixture();
   try {
@@ -719,7 +1067,9 @@ test("malformed refresh responses retain confirmed owner and encrypted session f
     const owner = f.service.getOwner();
     const before = await readFile(f.credentialsFile, "utf8");
     f.setRefresh(async () => ({ ...bundle(), access_token: "opaque" }));
-    await assert.rejects(f.service.oauth.refreshToken(), { code: "XCODE_PROTOCOL_INVALID" });
+    await assert.rejects(f.service.oauth.refreshToken(), {
+      code: "XCODE_PROTOCOL_INVALID",
+    });
     assert.deepEqual(f.service.getOwner(), owner);
     assert.equal(await readFile(f.credentialsFile, "utf8"), before);
     assert.deepEqual(f.revoked, []);

@@ -190,6 +190,14 @@ export async function updateHostCredentialRecords<T>(
   });
 }
 
+// XCODE: 为下游私有事务开放现有文件操作，调用方负责同一文件锁；不注册到 RPC。
+export const hostCredentialStoragePort = {
+  path: getCredentialsFile,
+  read: readAll,
+  write: writeAll,
+  assertKey: assertHostCredentialKey,
+};
+
 /** Host 私有缓存恢复能力，不进入 Renderer 的 ICredentialService 契约。 */
 export interface LocalCredentialService extends ICredentialService {
   recoverUnreadable(key: string, assertCurrent: () => void): Promise<string | null>;

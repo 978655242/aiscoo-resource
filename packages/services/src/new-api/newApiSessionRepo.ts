@@ -1,11 +1,17 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { link, lstat, readFile, rm, writeFile } from "node:fs/promises";
+import { withFileLock } from "@zcode/shared/node";
 import { z } from "zod";
 import {
   NewApiSessionBundleSchema,
+  CREDENTIAL_DECRYPT_ERROR_CODE,
+  credentialValueSchema,
+  isCredentialDecryptError,
   normalizeNewApiOrigin,
   type NewApiSessionBundle,
 } from "@zcode/shared";
 import {
+  hostCredentialStoragePort,
   readHostCredentialRecords,
   updateHostCredentialRecords,
   withHostCredentialRefreshLease,
@@ -36,6 +42,77 @@ const activeOwnerSchema = z
 function credentialRecoveryRequired(): Error {
   return Object.assign(new Error("Private account credentials require manual recovery"), {
     code: "XCODE_CREDENTIAL_RECORD_INVALID",
+  });
+}
+
+// 损坏记录可能在进程被中断时留下半份备份；只发布完整临时文件，并保留冲突证据。
+async function backupPrivateRecords(file: string): Promise<void> {
+  const content = await readFile(file);
+  const id = createHash("sha256").update(content).digest("hex").slice(0, 24);
+  const base = `${file}.corrupt-${id}`;
+  const temporary = `${base}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(temporary, content, { flag: "wx", mode: 0o600 });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const destination = attempt === 0 ? `${base}.bak` : `${base}.${randomUUID()}.bak`;
+      try {
+        await link(temporary, destination);
+        return;
+      } catch (error) {
+        if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
+        const info = await lstat(destination);
+        if (!info.isFile()) throw new Error("Private credential recovery backup is invalid");
+        if (
+          (await readFile(destination)).equals(content) &&
+          (process.platform === "win32" || (info.mode & 0o077) === 0)
+        )
+          return;
+      }
+    }
+    throw new Error("Private credential recovery backup could not be published");
+  } finally {
+    await rm(temporary, { force: true });
+  }
+}
+
+async function commitHostCredentialRecords<T>(
+  keys: readonly string[],
+  resolve: (load: (key: string) => string | null) => {
+    changes: ReadonlyMap<string, string | null>;
+    result: T;
+    recoveryRequired: boolean;
+  },
+  assertCurrent: () => void,
+  dependencies: HostCredentialStoreDependencies,
+): Promise<T> {
+  for (const key of keys) hostCredentialStoragePort.assertKey(key);
+  const file = dependencies.credentialsFile ?? hostCredentialStoragePort.path();
+  return withFileLock(file, async () => {
+    assertCurrent();
+    const records = await hostCredentialStoragePort.read(file);
+    const cipher = dependencies.cipherProvider ?? createPrivateCredentialCipherProvider();
+    assertCurrent();
+    const { changes, result, recoveryRequired } = resolve((key) => {
+      hostCredentialStoragePort.assertKey(key);
+      const encrypted = records[key];
+      if (encrypted === undefined) return null;
+      if (!encrypted.startsWith("enc:v1:"))
+        throw Object.assign(new Error("Private credentials require encrypted storage recovery"), {
+          code: CREDENTIAL_DECRYPT_ERROR_CODE,
+        });
+      return cipher.decrypt(encrypted);
+    });
+    const declared = new Set(keys);
+    for (const [key, value] of changes) {
+      if (!declared.has(key)) throw new Error("Undeclared private credential mutation");
+      if (value === null) delete records[key];
+      else records[key] = cipher.encrypt(credentialValueSchema.parse(value));
+    }
+    assertCurrent();
+    if (recoveryRequired) await backupPrivateRecords(file);
+    assertCurrent();
+    if (changes.size) await hostCredentialStoragePort.write(file, records);
+    return result;
   });
 }
 
@@ -87,6 +164,69 @@ export class NewApiSessionRepo {
         ]),
         result: undefined,
       }),
+      this.#store,
+    );
+  }
+
+  // 新登录已通过换码与 Me 核验，才能恢复旧记录；冷恢复和 refresh 仍失败关闭。
+  async commitVerifiedLogin(
+    session: NewApiStoredSession,
+    assertCurrent: () => void,
+  ): Promise<NewApiStoredSession | null> {
+    const next = this.#validateSession(session);
+    const key = this.#recordKey(next.bundle.user.id, next.bundle.session_id);
+    return commitHostCredentialRecords(
+      [key, this.#activeKey],
+      (load) => {
+        let recoveryRequired = false;
+        const recover = <T>(read: () => T): T | null => {
+          try {
+            return read();
+          } catch (error) {
+            if (
+              !isCredentialDecryptError(error) &&
+              !(
+                error instanceof Error &&
+                "code" in error &&
+                error.code === "XCODE_CREDENTIAL_RECORD_INVALID"
+              )
+            )
+              throw error;
+            recoveryRequired = true;
+            return null;
+          }
+        };
+        const previous = recover(() => {
+          const active = load(this.#activeKey);
+          if (active === null) return null;
+          const owner = this.#parseActive(active);
+          const raw = load(this.#recordKey(owner.userId, owner.sid));
+          if (raw === null) throw credentialRecoveryRequired();
+          const stored = this.#parseSession(raw);
+          if (!this.#matchesActive(owner, stored)) throw credentialRecoveryRequired();
+          return stored;
+        });
+        // 新 SID 也可能与不可读历史记录重名，覆盖前同样保留其密文证据。
+        recover(() => {
+          const raw = load(key);
+          if (raw !== null) {
+            const stored = this.#parseSession(raw);
+            if (!this.#matchesOwner(stored, next)) throw credentialRecoveryRequired();
+          }
+        });
+        return {
+          changes: new Map([
+            [key, JSON.stringify(next)],
+            [
+              this.#activeKey,
+              JSON.stringify({ userId: next.bundle.user.id, sid: next.bundle.session_id }),
+            ],
+          ]),
+          result: previous,
+          recoveryRequired,
+        };
+      },
+      assertCurrent,
       this.#store,
     );
   }
@@ -199,10 +339,15 @@ export class NewApiSessionRepo {
         if (!current || !this.#matchesCredential(this.#parseSession(current), committed)) {
           return { changes: new Map<string, string | null>(), result: undefined };
         }
-        const changes = new Map<string, string | null>([[key, null]]);
+        // 同用户同 SID 重新授权时新旧记录共用一个键：补偿必须恢复旧内容，不能删除后让 active 指向空记录。
+        const sameKey = previous !== null && previousKey === key;
+        const changes = new Map<string, string | null>([
+          [key, sameKey ? JSON.stringify(previous) : null],
+        ]);
         const active = records.get(this.#activeKey);
         if (active && this.#matchesActive(this.#parseActive(active), committed)) {
-          const prior = previousKey === null ? null : records.get(previousKey);
+          const prior =
+            previousKey === null ? null : sameKey ? "restored" : records.get(previousKey);
           changes.set(
             this.#activeKey,
             prior && previous

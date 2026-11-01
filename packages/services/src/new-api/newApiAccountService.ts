@@ -222,9 +222,13 @@ export class NewApiAccountService {
       const result = await this.#mutate<OAuthCallbackResult | null>(async () => {
         if (!isPendingAuthorizationCurrent(this.#pending, pending, this.#generation, this.#readNow))
           return null;
-        const previous = await this.#repo.loadActive();
-        if (this.#pending !== pending || pending.generation !== this.#generation) return null;
-        await this.#repo.commit(record);
+        // 旧密文不可读时，只有已验证的新登录可在锁内恢复，并在等待期间复核代次。
+        const previous = await this.#repo.commitVerifiedLogin(record, () => {
+          if (
+            !isPendingAuthorizationCurrent(this.#pending, pending, this.#generation, this.#readNow)
+          )
+            throw sessionError("XCODE_STALE_OWNER");
+        });
         // XCODE: 取消可发生在文件锁持有期间；提交后必须补偿，不能复活旧登录。
         if (
           !isPendingAuthorizationCurrent(this.#pending, pending, this.#generation, this.#readNow)
