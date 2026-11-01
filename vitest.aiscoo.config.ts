@@ -96,6 +96,7 @@ export default defineConfig({
       "packages/zcode-server-cli/test/aiscooBranding.test.ts",
       "packages/services/test/aiscooNativeRedirect.test.ts",
       "packages/services/test/aiscooSettingsFilePath.test.ts",
+      "packages/desktop/test/aiscooPackagedAccountOrigin.test.ts",
     ],
   },
 });

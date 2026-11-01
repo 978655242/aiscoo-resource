@@ -4,6 +4,8 @@ import { pathToFileURL } from "node:url";
 import { defineConfig } from "tsup";
 import { getBuildMetadata } from "./scripts/build-metadata.mjs";
 import { resolveDesktopProductFlavor } from "./scripts/desktop-product-identity.mjs";
+// XCODE: 正式包账号源在构建期解析；production 渠道缺失或非法时构建失败。
+import { resolveBuildAiscooAccountOrigin } from "./scripts/aiscoo-account-origin.mjs";
 const { copyGenUiRuntimeAssets } = await import(
   pathToFileURL(resolve(import.meta.dirname, "scripts/gen-ui-runtime-assets.mjs")).href
 );
@@ -73,6 +75,11 @@ const zcodeProductFlavor = resolveDesktopProductFlavor({ ...process.env, ZCODE_E
 // XCODE: 编译期固化渠道，避免运行环境把正式包回调改投开发或 Preview 实例。
 const aiscooDesktopChannel =
   process.env.NODE_ENV === "production" ? zcodeProductFlavor : "development";
+// XCODE: 正式包由 Finder 启动，拿不到构建 shell 的环境，所以账号源随包编译（仅 Main 使用）。
+const aiscooAccountOrigin = resolveBuildAiscooAccountOrigin({
+  env: process.env,
+  channel: aiscooDesktopChannel,
+});
 console.log(`[tsup] ZCODE_ENV=${zcodeEnv} ZCODE_PRODUCT_FLAVOR=${zcodeProductFlavor}`);
 
 function parseCsvEnv(value: string | undefined): string[] {
@@ -224,6 +231,8 @@ function createMainDefines() {
       ).toString("base64")}`,
     ),
     ...createSharedDefines(),
+    // XCODE: Host / scheduler / Agent 经 Main 的 buildHostProcessEnv 继承该值，不单独编译。
+    __AISCOO_ADMIN_BASE_URL__: JSON.stringify(aiscooAccountOrigin),
     // 正式安装包无法继承 GitLab Runner 或开发终端环境。这里只把 CI 提供的低权限写入配置
     // 编译进 Desktop Main，再由既有 Main -> Host -> Agent 安全边界定向传递。
     __ZCODE_PACKAGED_AGENT_TELEMETRY_ENV__: JSON.stringify(

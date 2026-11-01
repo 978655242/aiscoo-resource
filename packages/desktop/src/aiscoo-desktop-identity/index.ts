@@ -33,3 +33,6 @@ export function buildAiscooDesktopStorageEnv(
     ZCODE_LOG_DIR: env.ZCODE_LOG_DIR?.trim() || join(root, "cli", "log"),
   };
 }
+
+// XCODE: 打包账号源解析与应用。
+export * from "./packagedAccountOrigin.js";

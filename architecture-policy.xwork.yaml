@@ -287,7 +287,8 @@ modules:
     roots:
       - packages/desktop/src/aiscoo-desktop-identity
     managed: true
-    requires: [aiscoo-desktop-identity]
+    # XCODE: 打包账号源复用 shared 的严格 origin 解析器，只追加依赖。
+    requires: [aiscoo-desktop-identity, shared]
     publicEntrypoints:
       - packages/desktop/src/aiscoo-desktop-identity/index.ts
       - packages/desktop/src/aiscoo-desktop-identity/contract.ts
