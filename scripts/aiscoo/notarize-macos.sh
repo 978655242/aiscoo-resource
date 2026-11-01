@@ -12,6 +12,8 @@
 #   AISCOO_SIGN_IDENTITY   默认 "Developer ID Application: xi yu (5G9ZLJPH2B)"
 #   AISCOO_NOTARY_PROFILE  默认 aiscoo-notary（notarytool 凭据 profile，存放在专用钥匙串）
 #   AISCOO_ENTITLEMENTS    主 app 的 entitlements，默认取仓库内 packages/desktop/build/entitlements.mac.plist
+#   AISCOO_DMG_TEMPLATE    作为安装盘布局模板的 DMG（含背景图、图标位置、卷图标）。默认取 electron-builder
+#                          在 mac-arm64 同级输出的 DMG；找不到时退化为无背景图的简易 DMG
 #   AISCOO_NOTARY_TIMEOUT_MIN  最长等待分钟数，默认 180；超时不等于失败，提交仍在 Apple 处理
 #   AISCOO_NOTARY_SUBMISSION_ID  已有提交的 id；设置后跳过提交，只继续等待并 staple
 set -euo pipefail
@@ -118,10 +120,49 @@ log "  主 app 签名身份：$(codesign -dvv "$APP" 2>&1 | grep -E '^Authority=
 
 log "步骤 4/6：制作 DMG 并签名"
 STAGE="$(mktemp -d "${TMPDIR:-/tmp}/aiscoo-dmg.XXXXXX")"
-trap 'rm -f "$MACHO_LIST"; rm -rf "$STAGE"' EXIT
-ditto "$APP" "$STAGE/$APP_NAME.app"
-ln -s /Applications "$STAGE/Applications"
-hdiutil create -quiet -volname "$APP_NAME $VERSION" -srcfolder "$STAGE" -fs HFS+ -format UDZO -ov "$OUT_DIR/$DMG_NAME"
+MNT=""; RW=""
+cleanup() {
+  rm -f "$MACHO_LIST"
+  # 中途失败时不能留下挂载着的可写卷。按镜像文件找挂载点，避免 /var 与 /private/var 的路径写法差异。
+  if [ -n "$RW" ] && hdiutil info 2>/dev/null | grep -qF "$RW"; then
+    hdiutil detach -force "$MNT" -quiet >/dev/null 2>&1 || true
+    # 仍未卸载时按设备再试一次
+    dev="$(hdiutil info 2>/dev/null | awk -v img="$RW" '$1=="image-path" && index($0,img){f=1} f && /^\/dev\/disk[0-9]+[ \t]/{print $1; exit}')"
+    [ -z "$dev" ] || hdiutil detach -force "$dev" -quiet >/dev/null 2>&1 || true
+  fi
+  rm -rf "$STAGE"
+}
+trap cleanup EXIT
+# 模板：electron-builder 产出的 DMG 带有产品设计的背景图、图标位置（.DS_Store，按文件名记录）和安装专用卷图标。
+# 只把里面的 ad-hoc 签名 app 换成已签名的 app，布局原样保留；同名替换不改变 .DS_Store。
+TEMPLATE="${AISCOO_DMG_TEMPLATE:-$(dirname "$APP")/../$DMG_NAME}"
+if [ -f "$TEMPLATE" ]; then
+  TEMPLATE="$(cd "$(dirname "$TEMPLATE")" && pwd)/$(basename "$TEMPLATE")"
+  log "  以模板 DMG 保留安装盘布局：${TEMPLATE}"
+  RW="$STAGE/rw.dmg"; MNT="$STAGE/mnt"; mkdir -p "$MNT"
+  hdiutil convert "$TEMPLATE" -format UDRW -quiet -o "$RW"
+  # 模板卷是按当时内容定容的，换入签名后的 app 前先扩容，否则复制到一半会 "No space left"。
+  # 预留量取 app 体积的 1.25 倍加 512MB，既放得下，又不会让最终压缩镜像变大（空闲块会被压缩掉）。
+  APP_KB="$(du -sk "$APP" | awk '{print $1}')"
+  NEED_MB=$(( APP_KB / 1024 * 125 / 100 + 512 ))
+  hdiutil resize -size "${NEED_MB}m" "$RW" >/dev/null || die "无法给可写镜像扩容到 ${NEED_MB}MB"
+  hdiutil attach "$RW" -nobrowse -noautoopen -noverify -quiet -mountpoint "$MNT" >/dev/null
+  [ -d "$MNT/$APP_NAME.app" ] || die "模板 DMG 里没有 ${APP_NAME}.app，无法按名替换（模板：${TEMPLATE}）"
+  for f in .DS_Store .background.tiff .VolumeIcon.icns; do
+    [ -e "$MNT/$f" ] || log "  警告：模板缺少 ${f}，安装盘布局可能不完整"
+  done
+  rm -rf "$MNT/$APP_NAME.app"
+  ditto "$APP" "$MNT/$APP_NAME.app"
+  # 挂载时系统自动生成的索引/事件目录不属于安装盘内容
+  rm -rf "$MNT/.fseventsd" "$MNT/.Spotlight-V100" "$MNT/.Trashes" "$MNT/.TemporaryItems" 2>/dev/null || true
+  hdiutil detach "$MNT" -quiet
+  hdiutil convert "$RW" -format UDZO -imagekey zlib-level=9 -quiet -o "$OUT_DIR/$DMG_NAME"
+else
+  log "  未找到 DMG 模板（可用 AISCOO_DMG_TEMPLATE 指定），生成无背景图的简易 DMG"
+  ditto "$APP" "$STAGE/$APP_NAME.app"
+  ln -s /Applications "$STAGE/Applications"
+  hdiutil create -quiet -volname "$APP_NAME $VERSION" -srcfolder "$STAGE" -fs HFS+ -format UDZO -ov "$OUT_DIR/$DMG_NAME"
+fi
 codesign --force --keychain "$KEYCHAIN" --sign "$IDENTITY" --timestamp "$OUT_DIR/$DMG_NAME" >/dev/null
 codesign --verify --verbose=2 "$OUT_DIR/$DMG_NAME" 2>&1 | tail -1
 
