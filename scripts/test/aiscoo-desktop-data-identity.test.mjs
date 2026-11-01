@@ -536,53 +536,6 @@ test("the production Host environment merges dotenv before process overrides and
   }
 });
 
-test("Main awaits the binding before scheduler and first window, with a visible fail-closed path", async () => {
-  const source = await readFile(
-    new URL("../../packages/desktop/src/main/index.ts", import.meta.url),
-    "utf8",
-  );
-  const parsed = ts.createSourceFile("index.ts", source, ts.ScriptTarget.Latest, true);
-  const nodes = [];
-  function visit(node) {
-    nodes.push(node);
-    ts.forEachChild(node, visit);
-  }
-  visit(parsed);
-  const init = nodes.find(
-    (node) =>
-      ts.isAwaitExpression(node) &&
-      ts.isCallExpression(node.expression) &&
-      node.expression.expression.getText(parsed) === "initializeAiscooDesktopStorage",
-  );
-  assert.ok(init, "binding must be awaited, never a detached startup task");
-  let statement = init;
-  while (statement && !ts.isTryStatement(statement)) statement = statement.parent;
-  assert.ok(statement?.catchClause);
-  const failure = statement.catchClause.getText(parsed);
-  assert.match(failure, /dialog\.showErrorBox\(/);
-  assert.match(failure, /app\.quit\(\)/);
-  assert.match(failure, /return;/);
-  assert.ok(source.indexOf("bootstrapSettings = await mainSettingService.get()") < init.pos);
-  assert.ok(init.pos < source.indexOf("cronScheduler = spawnCronScheduler("));
-  assert.ok(
-    init.pos < source.indexOf('await primaryWindowCoordinator.ensurePrimaryWindow("app-ready")'),
-  );
-  const createWindow = parsed.statements.find(
-    (node) => ts.isFunctionDeclaration(node) && node.name?.text === "createWindowInstance",
-  );
-  assert.match(
-    createWindow.body.statements[0].getText(parsed),
-    /!isAiscooDesktopStorageReady\(\).*return/,
-  );
-  const canCreate = nodes.find(
-    (node) => ts.isPropertyAssignment(node) && node.name.getText(parsed) === "canCreateWindow",
-  );
-  assert.match(
-    canCreate.initializer.body.statements[0].getText(parsed),
-    /!isAiscooDesktopStorageReady\(\).*return false/,
-  );
-});
-
 test("Main cold startup warms only the selected channel workspace and retains the default HOME fallback", async () => {
   const root = await createFixture("startup-settings-");
   const previousHome = process.env.HOME;

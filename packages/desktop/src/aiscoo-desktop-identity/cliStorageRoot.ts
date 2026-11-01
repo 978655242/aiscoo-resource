@@ -11,7 +11,7 @@ function bindingFilePath(settingsFile: string): string {
   const name = basename(settingsFile);
   const suffix =
     name === "setting.json" ? "" : `-${createHash("sha256").update(name).digest("hex")}`;
-  // XCODE: 原 v2 迁移只排除 setting.json.*；自定义设置文件也必须用此前缀，摘要隔离同目录记录。
+  // 原 v2 迁移只排除 setting.json.*；自定义设置文件也用此前缀，摘要隔离同目录的记录。
   return join(dirname(settingsFile), `setting.json.aiscoo-cli-root${suffix}.json`);
 }
 
@@ -24,6 +24,15 @@ function isAbsoluteRoot(value: unknown): value is string {
   );
 }
 
+async function readBinding(bindingFile: string): Promise<string | undefined> {
+  try {
+    return await readFile(bindingFile, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
 /** 只记录首次恢复的 App 根，不搬动数据库；损坏或不可写时必须阻止 Host 打开另一空库。 */
 export async function initializeAiscooDesktopStorage(
   options: AiscooDesktopStorageInitialization,
@@ -33,15 +42,8 @@ export async function initializeAiscooDesktopStorage(
   const bindingFile = bindingFilePath(options.settingsFile);
   try {
     const root = await withFileLock(bindingFile, async () => {
-      let contents: string | undefined;
-      try {
-        // XCODE: 必须在锁内重读，多个 Main/初始化调用只能接受首个已提交的绑定。
-        contents = await readFile(bindingFile, "utf8");
-      } catch (error) {
-        if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) {
-          throw error;
-        }
-      }
+      // 必须在锁内重读：并发启动只能接受第一个已提交的绑定。
+      const contents = await readBinding(bindingFile);
       if (contents !== undefined) {
         const record: unknown = JSON.parse(contents);
         if (
@@ -68,6 +70,7 @@ export async function initializeAiscooDesktopStorage(
     cliBaseDir = root;
     return root;
   } catch (cause) {
+    // 消息里带出记录路径和原因，Main 的错误对话框直接展示给用户。
     const detail = cause instanceof Error ? cause.message : String(cause);
     throw new Error(`Aiscoo CLI root binding failed (${bindingFile}): ${detail}`, { cause });
   }

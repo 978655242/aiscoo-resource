@@ -1,5 +1,8 @@
 import { join } from "node:path";
-import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
+import {
+  AISCOO_DESKTOP_DEFAULT_DATA_BASE_DIR_ENV,
+  resolveAiscooDesktopIdentity,
+} from "@zcode/shared/aiscoo-desktop-identity";
 import type { AiscooDesktopDataBootstrapOptions, DesktopDataBootstrap } from "./contract.js";
 
 let defaultDataBaseDir: string | undefined;
@@ -13,7 +16,7 @@ export function bootstrapAiscooDesktopData(
   if (!identity) return bootstrap();
   const root =
     options.env.ZCODE_DATA_BASE_DIR?.trim() || join(options.appDataPath, identity.dataName);
-  // XCODE: C 在恢复自定义 D 之前确定，清空设置时仍回到此默认根。
+  // 默认根须在恢复自定义目录之前记下，用户清空目录设置时回到这里。
   defaultDataBaseDir = root;
   options.setDataBaseDir(root);
   const settingsFile =
@@ -23,7 +26,7 @@ export function bootstrapAiscooDesktopData(
   return bootstrap(settingsFile);
 }
 
-/** XCODE: App 仅迁移 v2，CLI 三条路径必须从固定 B 派生，且尊重最终合并的显式覆盖。 */
+/** App 目录迁移只复制 v2；CLI 三条路径从固定根派生，逐键尊重最终合并的显式覆盖。 */
 export function buildAiscooDesktopStorageEnv(
   dataBaseDir: string,
   env: Record<string, string | undefined>,
@@ -35,9 +38,9 @@ export function buildAiscooDesktopStorageEnv(
   }
   const root = join(cliBaseDir, ".zcode");
   return {
-    // XCODE: D 即使等于 HOME 也须覆盖继承值，否则 Host 会恢复成旧环境中的根。
+    // 当前根等于 HOME 时也要显式下发，否则 Host 会沿用继承环境里的旧根。
     ZCODE_DATA_BASE_DIR: dataBaseDir,
-    AISCOO_DESKTOP_DEFAULT_DATA_BASE_DIR: defaultDataBaseDir,
+    [AISCOO_DESKTOP_DEFAULT_DATA_BASE_DIR_ENV]: defaultDataBaseDir,
     ZCODE_STORAGE_DIR: env.ZCODE_STORAGE_DIR?.trim() || root,
     ZCODE_SESSION_DB_PATH:
       env.ZCODE_SESSION_DB_PATH?.trim() || join(root, "cli", "db", "db.sqlite"),

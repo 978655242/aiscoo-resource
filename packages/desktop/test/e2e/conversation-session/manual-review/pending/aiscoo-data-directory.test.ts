@@ -34,28 +34,38 @@ import {
 
 const mode = process.env.AISCOO_E2E_STORAGE_MODE;
 const home = process.env.AISCOO_E2E_STORAGE_HOME;
-if (!home || !["new", "legacy"].includes(mode ?? "")) {
-  throw new Error("Run with the dedicated aiscoo-data-directory.wdio.ts wrapper");
-}
-const H = home;
-const C = getE2EAppDataPaths().homeDir;
-const B = mode === "legacy" ? join(H, "legacy") : C;
-const D = join(H, "moved");
+// 只由专用 wdio 包装提供合成 HOME 和渠道根；标准 manual-review 入口选中本文件时跳过，不报加载错误。
+const configured = Boolean(home) && ["new", "legacy"].includes(mode ?? "");
+const syntheticHome = home ?? "";
+const channelRoot = getE2EAppDataPaths().homeDir;
+const cliRoot = mode === "legacy" ? join(syntheticHome, "legacy") : channelRoot;
+const movedRoot = join(syntheticHome, "moved");
 const app = (root: string) => join(root, ".zcode/v2");
-const settingsFile = join(app(C), "setting.json");
-const sidecar = join(app(C), "setting.json.aiscoo-cli-root.json");
-const cliDb = join(B, ".zcode/cli/db/db.sqlite");
+const settingsFile = join(app(channelRoot), "setting.json");
+const sidecar = join(app(channelRoot), "setting.json.aiscoo-cli-root.json");
+const cliDb = join(cliRoot, ".zcode/cli/db/db.sqlite");
 const indexDb = (root: string) => join(app(root), "tasks-index.sqlite");
 const beforeMarker = "E2E_ACDD_BEFORE";
 const afterMarker = "E2E_ACDD_AFTER";
 const beforeReply = "ACDD_BEFORE_DONE";
 const afterReply = "ACDD_AFTER_DONE";
-const facts: Record<string, unknown> = { mode, H, C, B, D, stages: [] };
+const facts: Record<string, unknown> = {
+  mode,
+  syntheticHome,
+  channelRoot,
+  cliRoot,
+  movedRoot,
+  stages: [],
+};
 const artifactDir = process.env.ZCODE_E2E_ARTIFACT_DIR;
 
-describe(`Aiscoo 数据目录 ${mode}: 渠道根与 HOME 分离`, () => {
+describe(`Aiscoo 数据目录 ${mode ?? "unconfigured"}: 渠道根与 HOME 分离`, () => {
+  before(function () {
+    if (!configured) this.skip();
+  });
+
   after(async () => {
-    await browser.electron.restoreAllMocks();
+    if (!configured) return;
     if (artifactDir)
       await writeFile(
         join(artifactDir, `aiscoo-directory-${mode}.json`),
@@ -69,11 +79,11 @@ describe(`Aiscoo 数据目录 ${mode}: 渠道根与 HOME 分离`, () => {
       ? "ACDD03 旧 custom CLI 原库捕获后迁移仍可续聊"
       : "ACDD01/02 新安装迁移、默认渠道及真实 HOME 保存重启一致",
     async () => {
-      expect(C).not.toBe(H);
+      expect(channelRoot).not.toBe(syntheticHome);
       await prepareV4ConversationE2E({ resetDraftBeforeProvider: true });
-      await assertRuntime("initial", B);
+      await assertRuntime("initial", cliRoot);
       await openSettings();
-      expect(await inputPath()).toBe(B);
+      expect(await inputPath()).toBe(cliRoot);
       await clickTestIdByDom(TID_SETTINGS_BACK_BUTTON);
       await ensureReadonlyToolFixtureFile();
       await sendV4Prompt(buildReadonlyToolPrompt(beforeMarker));
@@ -85,7 +95,7 @@ describe(`Aiscoo 数据目录 ${mode}: 渠道根与 HOME 分离`, () => {
       );
       const taskId = completed.sessionId!;
       facts.taskId = taskId;
-      await waitForIndex(B, taskId);
+      await waitForIndex(cliRoot, taskId);
       const first = cliFacts(taskId);
       expect(first.sessionId).toBe(taskId);
       expect(first.messages.length).toBeGreaterThan(1);
@@ -96,31 +106,36 @@ describe(`Aiscoo 数据目录 ${mode}: 渠道根与 HOME 分离`, () => {
       await writeFile(projectCanary, "ACDD_PROJECT_UNMOVED\n");
 
       if (mode === "legacy") {
-        // 只在完整退出屏障内移除本测试产生的 sidecar，模拟带现有 D/CLI 库的首次升级。
-        // 不复制/重建 CLI 库、不改 session/message 行；恢复必须从现有文件原址捕获 B=D。
-        await coldRestart("legacy-first-capture", B, async () => {
+        // 只在完整退出屏障内移除本测试产生的绑定记录，模拟带现有自定义根和 CLI 库的首次升级。
+        // 不复制或重建 CLI 库、不改 session/message 行；重启必须从现有文件原址捕获该根。
+        await coldRestart("legacy-first-capture", cliRoot, async () => {
           expect((await stat(cliDb)).ino).toBe(originalInode);
           await rm(sidecar);
         });
         await restoreTask(taskId);
         expect((await stat(cliDb)).ino).toBe(originalInode);
         expect(cliFacts(taskId).messages).toEqual(first.messages);
-        expect(await exists(join(C, ".zcode/cli/db/db.sqlite"))).toBe(false);
+        expect(await exists(join(channelRoot, ".zcode/cli/db/db.sqlite"))).toBe(false);
       }
-      expect(JSON.parse(await readFile(sidecar, "utf8"))).toEqual({ version: 1, cliBaseDir: B });
-      await mkdir(D, { recursive: true });
-      expect(await readdir(D)).toEqual([]);
-      await writeFile(join(app(B), "aiscoo-app-canary.txt"), "ACDD_ORIGINAL\n");
-      await saveDirectory(D);
-      expect(await persistedRoot()).toBe(D);
-      expect(await readFile(join(app(D), "aiscoo-app-canary.txt"), "utf8")).toBe("ACDD_ORIGINAL\n");
-      expect(await exists(indexDb(D))).toBe(true);
-      expect(await exists(join(app(D), "setting.json"))).toBe(false);
-      expect(await exists(join(app(D), "setting.json.aiscoo-cli-root.json"))).toBe(false);
-      await coldRestart("moved", D);
+      expect(JSON.parse(await readFile(sidecar, "utf8"))).toEqual({
+        version: 1,
+        cliBaseDir: cliRoot,
+      });
+      await mkdir(movedRoot, { recursive: true });
+      expect(await readdir(movedRoot)).toEqual([]);
+      await writeFile(join(app(cliRoot), "aiscoo-app-canary.txt"), "ACDD_ORIGINAL\n");
+      await saveDirectory(movedRoot);
+      expect(await persistedRoot()).toBe(movedRoot);
+      expect(await readFile(join(app(movedRoot), "aiscoo-app-canary.txt"), "utf8")).toBe(
+        "ACDD_ORIGINAL\n",
+      );
+      expect(await exists(indexDb(movedRoot))).toBe(true);
+      expect(await exists(join(app(movedRoot), "setting.json"))).toBe(false);
+      expect(await exists(join(app(movedRoot), "setting.json.aiscoo-cli-root.json"))).toBe(false);
+      await coldRestart("moved", movedRoot);
       await restoreTask(taskId);
-      const oldIndex = indexTime(B, taskId);
-      const newIndex = indexTime(D, taskId);
+      const oldIndex = indexTime(cliRoot, taskId);
+      const newIndex = indexTime(movedRoot, taskId);
       expect(oldIndex).not.toBeNull();
       expect(newIndex).not.toBeNull();
       await sendV4Prompt(afterMarker);
@@ -130,54 +145,57 @@ describe(`Aiscoo 数据目录 ${mode}: 渠道根与 HOME 分离`, () => {
         "迁移后同任务续聊未完成",
         60_000,
       );
-      await browser.waitUntil(async () => (indexTime(D, taskId) ?? 0) > (newIndex ?? 0), {
+      await browser.waitUntil(async () => (indexTime(movedRoot, taskId) ?? 0) > (newIndex ?? 0), {
         timeout: 30_000,
         timeoutMsg: "新 App task-index 未推进",
       });
-      expect(indexTime(B, taskId)).toBe(oldIndex);
+      expect(indexTime(cliRoot, taskId)).toBe(oldIndex);
       const continued = cliFacts(taskId);
       expect(continued.sessionId).toBe(taskId);
       expect(continued.messages.length).toBeGreaterThan(first.messages.length);
       expect(continued.messages.slice(0, first.messages.length)).toEqual(first.messages);
       expect((await stat(cliDb)).ino).toBe(originalInode);
-      expect(await exists(join(D, ".zcode/cli/db/db.sqlite"))).toBe(false);
+      expect(await exists(join(movedRoot, ".zcode/cli/db/db.sqlite"))).toBe(false);
       expect(await readFile(projectCanary, "utf8")).toBe("ACDD_PROJECT_UNMOVED\n");
       facts.continuedCli = continued;
       facts.index = {
         oldIndex,
-        oldAfter: indexTime(B, taskId),
+        oldAfter: indexTime(cliRoot, taskId),
         newBefore: newIndex,
-        newAfter: indexTime(D, taskId),
+        newAfter: indexTime(movedRoot, taskId),
       };
 
       if (mode === "new") {
-        await writeFile(join(app(D), "aiscoo-return-canary.txt"), "ACDD_RETURN_NEW_FILE\n");
-        await writeFile(join(app(D), "aiscoo-app-canary.txt"), "ACDD_SOURCE_CHANGED\n");
-        await saveDirectory(C);
-        expect(await persistedRoot()).toBe(C);
-        expect(await readFile(join(app(C), "aiscoo-return-canary.txt"), "utf8")).toBe(
+        await writeFile(join(app(movedRoot), "aiscoo-return-canary.txt"), "ACDD_RETURN_NEW_FILE\n");
+        await writeFile(join(app(movedRoot), "aiscoo-app-canary.txt"), "ACDD_SOURCE_CHANGED\n");
+        await saveDirectory(channelRoot);
+        expect(await persistedRoot()).toBe(channelRoot);
+        expect(await readFile(join(app(channelRoot), "aiscoo-return-canary.txt"), "utf8")).toBe(
           "ACDD_RETURN_NEW_FILE\n",
         );
-        // 已有 C 使用既有 force:false；不要求把 D 的 task-index 覆盖或合并回 C。
-        expect(await readFile(join(app(C), "aiscoo-app-canary.txt"), "utf8")).toBe(
+        // 已有渠道根沿用既有 force:false；不要求把迁移目录的 task-index 覆盖或合并回来。
+        expect(await readFile(join(app(channelRoot), "aiscoo-app-canary.txt"), "utf8")).toBe(
           "ACDD_ORIGINAL\n",
         );
-        await coldRestart("default-channel", C);
+        await coldRestart("default-channel", channelRoot);
         await openSettings();
-        expect(await inputPath()).toBe(C);
+        expect(await inputPath()).toBe(channelRoot);
         await clickTestIdByDom(TID_SETTINGS_BACK_BUTTON);
-        expect(await exists(join(H, ".zcode/v2"))).toBe(false);
-        await saveDirectory(H);
-        expect(await persistedRoot()).toBe(H);
-        expect(await readFile(join(app(H), "aiscoo-return-canary.txt"), "utf8")).toBe(
+        expect(await exists(join(syntheticHome, ".zcode/v2"))).toBe(false);
+        await saveDirectory(syntheticHome);
+        expect(await persistedRoot()).toBe(syntheticHome);
+        expect(await readFile(join(app(syntheticHome), "aiscoo-return-canary.txt"), "utf8")).toBe(
           "ACDD_RETURN_NEW_FILE\n",
         );
-        await coldRestart("real-home", H);
+        await coldRestart("real-home", syntheticHome);
         await openSettings();
-        expect(await inputPath()).toBe(H);
-        expect(await exists(join(H, ".zcode/cli/db/db.sqlite"))).toBe(false);
+        expect(await inputPath()).toBe(syntheticHome);
+        expect(await exists(join(syntheticHome, ".zcode/cli/db/db.sqlite"))).toBe(false);
       }
-      expect(JSON.parse(await readFile(sidecar, "utf8"))).toEqual({ version: 1, cliBaseDir: B });
+      expect(JSON.parse(await readFile(sidecar, "utf8"))).toEqual({
+        version: 1,
+        cliBaseDir: cliRoot,
+      });
       expect((await stat(cliDb)).ino).toBe(originalInode);
       if (artifactDir)
         await browser.saveScreenshot(join(artifactDir, `aiscoo-directory-${mode}.png`));
@@ -200,8 +218,8 @@ async function assertRuntime(stage: string, active: string) {
       )
       .map((metric) => metric.pid),
   }));
-  expect(runtime.home).toBe(H);
-  expect(runtime.electronHome).toBe(H);
+  expect(runtime.home).toBe(syntheticHome);
+  expect(runtime.electronHome).toBe(syntheticHome);
   expect(runtime.settings).toBe(settingsFile);
   expect(runtime.hostPids.length).toBeGreaterThan(0);
   // macOS 在 Host 设置 process.title 后不再通过 ps 提供环境；不能将缺失读数当成路径错误。
@@ -268,20 +286,35 @@ function inputPath(): Promise<string | null> {
 
 async function saveDirectory(target: string) {
   await openSettings();
-  // WDIO 9 的 mock registry 跨冷重启保留旧对象，mockReset 在新 Main 的原函数上静默失效。
-  // 只替换当前 Main 的一次原生选目录返回，调用后立即恢复；设置页、复制与保存仍走真实路径。
+  // 只替代系统目录选择器的一次返回值；设置页、复制与保存仍走真实链路。
+  // 不用 browser.electron.mock：wdio-electron-service 只在会话启动时保存一份原始 API，
+  // 冷重启后 runner 里缓存的 mock 指向旧 Main，restore 也找不到新进程的原始函数，
+  // 第二次起选择不会返回。这里在当前 Main 上替换一次，调用后立即还原，并记录调用参数。
   await browser.electron.execute((electron, directory) => {
     const original = electron.dialog.showOpenDialog;
-    electron.dialog.showOpenDialog = async () => {
+    const calls: unknown[][] = [];
+    (globalThis as { __aiscooDirectoryPickerCalls?: unknown[][] }).__aiscooDirectoryPickerCalls =
+      calls;
+    electron.dialog.showOpenDialog = (async (...args: unknown[]) => {
       electron.dialog.showOpenDialog = original;
+      calls.push(
+        args.map((arg) => (arg && typeof arg === "object" && "id" in arg ? "window" : arg)),
+      );
       return { canceled: false, filePaths: [directory] };
-    };
+    }) as typeof original;
   }, target);
   await clickTestIdByDom(TID_SETTINGS_DATA_BASE_DIR_BROWSE);
   await browser.waitUntil(async () => (await inputPath()) === target, {
     timeout: 15_000,
     timeoutMsg: "所选目录未显示",
   });
+  const calls = await browser.electron.execute(
+    () =>
+      (globalThis as { __aiscooDirectoryPickerCalls?: unknown[][] }).__aiscooDirectoryPickerCalls ??
+      [],
+  );
+  expect(calls).toHaveLength(1);
+  expect(JSON.stringify(calls[0])).toContain("openDirectory");
   await clickTestIdByDom(TID_SETTINGS_DATA_BASE_DIR_SAVE);
   await browser.waitUntil(
     async () =>

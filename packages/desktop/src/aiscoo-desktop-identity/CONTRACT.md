@@ -6,7 +6,8 @@
 - `initializeAiscooDesktopStorage({ settingsFile, dataBaseDir })` 在 Main 恢复设置后、所有 Host/scheduler 启动前 await。锁内重读 sidecar，首次记录 D 为 B，以后保留 B；`getAiscooDesktopCliBaseDir` 只返回已完成初始化的 B，提前调用抛清晰错误。`isAiscooDesktopStorageReady` 在未注入渠道时始终 true。
 - sidecar 是 settingsFile 同目录的 `setting.json.aiscoo-cli-root.json`，非标准 settings basename 使用 `setting.json.aiscoo-cli-root-<basename 的完整 SHA-256>.json`。JSON 契约为 `{ version: 1, cliBaseDir: 非空绝对路径 }`。匹配原 v2 copy 的排除规则；原子写临时态在启动 Host 前结束。
 - 复用 shared/node 的文件锁与私有原子写；损坏、未知版本、读取/锁/写失败全部向 Main 抛错，保留原数据；Main 展示错误并退出，不能回退到另一空库。不覆盖 HOME/USERPROFILE，不导入、复制、删除数据库或凭据。
-- `buildAiscooDesktopStorageEnv(D, finalEnv, B)` 接收显式 B，从 B 派生 storage/db/log，逐键尊重最终合并的 `.env → process` 覆盖；始终返回 ZCODE_DATA_BASE_DIR=D（包括 HOME）及 AISCOO_DESKTOP_DEFAULT_DATA_BASE_DIR=C。未注入返回空对象。早期 bootstrap 不写 storage/db/log 默认值到 process.env。
+- `buildAiscooDesktopStorageEnv(D, finalEnv, B)` 接收显式 B，从 B 派生 storage/db/log，逐键尊重最终合并的 `.env → process` 覆盖；始终返回 ZCODE_DATA_BASE_DIR=D（包括 HOME），并以 shared 导出的 `AISCOO_DESKTOP_DEFAULT_DATA_BASE_DIR_ENV` 为键下发 C。未注入返回空对象。早期 bootstrap 不写 storage/db/log 默认值到 process.env。
+- Main 的 `canCreateWindow` 在绑定完成前返回 false，所有建窗入口都经窗口协调器记录阻断；初始化失败时按当前界面语言展示错误并退出。
 - 默认设置语义由独立 `host-aiscoo-data-directory` 包装承接；本模块不改通用 settings schema、不迁移 CLI DB。规则、时序图与验收见 [产品规格](../../../../docs/aiscoo/specs/desktop-product-identity.md)。
 
 ## 打包账号源

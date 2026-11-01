@@ -1,10 +1,10 @@
-import { ISettingService, ISystemService } from "@zcode/services";
-import type { RegisterAiscooDataDirectoryServices } from "./contract.js";
+import { ISettingService, ISystemService, type ServiceCollection } from "@zcode/services";
 
-export const registerAiscooDataDirectoryServices: RegisterAiscooDataDirectoryServices = (
-  services,
-  defaultDataBaseDir,
-) => {
+/** 在本地 Host 暴露服务前包装 system/setting；defaultDataBaseDir 为 undefined 时保持上游服务。 */
+export function registerAiscooDataDirectoryServices(
+  services: ServiceCollection,
+  defaultDataBaseDir: string | undefined,
+): void {
   if (defaultDataBaseDir === undefined) return;
   const system = services.get(ISystemService);
   const setting = services.get(ISettingService);
@@ -17,8 +17,8 @@ export const registerAiscooDataDirectoryServices: RegisterAiscooDataDirectorySer
   services.register(ISettingService, {
     ...setting,
     updateDataBaseDir(newDir) {
-      // XCODE: 空值应回到渠道 C；必须以已注册 base 为 this，让原 update 的提交后通知保留。
+      // 空值回到渠道默认根；经 base 调用，原 update 的提交后通知不变。
       return setting.updateDataBaseDir(newDir?.trim() ? newDir : defaultDataBaseDir);
     },
   });
-};
+}
