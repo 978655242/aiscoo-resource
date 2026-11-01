@@ -7,7 +7,7 @@ import { recordSlashCommandInHistory } from "../command-center/history.js";
 import { buildLoginSelection, emitLoginAuthorizeMessage, parseApiKeyLoginArgs } from "../command-center/login-flow.js";
 import { parseSlashCommand } from "../command-center/slash-commands.js";
 import type { CommandCenterDeps } from "../command-center/types.js";
-import type { XworkZenCommandDeps } from "./contract.js";
+import type { AiscooZenCommandDeps } from "./contract.js";
 import { aiscooAccountCommandHelp, projectAiscooSlashHelp } from "./help.js";
 
 
@@ -34,9 +34,9 @@ export function buildZenLoginItem(locale?: string): TuiSelectionItem {
 }
 
 /** 产品登录入口固定只有 Aiscoo；未配置不能恢复为上游账号入口。 */
-export function createXworkCommandCenter(
+export function createAiscooCommandCenter(
   deps: CommandCenterDeps,
-  zen: XworkZenCommandDeps | undefined,
+  zen: AiscooZenCommandDeps | undefined,
 ): TuiSubmitPrompt {
   // 旧官方 login/logout 即使从别的命令分支触发，也不能绕过产品门禁。
   const rejectOfficial = async (): Promise<never> => { throw new Error(`Use /login zen to sign in to ${PRODUCT_NAME}.`); };

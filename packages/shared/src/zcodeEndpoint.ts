@@ -1,7 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import type { ZCodeEnv } from "./env.js";
 // XCODE: 纯 JS 品牌入口可由 Node 配置期与浏览器共同加载，避免源码 .js→.ts 解析依赖。
-import { brandProductText } from "./xwork-brand/runtime.js";
+import { brandProductText } from "./aiscoo-brand/runtime.js";
 
 export const DEFAULT_ZCODE_ENDPOINT_ORIGIN = "https://zcode.z.ai";
 export const TEST_ZCODE_ENDPOINT_ORIGIN = "https://zcode.z.ai";

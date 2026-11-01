@@ -1,5 +1,5 @@
 // XCODE: 自有静态模板使用共享品牌，用户插值和兼容标识保持不变。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 // tui-prompt-handler.ts 顶到 oxlint max-lines 上限（400 行），把 createApp 里
 // 「读 dotenv → 定位要恢复的会话 → 装 bootstrap 模块 → 起 Provider Registry

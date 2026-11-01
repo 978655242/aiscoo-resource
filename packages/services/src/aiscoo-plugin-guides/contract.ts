@@ -11,7 +11,7 @@ import type {
   PluginGuideGenerateParams,
   PluginGuideSnapshot,
   PluginGuideTarget,
-} from "@zcode/shared/xwork-plugin-guides";
+} from "@zcode/shared/aiscoo-plugin-guides";
 import { createServiceDescriptor } from "../descriptors.js";
 
 /** The target Host owns all accepted guide operations and complete saved revisions. */
@@ -30,7 +30,7 @@ export type {
   PluginGuideMessage,
   PluginGuideSnapshot,
   PluginGuideTarget,
-} from "@zcode/shared/xwork-plugin-guides";
+} from "@zcode/shared/aiscoo-plugin-guides";
 
 export interface PluginGuideAgentPort {
   readPluginGuideSource(params: {

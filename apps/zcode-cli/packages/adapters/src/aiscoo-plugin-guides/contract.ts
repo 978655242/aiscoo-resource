@@ -1,4 +1,4 @@
-import type { PluginGuideSource } from "@zcode/shared/xwork-plugin-guides";
+import type { PluginGuideSource } from "@zcode/shared/aiscoo-plugin-guides";
 
 export interface ReadPluginGuideSourceInput {
   storageRoot: string;

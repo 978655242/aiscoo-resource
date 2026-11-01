@@ -1,5 +1,5 @@
 // XCODE: Helper 展示名读取同源品牌事实，bundle ID 与协议身份保持兼容。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 export const HELPER_APP_NAME = `${PRODUCT_NAME} Computer Use.app`;
 export const DEV_HELPER_APP_NAME = `${PRODUCT_NAME} Computer Use Dev.app`;
 export const HELPER_DISPLAY_NAME = `${PRODUCT_NAME} Computer Use`;

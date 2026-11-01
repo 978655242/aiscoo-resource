@@ -1,6 +1,6 @@
 # 旧方案：Host 持有凭据的本机 Web
 
-状态：历史设计与未完成实现快照，随 `e2721fd6` 保留；不是当前 release 的本机 Web 规范，也不表示代码或生产后端已经支持这些能力。现行规范为 [浏览器持有 New API 凭据](browser-new-api.md)，沿用 `pnpm dev:web`、`AISCOO_BROWSER_NEW_API=1` 与 `AISCOO_ADMIN_BASE_URL`，通过既有 account authority 接口接入 Host；不采用下文的 Host 凭据库、回环 listener 或专用启动器作为现行方案。
+状态：历史设计。对应实现（`local-web-new-api` 服务、`aiscoo-local-web` Server 入口、`aiscoo-local-web-oauth` UI 与 `pnpm dev:aiscoo:web`）已于 2026-11-01 整体删除，见 [aiscoo-only-login.md §12](aiscoo-only-login.md)；本文随 `e2721fd6` 仅保留设计记录，不是当前 release 的本机 Web 规范，也不表示代码或生产后端已经支持这些能力。现行规范为 [浏览器持有 New API 凭据](browser-new-api.md)，沿用 `pnpm dev:web`、`AISCOO_BROWSER_NEW_API=1` 与 `AISCOO_ADMIN_BASE_URL`，通过既有 account authority 接口接入 Host；不采用下文的 Host 凭据库、回环 listener 或专用启动器作为现行方案。
 
 下文保留旧方案扩展 [私有网关一期规格](new-api-integration.md) 时的产品规则、拟定接口和验收要求，不能据此推断已经实现或验证通过。文中的 `NEW_API_BASE_URL` 是当时命名，当前已退役且不提供 fallback；当前配置统一使用 `AISCOO_ADMIN_BASE_URL`，不应照抄旧变量或旧启动步骤。合并前该分支仍有 7 项 logout 测试失败，根因和修复未在本次文档处理中验证；其他阶段通过记录不覆盖这些失败，也不作为当前 release 的验收结果。
 

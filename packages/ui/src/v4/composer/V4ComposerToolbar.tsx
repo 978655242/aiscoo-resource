@@ -1,6 +1,6 @@
 /* oxlint-disable eslint(max-lines) -- V4ComposerToolbar 汇聚模型/思考深度/context usage 三件套；继续拆分会打散工具条热键与模型目录 memo 的共享状态。 */
 // XCODE: 套餐展示模板统一品牌，模型来源和标识不变。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 /**
  * V4 composer 工具条。
  *

@@ -22,7 +22,7 @@ import type {
 } from "@zcode/server/source-server/transportAdapter.js";
 
 // XCODE: 仅本地环境提示使用共享品牌，远端命令与协议标记保持兼容。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 
 const SERVER_ROOT_SHELL = '"$HOME/.zcode/server"';
 const SERVER_BIN_SHELL = '"$HOME/.zcode/server/bin/zcode"';

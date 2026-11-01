@@ -121,7 +121,7 @@ describe("desktop startup shell theme", () => {
     // 资源加载失败时不得阻断启动壳的完成逻辑。
     expect(modules.find((script) => script.includes("tryFinishStartupAnimation"))).not.toBe(module);
     for (const name of ["startup-light", "startup-dark", "mark-light", "mark-dark"]) {
-      expect(module).toContain(`../../../ui/src/xwork/brand/assets/${name}.svg?url`);
+      expect(module).toContain(`../../../ui/src/aiscoo/brand/assets/${name}.svg?url`);
       expect(html).toContain(`data-startup-asset="${name}"`);
     }
   });

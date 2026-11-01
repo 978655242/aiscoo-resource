@@ -2,7 +2,7 @@
 
 基线：origin/release；上游：`3c5b227649371507ddc4eb46ac5133afe6db1cab`。清单由工作区实际 diff 与 upstream/main 文件树交集生成，含每个被修改的上游文件。新增下游模块与资源不计为上游文件。
 
-品牌事实与图形均在独立 xwork-brand / xwork-brand-ui / cli-brand 模块，既有文件只作模板／资源／入口接线。严格 JSON、二进制和生成文件通过本清单说明，不写无效注释。
+品牌事实与图形均在独立 aiscoo-brand / aiscoo-brand-ui / cli-aiscoo-brand 模块，既有文件只作模板／资源／入口接线。严格 JSON、二进制和生成文件通过本清单说明，不写无效注释。
 
 共 216 个被修改的上游文件。
 

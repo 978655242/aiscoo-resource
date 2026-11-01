@@ -4,7 +4,7 @@
  */
 export const cliZenAuthModule = {
   id: "cli-zen-auth",
-  requires: ["shared", "zcode-cli", "xwork-brand"],
+  requires: ["shared", "zcode-cli", "aiscoo-brand"],
   provides: ["cli-zen-auth"],
   publicEntrypoints: ["index.ts", "contract.ts"],
 } as const;

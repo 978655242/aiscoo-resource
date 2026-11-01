@@ -8,7 +8,7 @@ import {
   type Locale,
 } from "@zcode/shared";
 // XCODE: 更新提示只使用共享产品展示名，版本和更新服务身份保持不变。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import { requestForceAutoUpdate, type ForceAutoUpdateState } from "./autoUpdater.js";
 import { showForceUpdatePrompt } from "./forceUpdatePrompt.js";
 

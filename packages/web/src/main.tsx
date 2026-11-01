@@ -1,7 +1,7 @@
 import { createWebPlatform } from "#src/platform/index.js";
 import { DesktopCommandIds, mobilePluginDiscoveryTelemetrySchema } from "@zcode/shared";
 // XCODE: 自有页面标题在装配时投影品牌，不改协议、URL 或用户内容。
-import { brandProductText, PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { brandProductText, PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import {
   sessionCreateTelemetrySchema,
   WEB_REMOTE_CONTROL_WORKSPACE_RECONNECT_TIMEOUT_MS,
@@ -25,13 +25,13 @@ import {
   type WebRemoteControlTerminalTransportState as UiWebRemoteControlTerminalTransportState,
 } from "@zcode/ui";
 // XCODE: 独立公开子路径组合归属水合，保留原 UI 根导出边界。
-import { createXWorkRoot } from "@zcode/ui/xwork-startup-context";
+import { createAiscooRoot } from "@zcode/ui/aiscoo-startup-context";
 // XCODE: Web 与桌面共享本地默认头像，身份仍由原服务持有。
-import { createAiscooAccountAvatarRoot } from "@zcode/ui/xwork-account-avatar";
+import { createAiscooAccountAvatarRoot } from "@zcode/ui/aiscoo-account-avatar";
 // XCODE: 共同产品包装覆盖普通 Web 与远控 Root，缺配置也不回退官方登录。
 import { createAiscooAccountLoginRoot } from "@zcode/ui/aiscoo-account-login-root";
 // XCODE: 产品入口显式投影词典，原 Provider 默认不变。
-import { AiscooIntlProvider as ZCodeIntlProvider } from "@zcode/ui/xwork-brand";
+import { AiscooIntlProvider as ZCodeIntlProvider } from "@zcode/ui/aiscoo-brand";
 import "./styles.css";
 import {
   connectViaProtocol,
@@ -126,7 +126,7 @@ import {
 // XCODE: 入口注入上游组件，沿用手机 replayable 的会话恢复边界。
 // XCODE: 与已有启动包装组合，保持 Root 的 props 和恢复链路不变。
 const Root: typeof UpstreamRoot = createAiscooAccountLoginRoot(
-  createAiscooAccountAvatarRoot(createXWorkRoot(UpstreamRoot)),
+  createAiscooAccountAvatarRoot(createAiscooRoot(UpstreamRoot)),
 );
 
 type RootServices = Parameters<typeof Root>[0]["services"];

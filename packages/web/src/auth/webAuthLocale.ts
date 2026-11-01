@@ -1,7 +1,7 @@
 // XCODE: 仅统一产品展示名称，保留内部标识与用户内容。
 import type { WebOAuthProviderId } from "./browserOAuthCredentialRepo.js";
 // XCODE: 登录页展示名来自共享品牌事实，供应商登录名称保持真实。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 
 type WebAuthLocale = "zh-CN" | "en-US";
 

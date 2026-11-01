@@ -4,7 +4,7 @@
  */
 export const aiscooLegalUiModule = {
   id: "aiscoo-legal-ui",
-  requires: ["ui", "shared", "xwork-brand"],
+  requires: ["ui", "shared", "aiscoo-brand"],
   provides: ["aiscoo-legal-ui"],
   publicEntrypoints: ["index.ts", "contract.ts"],
 } as const;

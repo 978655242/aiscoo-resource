@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createXworkCommandCenter, runXwork } from "../src/xwork/index.js";
+import { createAiscooCommandCenter, runAiscoo } from "../src/aiscoo/index.js";
 import { createCommandCenter } from "../src/command-center.js";
 import type { CommandCenterDeps } from "../src/command-center/types.js";
 
@@ -24,10 +24,10 @@ test("Zen CLI login and logout route to isolated account without leaking secrets
     loginZenCli: async () => ({ providerId: "zen", user: { id: "1", display_name: "Test" } }),
     logoutZenCli: async () => ({ localCleared: true, serverRevoked: true }),
   };
-  assert.equal(await runXwork(ctx(["login", "zen", "--json", "--no-browser"]), deps as never), 0);
+  assert.equal(await runAiscoo(ctx(["login", "zen", "--json", "--no-browser"]), deps as never), 0);
   assert.match(out.read(), /"provider": "zen"/);
   out.reset();
-  assert.equal(await runXwork(ctx(["logout", "zen", "--json"]), deps as never), 0);
+  assert.equal(await runAiscoo(ctx(["logout", "zen", "--json"]), deps as never), 0);
   assert.match(out.read(), /"serverRevoked": true/);
 });
 
@@ -40,7 +40,7 @@ test("Zen CLI reports failure with exit code 1 and no stack", async () => {
       throw new Error("XCODE_STALE_OWNER");
     },
   };
-  const code = await runXwork(
+  const code = await runAiscoo(
     { argv: ["logout", "zen"], stdout: out.stream, stderr: out.stream } as never,
     deps as never,
   );
@@ -50,7 +50,7 @@ test("Zen CLI reports failure with exit code 1 and no stack", async () => {
 
 test("Aiscoo help exposes only product account login", async () => {
   const out = capture();
-  const code = await runXwork(
+  const code = await runAiscoo(
     { argv: ["--help", "--locale", "zh-CN"], stdout: out.stream, stderr: out.stream } as never,
     { env: {} } as never,
   );
@@ -77,7 +77,7 @@ const baseDeps = (locale: "zh-CN" | "en-US"): CommandCenterDeps => ({
 
 test("Aiscoo login choices retain manual keys and exclude official OAuth", async () => {
   const upstream = await createCommandCenter(baseDeps("zh-CN"))("/login", {} as never);
-  const center = createXworkCommandCenter(baseDeps("zh-CN"), zenDeps());
+  const center = createAiscooCommandCenter(baseDeps("zh-CN"), zenDeps());
   const items = (await center("/login", {} as never)).selection?.items ?? [];
   assert.equal(items[0]?.command, "/login zen");
   // TUI 只为带 pending 的选项保留可取消的等待态；缺失时浏览器授权期间无法 Esc 取消。
@@ -90,7 +90,7 @@ test("Aiscoo login choices retain manual keys and exclude official OAuth", async
 });
 
 test("without Zen configured the command center cannot fall back to official login", async () => {
-  const center = createXworkCommandCenter(baseDeps("en-US"), undefined);
+  const center = createAiscooCommandCenter(baseDeps("en-US"), undefined);
   const items = (await center("/login", {} as never)).selection?.items ?? [];
   assert.equal(items[0]?.id, "zen");
   assert.equal(items.some((item) => ["zai-coding-plan", "bigmodel-coding-plan"].includes(item.id)), false);
@@ -108,10 +108,10 @@ test("default and headless product login use Zen; legacy targets never call offi
     loginZCodeCli: async () => { officialCalls++; throw new Error("official login called"); },
   };
   for (const argv of [["login"], ["login", "aiscoo"], ["--prompt", "/login"], ["--prompt", "/login zen"]]) {
-    assert.equal(await runXwork({ argv, stdout: out.stream, stderr: out.stream } as never, deps as never), 0);
+    assert.equal(await runAiscoo({ argv, stdout: out.stream, stderr: out.stream } as never, deps as never), 0);
   }
   for (const argv of [["login", "zai"], ["login", "bigmodel"], ["--prompt", "/login zai-coding-plan"]]) {
-    assert.equal(await runXwork({ argv, stdout: out.stream, stderr: out.stream } as never, deps as never), 1);
+    assert.equal(await runAiscoo({ argv, stdout: out.stream, stderr: out.stream } as never, deps as never), 1);
   }
   assert.equal(zenCalls, 4);
   assert.equal(officialCalls, 0);
@@ -119,7 +119,7 @@ test("default and headless product login use Zen; legacy targets never call offi
 
 test("slash login rejects explicit official OAuth and preserves manual API key setup", async () => {
   let officialCalls = 0;
-  const center = createXworkCommandCenter({
+  const center = createAiscooCommandCenter({
     ...baseDeps("en-US"),
     login: async () => { officialCalls++; throw new Error("official login called"); },
     loginBigmodel: async () => { officialCalls++; throw new Error("official login called"); },
@@ -133,21 +133,21 @@ test("slash login rejects explicit official OAuth and preserves manual API key s
 });
 
 test("Zen login explains an unavailable catalog without promising a model", async () => {
-  const center = createXworkCommandCenter(baseDeps("zh-CN"), zenDeps());
+  const center = createAiscooCommandCenter(baseDeps("zh-CN"), zenDeps());
   const result = await center("/login zen", {} as never);
   assert.match(result.response, /没有可用的 Zen 套餐模型/);
   assert.doesNotMatch(result.response, /使用 \/model/);
 });
 
 test("Zen logout reports unconfirmed server revocation", async () => {
-  const center = createXworkCommandCenter(baseDeps("en-US"), zenDeps());
+  const center = createAiscooCommandCenter(baseDeps("en-US"), zenDeps());
   const result = await center("/logout zen", {} as never);
   assert.match(result.response, /could not be confirmed/);
 });
 
 test("slash /help projects product account help without changing other commands", async () => {
   const upstream = await createCommandCenter(baseDeps("en-US"))("/help", {} as never);
-  const center = createXworkCommandCenter(baseDeps("en-US"), zenDeps());
+  const center = createAiscooCommandCenter(baseDeps("en-US"), zenDeps());
   const result = await center("/help", {} as never);
   assert.match(result.response, /\/login zen/);
   assert.doesNotMatch(result.response, /login \[zai-coding-plan\||shared Z\.ai/);
@@ -196,7 +196,7 @@ test("SIGINT during Zen login aborts the flow and waits for compensation before 
     exitProcess: (code: number) => exited.resolve(code),
     loginZenCli,
   };
-  const pending = runXwork(
+  const pending = runAiscoo(
     { argv: ["login", "zen", "--json", "--no-browser"], stdout: out.stream, stderr: out.stream } as never,
     deps as never,
   );

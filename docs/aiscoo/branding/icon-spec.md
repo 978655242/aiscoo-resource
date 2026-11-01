@@ -2,7 +2,7 @@
 
 使用用户设计并已提交的 [Aiscoo 设计包](../../brand/aiscoo/README.md)。产品显示名为 `Aiscoo`，几何完整字标为小写 `aiscoo`，图形标志为设计包的 `ai`。最终黑白方案取代旧 XWork 断笔 X；历史 XWork/ZCode 图形不再作为本产品标志。不修改供应商 ZAI/BigModel 及其他第三方标志。
 
-品牌事实由 `packages/shared/src/xwork-brand/brand.json` 维护，展示契约通过 `@zcode/shared/xwork-brand` 提供。UI 静态资源与公开组件位于 `packages/ui/src/xwork/brand/`，原生桌面资源位于 `packages/desktop/build/`，Web 图标位于 `packages/web/public/`，公共图标位于 `public/logo/icons/`。全部资源随源码和构建产物分发；运行时不读取设计文档或网络 Logo。
+品牌事实由 `packages/shared/src/aiscoo-brand/brand.json` 维护，展示契约通过 `@zcode/shared/aiscoo-brand` 提供。UI 静态资源与公开组件位于 `packages/ui/src/aiscoo/brand/`，原生桌面资源位于 `packages/desktop/build/`，Web 图标位于 `packages/web/public/`，公共图标位于 `public/logo/icons/`。全部资源随源码和构建产物分发；运行时不读取设计文档或网络 Logo。
 
 ## 图形与主题
 
@@ -34,6 +34,8 @@ flowchart LR
 当前品牌展示范围包括根 README、现行功能说明、`docs/brand/aiscoo` 正式设计包、设计工具中的同名品牌副本，以及 README 引用的产品截图。全部使用本规范的胶囊眼与 10 秒笑眼弹跳版本；静态截图使用新版 Logo 的确定姿态，不保留上一版产品图形。文档通过正式资源和共享品牌组件表达产品身份，不再维护另一套内联 Logo 或实验机器人眼型。
 
 正式设计源仍由 `source/ai.py` 与 `source/anim.py` 唯一维护；设计工具副本从正式包同步，实验预览复用同一机器人几何和动画，不能将旧椭圆眼或旧周期重新生成为当前资源。README 中既有合成示意图保留示例数据和页面内容，从正式矢量资源刷新品牌区域并替换原有引用目标；保持语言、功能主题和路径一致，不将局部重制描述成完整页面重拍。
+
+对外交付包固定为 `.skill-archive/logo-creator/Aiscoo-Logo-Final.zip`，以 `docs/brand/aiscoo` 为唯一输入，全量重建并覆盖旧包。ZIP 顶层目录为 `Aiscoo-Logo-Final/`，相对路径集合及文件字节与正式包、解压镜像一致，排除 `__pycache__`、`*.pyc` 和 `.DS_Store`。交付包含两种字标的浅深色静态／10 秒动画、PNG、ICNS、ICO、生成源和可独立打开的 `preview.html`；验证须逐文件比对解压内容，并检查动态 SVG 的周期与笑眼、弹跳结构。历史设计通过 Git 历史查阅，不作为当前交付素材。
 
 历史实施记录保留当时事实，并指向现行品牌规范；上游来源、法律署名、第三方标志和持久化兼容标识保留其真实含义。不得为清理展示素材更名协议、包名、数据目录或钥匙串身份。
 

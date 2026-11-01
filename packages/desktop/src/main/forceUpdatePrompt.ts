@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 // XCODE: 只投影自有更新文案；图标读取现有打包路径，失败时显示共享字标。
-import { PRODUCT_NAME, PRODUCT_WORDMARK, brandMessageCatalog } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME, PRODUCT_WORDMARK, brandMessageCatalog } from "@zcode/shared/aiscoo-brand";
 import { isElectronAppPackaged } from "./desktopElectronApp.js";
 import { type Locale } from "@zcode/shared";
 import type { ForceUpdateDialogText, ForceUpdateGuardLogger } from "./forceUpdateGuard.js";

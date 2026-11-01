@@ -5,7 +5,7 @@ import type {
   BotsConfigFile,
 } from "@zcode/shared";
 // XCODE: 静态运行状态提示使用共享品牌，Telegram 外部消息不投影。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 import type { ICredentialService } from "../credential/credential.js";
 import type { BotProviderAdapter } from "./providers/types.js";
 import {

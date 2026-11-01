@@ -17,10 +17,8 @@
     "./remote-workspace-session-store": "./src/store/remoteWorkspaceSessionStore.ts",
     "./styles.css": "./src/styles.css",
     "./replay": "./src/replay.ts",
-    "./xwork-startup-context": "./src/xwork/startup-context/index.ts",
-    "./xwork-brand": "./src/xwork/brand/index.ts",
-    "./aiscoo-brand": "./src/xwork/brand/index.ts",
-    "./xwork-account-avatar": "./src/xwork/account-avatar/index.ts",
+    "./aiscoo-brand": "./src/aiscoo/brand/index.ts",
+    "./aiscoo-account-avatar": "./src/aiscoo/account-avatar/index.ts",
     "./aiscoo-startup-context": "./src/aiscoo/startup-context/index.ts",
     "./aiscoo-account-login-root": "./src/aiscoo/account-login/logout-presentation.tsx"
   },

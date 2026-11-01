@@ -1,6 +1,6 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 // XCODE: 仅本地静态状态模板消费共享品牌，Helper 返回值和用户错误原样插入。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 import {
   createRemoteProjectService,
   IRemoteProjectService,
@@ -456,8 +456,8 @@ import { createUserConfigSyncService } from "./data-sync/userConfigSyncService.j
 import { IPluginsService } from "./plugins/plugins.js";
 import { IPluginManagementService } from "./plugins/pluginManagement.js";
 // XCODE: 独立插件说明服务由当前 Host 持有。
-import { IPluginGuideService } from "./xwork-plugin-guides/contract.js";
-import { createNodePluginGuideService } from "./xwork-plugin-guides/node.js";
+import { IPluginGuideService } from "./aiscoo-plugin-guides/contract.js";
+import { createNodePluginGuideService } from "./aiscoo-plugin-guides/node.js";
 import { ISubagentsService } from "./subagents/subagents.js";
 import { ICommandsService } from "./commands/commands.js";
 import { IHooksService } from "./hooks/hooks.js";

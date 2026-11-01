@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { CopyIcon, EyeIcon, XIcon, ZapIcon } from "lucide-react";
 import { animate, motion, useReducedMotion } from "motion/react";
 // XCODE: 高速分享卡的产品装饰使用自有原稿，原 Z 背景不再充当产品标识。
-import { AiscooMark, PRODUCT_NAME } from "@/xwork/brand/index.js";
+import { AiscooMark, PRODUCT_NAME } from "@/aiscoo/brand/index.js";
 import shareDialogNoiseUrl from "@/assets/highspeed/share-dialog-noise.png";
 import shareDialogNoiseLightUrl from "@/assets/highspeed/share-dialog-noise-light.png";
 import { Button } from "@/components/ui/button.js";

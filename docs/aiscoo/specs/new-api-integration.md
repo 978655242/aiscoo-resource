@@ -127,7 +127,7 @@ Main 与 Host 使用同一有效环境配置：开发 `.env`/`.env.local` 与进
 - Local Host 的 `NewApiProviderAdapter` 从已验证的 `NewApiClient.origin` 生成 `OAuthProviderMeta` 的可选 `legalLinks`，只包含同源 `/user-agreement` 和 `/privacy-policy`；不读取会话、访问网络、创建 handoff 或附带 query、fragment、凭据和认证参数。正文及版本由 New API 公开页面维护。
 - 登录面板使用已有 `useOAuth` providers 投影，经可选的通用展示插槽装配下游模块。通用设置经可选插槽装配相同扩展，读取本窗口 Local Host 的 OAuth 服务；远程 workspace 的服务不能替换该来源。各入口只在桌面启用，普通 Web、手机远控、API Key 和无可选 metadata 的原有业务行为保持原样。
 - 扩展仅接受已启用的 `new-api` 完整 metadata、同一合法 HTTPS 或 loopback HTTP origin 及精确公开路径；缺失、不完整、跨源、含认证参数或其他路径时隐藏全部法律入口，不使用默认地址。点击经 `IPlatformService.openExternal` 打开；不改变用户内容、OAuth、PKCE、会话、套餐、支付或自定义 Provider。
-- 运营主体属于既有唯一 `xwork-brand/brand.json`，PR #38 的 `@zcode/shared/xwork-brand` 与 `@zcode/shared/aiscoo-brand` 两个出口共享该数据。法律界面独立为 `aiscoo/legal` managed 模块；中英文本只追加到现有字典。
+- 运营主体属于唯一的 `aiscoo-brand/brand.json`，经 `@zcode/shared/aiscoo-brand` 公开（PR #38 时期的 `xwork-brand` 旧出口已于 2026-11-01 删除）。法律界面独立为 `aiscoo/legal` managed 模块；中英文本只追加到现有字典。
 
 ```mermaid
 sequenceDiagram

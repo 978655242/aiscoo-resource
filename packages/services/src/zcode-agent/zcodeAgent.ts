@@ -1,5 +1,5 @@
 // XCODE: 独立插件说明扩展复用 Agent 的模型与资料通道。
-import type { PluginGuideAgentPort } from "../xwork-plugin-guides/contract.js";
+import type { PluginGuideAgentPort } from "../aiscoo-plugin-guides/contract.js";
 import type { PluginUiToolResultNotification } from "@zcode/shared/mcp-apps";
 import type {
   BackgroundBashOutputResult,

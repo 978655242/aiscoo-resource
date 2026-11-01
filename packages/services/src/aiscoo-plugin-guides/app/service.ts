@@ -1,5 +1,5 @@
 import { Emitter } from "@zcode/rpc";
-import type { PluginGuideChange } from "@zcode/shared/xwork-plugin-guides";
+import type { PluginGuideChange } from "@zcode/shared/aiscoo-plugin-guides";
 import {
   PLUGIN_GUIDE_MAX_DOCUMENT_BYTES,
   PLUGIN_GUIDE_TEMPLATE_VERSION,
@@ -15,7 +15,7 @@ import {
   type PluginGuideSnapshot,
   type PluginGuideSource,
   type PluginGuideTarget,
-} from "@zcode/shared/xwork-plugin-guides";
+} from "@zcode/shared/aiscoo-plugin-guides";
 import type { IPluginGuideService, PluginGuideServiceDependencies } from "../contract.js";
 import { buildPluginGuideMessages } from "../domain/prompt.js";
 

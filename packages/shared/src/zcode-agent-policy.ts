@@ -1,7 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { z } from "zod";
 // XCODE: 产品展示名由共享品牌契约提供。
-import { brandProductText } from "./xwork-brand/runtime.js";
+import { brandProductText } from "./aiscoo-brand/runtime.js";
 import type { CommandAgentSource } from "./command-types.js";
 import type { ZCodeProvider } from "./zcode-task-types-core.js";
 

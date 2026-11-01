@@ -18,7 +18,7 @@ import {
   AiscooIntlProvider,
   AiscooLoginHeader,
   resolveAiscooOAuthWaitingDisplayNames,
-} from "@/xwork/brand/index.js";
+} from "@/aiscoo/brand/index.js";
 import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import { WelcomeScreen } from "@/WelcomeScreen.js";
 import { aiscooAccountPolicy } from "@/aiscoo/account-login/index.js";

@@ -11,7 +11,7 @@ import {
   pluginGuideSourceSchema,
   pluginGuideStreamTextParamsSchema,
   pluginGuideTextDeltaSchema,
-} from "@zcode/shared/xwork-plugin-guides";
+} from "@zcode/shared/aiscoo-plugin-guides";
 import type { ZCodeProtocolClient } from "../../zcode-agent/zcodeProtocolClient.js";
 import type { ZCodeAgentWorkspaceTarget } from "../../zcode-agent/zcodeAgent.js";
 import { createServiceLogger } from "../../logger/serviceLogger.js";

@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SIZES = (16, 24, 32, 48, 64, 128, 256, 512, 1024)
 PILLOW_VERSION = "12.1.0"
 CANVAS_VERSION = "0.1.100"
-UI_ASSETS = Path("packages/ui/src/xwork/brand/assets")
+UI_ASSETS = Path("packages/ui/src/aiscoo/brand/assets")
 DESKTOP = Path("packages/desktop/build")
 PUBLIC = Path("public/logo/icons")
 
@@ -178,7 +178,7 @@ def desktop_icon(source, config):
 def outputs():
     if pillow_version != PILLOW_VERSION:
         raise RuntimeError(f"Expected Pillow {PILLOW_VERSION}, got {pillow_version}")
-    brand = json.loads((ROOT / "packages/shared/src/xwork-brand/brand.json").read_text())
+    brand = json.loads((ROOT / "packages/shared/src/aiscoo-brand/brand.json").read_text())
     source = ROOT / brand["sourceDirectory"]
     result = {}
     for theme in ("light", "dark"):

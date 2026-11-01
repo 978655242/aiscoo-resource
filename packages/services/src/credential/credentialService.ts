@@ -1,7 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { lstat, readFile } from "node:fs/promises";
 // XCODE: 凭据错误仅投影静态提示前缀，文件路径与凭据内容保持原样。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { atomicWritePrivateTextFile, backupCorruptFile, withFileLock } from "@zcode/shared/node";

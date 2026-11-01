@@ -1,6 +1,6 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 // XCODE: 仅自有取消提示消费共享品牌，外部 AbortSignal reason 原样传递。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 
 export interface CuaAgentSpawnAdmissionContext {
   workspaceKey: string;

@@ -1,5 +1,5 @@
 // XCODE: 自有静态展示模板读取共享品牌；用户内容与稳定标识保持原样。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -108,7 +108,7 @@ export {
   type PluginUpdateStatus,
 } from "./version-compare.js";
 // XCODE: public read-only guide source extension.
-export { readPluginGuideSource } from "../xwork-plugin-guides/index.js";
+export { readPluginGuideSource } from "../aiscoo-plugin-guides/index.js";
 
 const ZCODE_MANIFEST_PATH = join(".zcode-plugin", "plugin.json");
 const CLAUDE_MANIFEST_PATH = join(".claude-plugin", "plugin.json");

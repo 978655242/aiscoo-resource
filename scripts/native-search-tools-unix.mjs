@@ -1,7 +1,10 @@
 import { readFile } from "node:fs/promises";
 // XCODE: 构建标题只读取同源品牌 JSON，不改工具名与发布身份。
 const productBrand = JSON.parse(
-  await readFile(new URL("../packages/shared/src/xwork-brand/brand.json", import.meta.url), "utf8"),
+  await readFile(
+    new URL("../packages/shared/src/aiscoo-brand/brand.json", import.meta.url),
+    "utf8",
+  ),
 );
 /* eslint-disable max-lines -- 原生搜索构建步骤按依赖顺序共享同一套编译环境，集中维护更容易审计。 */
 import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";

@@ -4,8 +4,8 @@ import { createElement, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NEW_API_PROVIDER_ID } from "@zcode/shared";
 
-vi.mock("@/xwork/account-avatar/generator.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/xwork/account-avatar/generator.js")>();
+vi.mock("@/aiscoo/account-avatar/generator.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/aiscoo/account-avatar/generator.js")>();
   return {
     ...actual,
     getAccountAvatarDataUri: (id: string) =>
@@ -18,7 +18,7 @@ import {
   AiscooAccountAvatarProvider,
   createAiscooAccountAvatarRoot,
   getAccountAvatarDataUri,
-} from "@/xwork/account-avatar/index.js";
+} from "@/aiscoo/account-avatar/index.js";
 
 afterEach(cleanup);
 

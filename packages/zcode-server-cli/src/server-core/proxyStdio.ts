@@ -1,5 +1,5 @@
 // XCODE: 自有代理错误使用产品展示名，字节通道与错误码保持兼容。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import { createConnection } from "node:net";
 import { once } from "node:events";
 import type { Readable, Writable } from "node:stream";

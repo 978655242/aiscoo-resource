@@ -3,7 +3,7 @@ import { ZCODE_AGENT_PROVIDER, type ModelSelection } from "@zcode/shared";
 import type { ModelSelectionView, PluginGuideModelHost } from "./contract.js";
 import type { ZCodeConfigOption } from "@zcode/shared";
 import type { ModelSelectGroup } from "@/ModelConfigSelect.js";
-import type { PluginGuideDocument, PluginGuideTarget } from "@zcode/shared/xwork-plugin-guides";
+import type { PluginGuideDocument, PluginGuideTarget } from "@zcode/shared/aiscoo-plugin-guides";
 import { useModelSelectionServiceView } from "@/hooks/useModelSelectionView.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { buildRegistryModelSelectGroups } from "@/lib/modelSelectionGroups.js";

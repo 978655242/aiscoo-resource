@@ -3,7 +3,7 @@
 // CLI Prefix Section Builder
 // ============================================================
 
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import type { ContextSection } from "../types.js";
 import { estimateTokens } from "../utils.js";
 

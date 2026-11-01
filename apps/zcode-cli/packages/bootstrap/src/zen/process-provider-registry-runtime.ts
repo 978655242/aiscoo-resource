@@ -1,5 +1,5 @@
 // XCODE: 自有静态模板使用共享品牌，用户插值和兼容标识保持不变。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 // XCODE: 独立 CLI 的 Zen 账号组合层；上游 Process runtime 仅提供 extendAccountResolution 扩展点。
 import { createHash } from "node:crypto";
 import { AccountProviderService, ProviderConfigMap } from "@zcode/provider";

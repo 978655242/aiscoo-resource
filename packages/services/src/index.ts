@@ -293,7 +293,7 @@ export { IPluginsService } from "./plugins/plugins.js";
 // 设置页插件管理薄服务（UI 平台能力面不再直触 zcodeAgentService）
 export { IPluginManagementService, withPluginTelemetry } from "./plugins/pluginManagement.js";
 // XCODE: 浏览器安全的插件说明服务描述符。
-export { IPluginGuideService } from "./xwork-plugin-guides/contract.js";
+export { IPluginGuideService } from "./aiscoo-plugin-guides/contract.js";
 
 // Subagents service — ISubagentsService is both a type (interface) and value (descriptor)
 export { ISubagentsService } from "./subagents/subagents.js";

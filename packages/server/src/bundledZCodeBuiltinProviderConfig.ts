@@ -1,7 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { materializeZCodeBuiltinProviderConfig } from "@zcode/services/node";
 // XCODE: 仅构建缺失提示消费共享品牌，内嵌配置与物化路径不改写。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 
 declare const __ZCODE_BUILTIN_PROVIDER_CONFIG_JSON__: string | undefined;
 

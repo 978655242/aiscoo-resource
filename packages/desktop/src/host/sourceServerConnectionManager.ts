@@ -4,7 +4,7 @@ import {
   type SourceServerRunningTasksResult,
 } from "@zcode/shared";
 // XCODE: 升级提示只插入产品展示名，兼容版本与连接协议保持不变。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 /* eslint-disable max-lines -- Source 连接状态机、重试、更新和单连接归并必须共享同一代际状态。 */
 import { SourceServerOperationLogs } from "./sourceServerOperationLogs.js";
 import { Emitter, type Event } from "@zcode/rpc";

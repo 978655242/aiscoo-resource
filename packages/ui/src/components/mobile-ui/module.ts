@@ -2,7 +2,7 @@
 export const mobileUiModule = {
   id: "mobile-ui",
   // XCODE: 应用标志通过下游品牌契约接入，供应商图标保持独立。
-  requires: ["ui", "xwork-brand-ui"],
+  requires: ["ui", "aiscoo-brand-ui"],
   provides: ["mobile-ui"],
   publicEntrypoints: [
     "index.ts",

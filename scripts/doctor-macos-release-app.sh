@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # XCODE: 默认路径跟随新的应用展示名；环境变量接口保持兼容。
-BRAND_JSON_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/packages/shared/src/xwork-brand/brand.json"
+BRAND_JSON_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/packages/shared/src/aiscoo-brand/brand.json"
 PRODUCT_DISPLAY_NAME="$(node -e 'process.stdout.write(JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).productName)' "$BRAND_JSON_PATH")"
 APP_PATH="${1:-${ZCODE_MACOS_RELEASE_APP_PATH:-/Applications/$PRODUCT_DISPLAY_NAME.app}}"
 ZCODE_HOME_DIR="${ZCODE_HOME:-${HOME:+$HOME/.zcode}}"

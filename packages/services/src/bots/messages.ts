@@ -1,7 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import type { Locale } from "@zcode/shared";
 // XCODE: 仅投影产品静态词典，调用方的工作区、错误与回答在之后插入。
-import { brandMessageCatalog } from "@zcode/shared/xwork-brand";
+import { brandMessageCatalog } from "@zcode/shared/aiscoo-brand";
 
 export type BotMessageLocale = Extract<Locale, "zh-CN" | "en-US">;
 

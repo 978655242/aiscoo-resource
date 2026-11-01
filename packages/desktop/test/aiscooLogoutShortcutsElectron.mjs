@@ -30,7 +30,7 @@ import { ServiceProvider, useServices } from "./packages/ui/src/hooks/useService
 import { PlatformProvider, usePlatform } from "./packages/ui/src/hooks/usePlatform.tsx";
 import { StoreProvider } from "./packages/ui/src/store/StoreProvider.tsx";
 import { createTabStore } from "./packages/ui/src/store/tabStore.ts";
-import { AiscooIntlProvider } from "./packages/ui/src/xwork/brand/index.ts";
+import { AiscooIntlProvider } from "./packages/ui/src/aiscoo/brand/index.ts";
 import { useZCodeIntl } from "./packages/ui/src/i18n/IntlProvider.tsx";
 import { ConfirmDialogHost } from "./packages/ui/src/ConfirmDialog.tsx";
 import { useRootWorkspaceActions } from "./packages/ui/src/root/useRootWorkspaceActions.ts";
@@ -154,7 +154,7 @@ mount();
   await writeFile(join(temporary, "renderer.js"), compiled.outputFiles[0].text);
   await writeFile(
     join(temporary, "index.html"),
-    `<!doctype html><html><head><link rel="stylesheet" href="/@fs${root}/packages/ui/src/styles.css"><link rel="stylesheet" href="/@fs${root}/packages/ui/src/xwork/brand/brand.css"></head><body><div id="root"></div><script type="module" src="/renderer.js"></script></body></html>`,
+    `<!doctype html><html><head><link rel="stylesheet" href="/@fs${root}/packages/ui/src/styles.css"><link rel="stylesheet" href="/@fs${root}/packages/ui/src/aiscoo/brand/brand.css"></head><body><div id="root"></div><script type="module" src="/renderer.js"></script></body></html>`,
   );
   server = await createServer({
     configFile: false,

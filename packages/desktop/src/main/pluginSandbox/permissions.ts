@@ -1,7 +1,7 @@
 import type { Locale } from "@zcode/shared";
 import type { McpAppsResourcePermission } from "@zcode/shared/mcp-apps";
 // XCODE: 自有授权说明投影品牌，serverName 等第三方内容仍原样插入。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 import { PLUGIN_SANDBOX_SCHEME } from "./contract.js";
 
 /**

@@ -1,5 +1,5 @@
-// 保留构建器和历史启动脚本直接读取的唯一品牌数据路径。
-import brand from "../xwork-brand/brand.json" with { type: "json" };
+// 构建器和启动脚本直接读取的唯一品牌数据路径。
+import brand from "./brand.json" with { type: "json" };
 
 export const PRODUCT_BRAND = Object.freeze({
   ...brand,

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { HostResponseTypes } from "@zcode/shared";
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import type {
   BrowserBackendDescriptor,
   BrowserClientMode,

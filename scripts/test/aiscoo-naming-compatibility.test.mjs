@@ -8,70 +8,90 @@ import { fileURLToPath } from "node:url";
 import { generateContext, loadPolicy } from "../architecture/index.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const aliases = {
-  "cli-xwork": "cli-aiscoo",
-  "xwork-startup-context": "aiscoo-startup-context",
-  "xwork-plugin-guides-protocol": "aiscoo-plugin-guides-protocol",
-  "xwork-plugin-guides-cli": "aiscoo-plugin-guides-cli",
-  "xwork-plugin-guides-service": "aiscoo-plugin-guides-service",
-  "xwork-plugin-guides-ui": "aiscoo-plugin-guides-ui",
-  "xwork-brand": "aiscoo-brand",
-  "xwork-brand-ui": "aiscoo-brand-ui",
-  "cli-brand": "cli-aiscoo-brand",
+// 旧 xwork 模块 ID、路径与别名已清理；这里锁定现行 aiscoo 模块的 owner 与公开边界。
+const modules = {
+  "cli-aiscoo": { owner: "cli", roots: ["apps/zcode-cli/packages/cli/src/aiscoo"] },
+  "cli-aiscoo-brand": {
+    owner: "product",
+    roots: ["apps/zcode-cli/packages/i18n/src/aiscoo-brand"],
+  },
+  "aiscoo-startup-context": {
+    owner: "conversation",
+    roots: ["packages/ui/src/aiscoo/startup-context"],
+  },
+  "aiscoo-plugin-guides-protocol": {
+    owner: "plugin",
+    roots: ["packages/shared/src/aiscoo-plugin-guides"],
+  },
+  "aiscoo-plugin-guides-cli": {
+    owner: "plugin",
+    roots: [
+      "apps/zcode-cli/packages/adapters/src/aiscoo-plugin-guides",
+      "apps/zcode-cli/packages/bootstrap/src/aiscoo-plugin-guides",
+      "apps/zcode-cli/packages/core/src/aiscoo-plugin-guides",
+    ],
+  },
+  "aiscoo-plugin-guides-service": {
+    owner: "plugin",
+    roots: ["packages/services/src/aiscoo-plugin-guides"],
+  },
+  "aiscoo-plugin-guides-ui": { owner: "plugin", roots: ["packages/ui/src/aiscoo/plugin-guides"] },
+  "aiscoo-brand": { owner: "product", roots: ["packages/shared/src/aiscoo-brand"] },
+  "aiscoo-brand-ui": { owner: "product", roots: ["packages/ui/src/aiscoo/brand"] },
+  "aiscoo-account-avatar": { owner: "account", roots: ["packages/ui/src/aiscoo/account-avatar"] },
 };
 
-test("old and new architecture IDs resolve to the same owner and public boundaries", async () => {
+test("aiscoo architecture modules own their roots and public boundaries without legacy aliases", async () => {
   const policy = await loadPolicy(root);
-  for (const [oldId, newId] of Object.entries(aliases)) {
-    const canonicalId = policy.aliases[oldId] ?? oldId;
-    assert.equal(policy.aliases[newId] ?? newId, canonicalId, newId);
-    const module = policy.modules.find((item) => item.id === canonicalId);
-    const expectedOwner =
-      oldId === "cli-xwork"
-        ? "cli"
-        : oldId === "xwork-startup-context"
-          ? "conversation"
-          : oldId.startsWith("xwork-brand") || oldId === "cli-brand"
-            ? "product"
-            : "plugin";
-    assert.equal(module?.owner, expectedOwner, oldId);
-    const oldRoots = module.roots.filter((entry) => entry.includes("/xwork"));
-    const newRoots = module.roots.filter((entry) => entry.includes("/aiscoo"));
-    assert.ok(oldRoots.length > 0 && newRoots.length > 0, oldId);
-    for (const rootPath of [...oldRoots, ...newRoots]) {
-      assert.ok(
-        module.publicEntrypoints.some(
-          (entry) => path.resolve(root, entry) === path.join(rootPath, "index.ts"),
-        ),
-        rootPath,
-      );
-      assert.ok(
-        module.publicEntrypoints.some(
-          (entry) => path.resolve(root, entry) === path.join(rootPath, "contract.ts"),
-        ),
-        rootPath,
-      );
+  assert.deepEqual(Object.keys(policy.aliases), []);
+  for (const [id, expected] of Object.entries(modules)) {
+    const module = policy.modules.find((item) => item.id === id);
+    assert.ok(module, id);
+    assert.equal(module.owner, expected.owner, id);
+    assert.deepEqual(
+      module.roots.map((entry) => path.relative(root, entry)),
+      expected.roots,
+      id,
+    );
+    for (const rootPath of module.roots) {
+      for (const entry of ["index.ts", "contract.ts"]) {
+        assert.ok(
+          module.publicEntrypoints.some(
+            (publicEntry) => path.resolve(root, publicEntry) === path.join(rootPath, entry),
+          ),
+          `${id}: ${entry}`,
+        );
+      }
     }
-    const oldContext = await generateContext({ cwd: root, moduleId: oldId });
-    const newContext = await generateContext({ cwd: root, moduleId: newId });
-    assert.equal(oldContext, newContext, oldId);
-    assert.match(oldContext, new RegExp(`owner: ${module.owner}`));
+    assert.match(
+      await generateContext({ cwd: root, moduleId: id }),
+      new RegExp(`owner: ${expected.owner}`),
+    );
   }
+  const retired = policy.modules.filter(
+    (module) =>
+      /(^|-)xwork(-|$)/.test(module.id) ||
+      module.roots.some((entry) => /\/xwork(\/|-)/.test(entry)),
+  );
+  assert.deepEqual(
+    retired.map((module) => module.id),
+    [],
+  );
 });
 
-test("CLI keeps its old posttest and adds a new equivalent command", async () => {
+test("CLI runs its Aiscoo posttest without the retired xwork script alias", async () => {
   const pkg = JSON.parse(
     await readFile(path.join(root, "apps/zcode-cli/packages/cli/package.json")),
   );
-  assert.equal(pkg.scripts.posttest, "pnpm run test:xwork");
-  assert.match(pkg.scripts["test:xwork"], /zen-login\.test\.ts/);
-  assert.equal(pkg.scripts["test:aiscoo"], "pnpm run test:xwork");
+  assert.equal(pkg.scripts.posttest, "pnpm run test:aiscoo");
+  assert.match(pkg.scripts["test:aiscoo"], /zen-login\.test\.ts/);
+  assert.equal(pkg.scripts["test:xwork"], undefined);
 });
 
-test("historical brand assets, sync log and pre-push path remain intact", async () => {
+test("brand sources, sync log and pre-push path remain intact", async () => {
   for (const relative of [
-    "packages/shared/src/xwork-brand/brand.json",
-    "packages/ui/src/xwork/brand/assets/mark-dark.svg",
+    "packages/shared/src/aiscoo-brand/brand.json",
+    "packages/ui/src/aiscoo/brand/assets/mark-dark.svg",
     "scripts/xcode/start-local.py",
     "scripts/xcode/启动 XCode.command",
     "scripts/aiscoo/start-local.py",
