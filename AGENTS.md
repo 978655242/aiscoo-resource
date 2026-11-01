@@ -101,9 +101,10 @@ Aiscoo 的既有品牌、New API 与归属隔离回归使用独立 `pnpm test:ai
 - 不在日志、示例或提交中写入凭据、真实用户数据和内部服务地址。
 
 <!-- proma:memory:start -->
+
 ## 记忆维护
 
-- 项目记忆索引：[MEMORY.md](</Users/timo/.proma/agent-workspaces/aiscoo-1/memory/MEMORY.md>)；详细主题按索引按需读取，新增、移动、归档主题时同步索引。
-- 全局用户画像：[user_profile.md](</Users/timo/.proma/memory/user_profile.md>)，跨项目共享；本项目补充偏好存入 /Users/timo/.proma/agent-workspaces/aiscoo-1/memory/project-preferences.md 并加入项目索引，仅在本项目覆盖全局偏好。
+- 项目记忆索引：[MEMORY.md](~/.proma/agent-workspaces/aiscoo-1/memory/MEMORY.md)；详细主题按索引按需读取，新增、移动、归档主题时同步索引。
+- 全局用户画像：[user_profile.md](~/.proma/memory/user_profile.md)，跨项目共享；本项目补充偏好存入 ~/.proma/agent-workspaces/aiscoo-1/memory/project-preferences.md 并加入项目索引，仅在本项目覆盖全局偏好。
 - 在任务中及时修订已确认的偏好、经验和决策，保留来源、适用范围和核验日期；不把临时任务进度写成永久偏好。超过一周的阶段性要求结合本轮证据复查；到期或被替代的内容移出有效入口并可恢复地归档。读取不等于核验，不编造用户事实。
 <!-- proma:memory:end -->
