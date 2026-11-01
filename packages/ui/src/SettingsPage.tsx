@@ -918,7 +918,8 @@ export function SettingsPage({
       .info()
       .then((info) => {
         if (!active) return;
-        setDefaultHomeDir(info.homedir);
+        // XCODE: 默认目录由本地 Host 提供，真实 HOME 仍可作为显式自定义目录选择。
+        setDefaultHomeDir(info.defaultDataBaseDir ?? info.homedir);
         setHostPlatform(info.platform);
         if (info.platform !== "win32") {
           setIntegratedTerminalShellOptions([]);

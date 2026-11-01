@@ -225,6 +225,16 @@ modules:
     layers:
       adapters: .
     owner: desktop
+  # XCODE: 本地 Host 只包装默认 App 目录语义，路径和设置仍归现有服务。
+  - id: host-aiscoo-data-directory
+    roots: [packages/desktop/src/host/aiscoo-data-directory]
+    managed: true
+    requires: [services]
+    publicEntrypoints:
+      - packages/desktop/src/host/aiscoo-data-directory/index.ts
+      - packages/desktop/src/host/aiscoo-data-directory/contract.ts
+    layers: { adapters: . }
+    owner: desktop
   # XCODE: Aiscoo 产品始终使用唯一账号策略，通用服务装配只接受可选策略端口。
   - id: aiscoo-account-policy
     roots: [packages/services/src/aiscoo-account-policy]

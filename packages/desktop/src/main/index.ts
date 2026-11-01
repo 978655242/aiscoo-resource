@@ -159,7 +159,11 @@ import { resolveWindowsAppUserModelIdForFlavor } from "../../scripts/desktop-pro
 // XCODE: 开发与正式 Aiscoo 都使用自身 AUMID，保留通用未注入身份的上游默认。
 import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
 // XCODE: Aiscoo 自有更新源解析，只读账号源，不持有更新状态。
-import { resolveAiscooUpdateEndpointOrigin } from "../aiscoo-desktop-identity/index.js";
+import {
+  initializeAiscooDesktopStorage,
+  isAiscooDesktopStorageReady,
+  resolveAiscooUpdateEndpointOrigin,
+} from "../aiscoo-desktop-identity/index.js";
 import type { DesktopWindowSize } from "./desktopWindowSize.js";
 import { maybeWarnArchitectureMismatch } from "./desktopArchitectureGuard.js";
 import { maybeBlockStartupForForceUpdate } from "./forceUpdateGuard.js";
@@ -1183,6 +1187,8 @@ const primaryWindowCoordinator = createPrimaryWindowCoordinator({
     createWindowInstance(startupBootstrap);
   },
   canCreateWindow: (reason) => {
+    // XCODE: activate 可早于异步绑定完成；保留原启动意图，等 app-ready 再建首窗。
+    if (!isAiscooDesktopStorageReady()) return false;
     if (!forceUpdateMainWindowCreationBlocked) {
       return true;
     }
@@ -1969,6 +1975,8 @@ function openUpdateStatusWindow() {
 }
 
 function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
+  // XCODE: 所有建窗入口共享绑定完成边界，未注入 Aiscoo 时保持原行为。
+  if (!isAiscooDesktopStorageReady()) return;
   const runtimeProcessEnvPreparation = takeRuntimeProcessEnvPreparation();
   const win = createWindow({
     iconPath,
@@ -2264,6 +2272,19 @@ app.whenReady().then(async () => {
     reconcileKeepAwakeBlocker();
   } catch {
     // 读取失败不影响启动，使用默认 homedir
+  }
+  // XCODE: 恢复 D 后固定 CLI 根 B；失败必须可见并终止启动，不能让 Host 打开另一空会话库。
+  try {
+    await initializeAiscooDesktopStorage({ settingsFile, dataBaseDir: getDataBaseDir() });
+  } catch (error) {
+    logger.error("[startup] Aiscoo CLI root binding failed", error);
+    dialog.showErrorBox(
+      `${runtimeApplicationName} — Storage initialization failed`,
+      error instanceof Error ? error.message : String(error),
+    );
+    markExplicitQuit("aiscoo-storage-initialization-failed");
+    app.quit();
+    return;
   }
   // scheduler 也会打开 tasks-index；等 Host 完成统一准备，避免在启动页出现前抢先迁移。
   configureDatabaseStartupQuit(() => {
