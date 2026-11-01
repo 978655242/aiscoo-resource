@@ -307,7 +307,7 @@ modules:
   - id: aiscoo-account-login-ui
     roots: [packages/ui/src/aiscoo/account-login]
     managed: true
-    requires: [ui, shared, services, ui-oauth-lifecycle]
+    requires: [ui, shared, services, ui-oauth-lifecycle, xwork-brand-ui, aiscoo-legal-ui]
     publicEntrypoints:
       - packages/ui/src/aiscoo/account-login/index.ts
       - packages/ui/src/aiscoo/account-login/contract.ts

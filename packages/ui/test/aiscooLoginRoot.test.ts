@@ -1,15 +1,18 @@
-import { createElement } from "react";
+import { createElement, type ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 // 基于 Root 独立的受控服务夹具，只验证下游对三类客户端的登录页装配。
 // Root 模块图的冷启动曾计入首个用例并触发超时；静态导入将加载与渲染断言的计时分开。
 import { Root } from "@/Root.js";
+import { createAiscooAccountLoginRoot } from "@/aiscoo/account-login/logout-presentation.js";
 import type { IOAuthService, IServiceAccessor } from "@zcode/services";
 import type { IPlatformService, OAuthCallbackEvent } from "@zcode/shared";
 import {
   createAiscooAccountLoginServices,
   createAiscooAccountLoginPlatform,
 } from "@/aiscoo/account-login/index.js";
+
+const ProductRoot = createAiscooAccountLoginRoot(Root);
 
 const mockSetUser = vi.fn();
 const mockModelSelectionRead = { failed: false };
@@ -249,15 +252,19 @@ vi.mock("@/UpdateStatusButton.js", () => ({
 }));
 
 function renderRoot(options?: {
+  product?: boolean;
   webRemoteControlFeatureEnabled?: boolean;
   isDesktop?: boolean;
   initialWorkspaceAbsPath?: string;
   initialWorkspaceLoadingFallback?: ReturnType<typeof createElement>;
   platformOverrides?: Record<string, unknown>;
   webRemoteControlWorkspaceSwitcher?: import("@/root/types.js").WebRemoteControlWorkspaceSwitcherApi;
+  welcomeScreenPresentation?: {
+    hideApiKeyLogin?: boolean;
+  };
 }) {
   const html = renderToStaticMarkup(
-    createElement(Root, {
+    createElement(options?.product ? ProductRoot : Root, {
       services: {
         broadcastService: {},
         settingService: {
@@ -324,6 +331,9 @@ function renderRoot(options?: {
       isDesktop: options?.isDesktop,
       initialWorkspaceAbsPath: options?.initialWorkspaceAbsPath,
       initialWorkspaceLoadingFallback: options?.initialWorkspaceLoadingFallback,
+      ...(options?.welcomeScreenPresentation
+        ? { welcomeScreenPresentation: options.welcomeScreenPresentation }
+        : {}),
     }),
   );
 
@@ -347,7 +357,7 @@ describe("Aiscoo Root 登录展示", () => {
   });
 
   it.each(["desktop", "web", "remote"] as const)(
-    "%s 共享 Root 的产品欢迎页隐藏 API key 入口",
+    "%s 未装配的共享 Root 保留默认 API key 入口",
     (mode) => {
       mockWelcomeScreenOpen.value = true;
       const html = renderRoot({
@@ -356,9 +366,64 @@ describe("Aiscoo Root 登录展示", () => {
           mode === "remote" ? { listWorkspaces: vi.fn(), switchWorkspace: vi.fn() } : undefined,
       });
       expect(html).toContain('data-testid="welcome-screen"');
-      expect(html).toContain('data-hide-api-key-login="true"');
+      expect(html).toContain('data-hide-api-key-login="undefined"');
+      expect(html).not.toContain('data-testid="aiscoo-logout-content"');
     },
   );
+
+  it.each(["desktop", "web", "remote"] as const)(
+    "%s 产品 Root 固定隐藏 API key 且只给本地桌面挂退出边界",
+    (mode) => {
+      mockWelcomeScreenOpen.value = true;
+      const html = renderRoot({
+        product: true,
+        isDesktop: mode === "desktop",
+        webRemoteControlWorkspaceSwitcher:
+          mode === "remote" ? { listWorkspaces: vi.fn(), switchWorkspace: vi.fn() } : undefined,
+      });
+      expect(html).toContain('data-hide-api-key-login="true"');
+      expect(html.includes('data-testid="aiscoo-logout-content"')).toBe(mode === "desktop");
+    },
+  );
+
+  it("产品 Root 向下传递过滤后的唯一服务实例与可选展示端口", async () => {
+    const source = {
+      oauthService: {
+        getProviders: vi.fn(async () => [
+          { id: "zai", displayName: "Z.ai", enabled: true, order: 0 },
+          { id: "new-api", displayName: "New API", enabled: true, order: 1 },
+        ]),
+      },
+    } as unknown as IServiceAccessor;
+    const received: ComponentProps<typeof Root>[] = [];
+    const ProductProbe = createAiscooAccountLoginRoot((props) => {
+      received.push(props);
+      return null;
+    });
+    renderToStaticMarkup(
+      createElement(ProductProbe, { services: source, platform: {} as IPlatformService }),
+    );
+    expect(received).toHaveLength(1);
+    const props = received[0]!;
+    expect(props.services).not.toBe(source);
+    expect((await props.services.oauthService.getProviders()).map(({ id }) => id)).toEqual([
+      "new-api",
+    ]);
+    expect(
+      (
+        props.platform as import("@/oauth-lifecycle/contract.js").OAuthLifecyclePlatform
+      ).oauthAccountPolicy?.acceptsProvider("zai"),
+    ).toBe(false);
+    expect(props.welcomeScreenPresentation?.hideApiKeyLogin).toBe(true);
+    expect(props.logoutPresentation).toBeUndefined();
+  });
+
+  it("共享 Root 透传显式欢迎页展示配置", () => {
+    mockWelcomeScreenOpen.value = true;
+    expect(renderRoot({ welcomeScreenPresentation: { hideApiKeyLogin: false } })).toContain(
+      'data-hide-api-key-login="false"',
+    );
+  });
 
   it.each(["empty", "official", "mixed", "disabled"])(
     "%s providers 不恢复旧官方身份",

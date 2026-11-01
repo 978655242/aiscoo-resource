@@ -169,10 +169,67 @@ sequenceDiagram
 
 真实开发实例另暴露既有启动器生命周期问题：应用内 `relaunchApp` 让原 Electron 正常退出（0），`concurrently -k` 随即停止 Vite，新 Electron 无法访问 5174，外层启动命令因此返回 1。此处没有改写上游启动器；恢复方式为独立运行现有 `vite dev`（显式 `ZCODE_REACT_SCAN=0`）及已编译的开发 bundle。最终重启后的 Main、Host 与独立 Vite 均在运行，renderer HTTP 200、页面标题为 Aiscoo，React Scan 未注入。该处理解决当前运行实例，不宣称通用 `dev:desktop:prod` 已修复应用内重启的生命周期。
 
-## 9. 提交前最终复核（2026-10-31）
+## 9. 产品入口装配与共享 Root 默认（2026-11-01）
+
+Desktop renderer 与 Web 的共同业务 Root 组合点通过公开子路径 `@zcode/ui/aiscoo-account-login-root` 显式调用既有账号 UI 入口 `logout-presentation.tsx` 追加的 `createAiscooAccountLoginRoot`；架构层次保持原定义，仅追加公开包子路径及品牌/法律模块依赖。产品包装在头像和启动归属包装之外，固定安装既有账号 services/platform 适配器；安装与否不依赖 providers、配置或当前身份。Desktop 业务入口及 Web 普通、远控 workspace、远控 home-only 三条渲染路径使用同一组合，旧 callback/share 入口继续遵守各自既有拒绝规则。
+
+共享 `Root` 直接使用传入的 services/platform，仅追加通用可选 `welcomeScreenPresentation` 与 `logoutPresentation` 接点。前者转交 WelcomeScreen 已有 header/footer/API key/等待文案插槽，后者只提供原退出动作的 `run` 与确认后的 `confirmed` 通知。未注入时保留通用欢迎页、服务、平台和原退出动作，不隐式构造 Aiscoo 策略；Aiscoo 产品入口固定注入，缺配置不会暴露官方登录。该默认行为不等于给 Aiscoo 增加可切换的官方账号选项。
+
+服务适配器随原 accessor 稳定复用；平台适配器随原 platform 和同一个退出展示端口稳定复用，产品内层包装、Root props、Context 与 effects 消费同一实例。原工作区注册表继续负责工作区服务路由，不成为账号 owner。Desktop 本地产品包装负责唯一退出展示边界及窗控所需的平台 Context；确认前保持 idle，确认后同步遮挡，失败释放，成功持续到卸载。Root 不导入产品账号、法律或退出展示模块，不移动或复制原退出副作用。
+
+```mermaid
+sequenceDiagram
+    participant E as Desktop / Web 产品入口
+    participant P as Aiscoo 产品包装
+    participant R as 共享 Root
+    participant D as 唯一局部退出展示边界
+    participant H as 既有账号 owner
+    E->>P: 原 services / platform
+    P->>R: 稳定适配器、欢迎页配置、可选退出端口
+    R->>R: 既有退出确认
+    R->>D: confirmed（同步遮挡，Root 保持挂载）
+    R->>H: 同一原退出动作
+    R->>R: 原设置、Provider、WebView 清理与重启
+    alt 原动作失败
+        D->>D: 释放遮挡，传播原错误
+    else 成功
+        D->>D: 持续遮挡到旧 Root 卸载
+    end
+```
+
+验收先维护已有 Root、Electron 登录/退出/快捷键脚本：原始 Root 不注入时保留默认配置与官方 provider 委托；产品包装覆盖三类客户端、empty/official/mixed/disabled、唯一适配器引用、退出门禁及错误恢复。runtime 夹具必须复用生产公开装配入口，不能自行复制策略后将结果视为生产入口已装配。普通 Web、手机远控不启用桌面退出展示。沿用原浏览器 authority、Host generation、desktop-continuous 与 web-remote-replayable；不新增 App 业务单测，不操作真实账号。
+
+## 10. 提交前最终复核（2026-10-31）
 
 用户要求提交并合入本地 `release`。提交范围为登录恢复、退出展示与开发 FPS 配置共 20 个文件，原有品牌交付压缩包及 `.zcode/` 保留，不把本地安装器提交到 Git。
 
 独立审查发现并通过真实已有 fixture 复现同进程重新登录的清理缺陷：旧 owner 磁盘记录损坏，新 B 已提交并发布，后续 `remove(A)` 再次解密旧记录抛错，令回调错误且跳过 A 撤销。新增 ciphertext/schema 两场景修复前 0/2；现仅在已发布后的旧记录清理处处理记录解密或 schema 错误，保留旧密文并沿用内存中已确认的 A 撤销，其他存储错误仍抛出。修复后定向 Native 回归 58/58 通过，包含备份、旧密文不变、A 撤销、B 不被撤销和冷恢复验证。
 
 最终 Node 24.14.0 / pnpm 10.33.2 下类型检查、Lint（308 warnings / 0 errors）、架构（0 violations）、任务文件格式与差异空白检查通过。Root 24/24、启动器 12/12、隔离 Electron 登录恢复和快捷键/原生用户意图门禁均通过；未重跑全 Native，历史 9 项失败不因此宣称已修复，完整退出矩阵仍保留前述 12/14 限制。此次未修改安装包生产账号配置、Developer ID 或公证链路，安装后登录配置缺失仍是待完成的发行条件。
+
+## 11. 产品装配优化验证（2026-11-01）
+
+基线为本地 `release@d0a250ca`，改动位于 `fix/aiscoo-root-account-assembly`，本轮未提交、推送或合并。开工新鲜度检查发现本地 release 相对 origin/release 领先 21、落后 2；两个新增远端提交为品牌/桌面身份与 PTY 的独立 PR 集成，合并预演产生 23 个冲突文件。本轮保留该已知分叉，仅优化当前本地产品源码，不将历史集成冲突混入本次行为重构；原品牌素材及未跟踪文件未纳入任务范围。
+
+| 验证                | 实际结果与范围                                                                                                                                                                                                                                                                              |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 默认 / 产品接线回归 | 先运行新增默认行为对照，4 项均失败；实现后 Root 29/29、Web callback 13/13 通过。SSR 使用受控组件，真实 provider 委托由下面的 runtime 对照补充。                                                                                                                                             |
+| 登录与恢复 runtime  | 12 个 Chrome 尺寸/语言/主题、4 个产品 provider admission、2 个隔离 Electron 场景通过；未装配的轻量 Root 实际委托 Z.ai/BigModel polling 并保留 API key 与 New API 原文，产品只启动 new-api。真实 WelcomeScreen → 原账号服务/PKCE/Me/repo 加密恢复 → 冷恢复通过；后端与凭据均为合成隔离数据。 |
+| 退出 runtime        | 14/14 完整矩阵通过，最终 runtimeErrors 为空；覆盖确认/取消、清理失败、成功持续遮挡、新 Root、普通 Web、远控与通用对照。props/Context 同实例，父重渲染及 busy/失败不重建适配器或订阅；Win/Linux 窗控在 macOS Electron 渲染，图标线宽 1.5 断言通过，不代表真实两平台或 OS 重启验收。          |
+| Web 边界            | 9/9 profile 工程检查、32 项真实浏览器首页/旧回调/远控拒绝及 6 项公开匿名分享检查通过；缺配置不回退、旧 JWT 不消费、公开只读分享可用。                                                                                                                                                       |
+| 工程门禁与构建      | Node 24.14.0 / pnpm 10.33.2：typecheck、lint（308 warnings / 0 errors）、architecture（0 violations）、任务文件格式与 diff 空白检查通过；最终 Desktop renderer 与 Web 均构建成功。未重打 DMG 或运行全 Native 套件。                                                                         |
+
+首次完整退出矩阵在普通 Web 品牌角色可见断言失败。夹具原先只等待登录 test-id 可见，但运行证据显示品牌节点已经存在且 CSS 可见，确认弹窗仍在 `closed/exit` 动画期、品牌祖先仍 `aria-hidden`；等待真实确认控件卸载后，品牌恢复可访问，原断言及 14 项完整矩阵通过。快捷键夹具的重复初始 `page.goto` 与 Main `loadURL` 竞争也已移除，改为等待同一次导航的订阅就绪及退出按钮可见，不增加 sleep 或放宽产品断言。
+
+独立复核发现退出边界外移失去原 LucideProvider，导致窗控线宽回退；产品包装已补足同样的 1.5 配置并增加实际 SVG 断言。工厂复用既有公开 UI 文件，架构策略保持原 layers，仅追加品牌、法律依赖；没有新增账号 owner、退出副作用或退役 App 单测套件。
+
+本轮 14 个任务文件通过临时 Git index 与 `upstream/main@a60ba6a7` 预演合并，退出 0、无冲突，实际暂存区 SHA-256 前后相同。该上游已经是本地基线祖先，结果仅证明与当前基线可合并，不覆盖前述 origin/release 分叉或未来上游改动。
+
+| 本轮修改的上游文件                                                | 最小扩展与原因                                                                                                |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `packages/ui/src/Root.tsx`                                        | 移除强制产品依赖，只转交通用可选欢迎页配置与退出展示端口；原 Root 默认服务、平台和退出链保留。                |
+| `packages/ui/src/root/types.ts`                                   | 追加两个窄展示契约及可选 props；既有 Root 未提供扩展点，无法从外层转交展示或确认通知。                        |
+| `packages/desktop/src/renderer/src/main.tsx`                      | 在唯一业务 Root 组合点追加公开产品包装器。                                                                    |
+| `packages/web/src/main.tsx`                                       | 在共同组合点追加产品包装器，覆盖普通 Web 与两条远控 Root 路径。                                               |
+| `packages/ui/package.json`                                        | 只追加产品装配公开子路径，原 Root 导出不替换；严格 JSON 的原因在此登记。                                      |
+| `packages/web/test/e2e/manual-review/pending/remote-login-v2.mjs` | 在既有下游产品 admission 矩阵追加首页、旧官方 callback 和 remote query，对历史 JWT 与无网络请求断言保持原样。 |

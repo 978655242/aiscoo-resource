@@ -18,6 +18,10 @@ try {
       try {
         await h.context.addCookies([{ name: "legacy-session", value: "e2e-old", url: origin }]);
         for (const path of [
+          // XCODE: 缺配置首页与旧官方回调同样拒绝，不消费历史浏览器身份。
+          "/",
+          "/oauth/callback?state=secret-state&code=secret-code&provider=zai",
+          "/?remote=secret-device",
           "/remote/v4?sid=secret-device&mid=secret-mid",
           "/remote/__test__",
           "/remote/v4?state=secret-state&authCode=secret-code",

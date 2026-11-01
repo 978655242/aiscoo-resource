@@ -6,7 +6,12 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { logoutRenderer } from "./aiscooLogoutFixtureRenderer.mjs";
+import {
+  checkUpstreamLoginControls,
+  loginRenderer,
+  logoutRenderer,
+  waitForLogoutWelcome,
+} from "./aiscooLogoutFixtureRenderer.mjs";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const requireRoot = createRequire(new URL("../../../package.json", import.meta.url));
@@ -38,85 +43,10 @@ try {
     stdin: {
       resolveDir: root,
       loader: "tsx",
-      contents: logoutOnly
-        ? logoutRenderer
-        : `
-import React from "react";
-import { createRoot } from "react-dom/client";
-import { ServiceProvider } from "./packages/ui/src/hooks/useServices.tsx";
-import { PlatformProvider } from "./packages/ui/src/hooks/usePlatform.tsx";
-import { StoreProvider } from "./packages/ui/src/store/StoreProvider.tsx";
-import { AiscooIntlProvider, AiscooLoginHeader } from "./packages/ui/src/xwork/brand/index.ts";
-import { ZCodeIntlProvider } from "./packages/ui/src/i18n/IntlProvider.tsx";
-import { WelcomeScreen } from "./packages/ui/src/WelcomeScreen.tsx";
-import { createAiscooAccountLoginServices, createAiscooAccountLoginPlatform } from "./packages/ui/src/aiscoo/account-login/index.ts";
-import { applyTheme } from "./packages/ui/src/useTheme.ts";
-import { useZCodeStore } from "./packages/ui/src/store/StoreProvider.tsx";
-import { handleOAuthCallbackSuccess } from "./packages/ui/src/root/useRootOAuthEffects.ts";
-const params = new URLSearchParams(location.search);
-const locale = params.get("locale") || "zh-CN";
-const theme = params.get("theme") || "zai-light";
-const upstream = params.get("upstream") === "1";
-const providerMode = params.get("providers") || "native";
-const events = [];
-let fail = false;
-window.loginFixture = { events, failNext: () => { fail = true; } };
-localStorage.setItem("zcode-theme", theme);
-applyTheme(theme);
-const oauthService = {
-  getProviders: async () => {
-    const official = [{ id: "zai", displayName: "Z.ai", enabled: true, order: 0 }, { id: "bigmodel", displayName: "BigModel", enabled: true, order: 1 }];
-    const native = { id: "new-api", displayName: "New API", enabled: true, order: 2 };
-    return providerMode === "empty" ? [] : providerMode === "official" ? official : providerMode === "mixed" ? [...official, native] : providerMode === "disabled" ? [{ ...native, enabled: false }] : [native];
-  },
-  getActiveProvider: async () => null,
-  startOAuth: async (provider) => {
-    events.push(["start", provider]);
-    if (fail) { fail = false; throw new Error("synthetic failure"); }
-    return { authorizeUrl: "https://example.invalid/synthetic", state: "synthetic", provider, purpose: "primary-account" };
-  },
-  cancelPending: async (provider) => { events.push(["cancel", provider]); },
-};
-if (params.get("recovery") === "1") {
-  for (const method of ["getProviders", "getActiveProvider", "startOAuth", "cancelPending"]) {
-    oauthService[method] = (...args) => window.recoveryRpc(method, args);
-  }
-}
-const services = { oauthService, providerSettingsService: {}, modelSelectionService: {}, settingService: {} };
-const broadcastService = { send: async () => {}, onMessage: () => ({ dispose() {} }) };
-const platform = {
-  executeDesktopCommand: async () => {},
-  registerOAuthState: () => {},
-  openExternal: () => { events.push(["open-synthetic"]); },
-};
-const Intl = upstream ? ZCodeIntlProvider : AiscooIntlProvider;
-function RecoveryProjection() {
-  const setUser = useZCodeStore(s => s.setUser);
-  const setOAuthError = useZCodeStore(s => s.setOAuthError);
-  const markOAuthSuccess = useZCodeStore(s => s.markOAuthSuccess);
-  React.useEffect(() => {
-    window.acceptRecoveryCallback = async (url) => {
-      const result = await window.recoveryRpc("handleCallback", [url]);
-      if (result?.kind !== "session") throw new Error("Expected verified session");
-      await handleOAuthCallbackSuccess({ result, platform, setUser, setOAuthError,
-        refreshProviderState: async () => {}, setProviderFamilyDomain: async () => {} });
-      markOAuthSuccess(result.provider);
-    };
-    return () => { delete window.acceptRecoveryCallback; };
-  }, [setUser, setOAuthError, markOAuthSuccess]);
-  return null;
-}
-createRoot(document.getElementById("root")).render(
-  <ServiceProvider services={upstream ? services : createAiscooAccountLoginServices(services)}><PlatformProvider platform={upstream ? platform : createAiscooAccountLoginPlatform(platform)}>
-    <StoreProvider broadcastService={broadcastService}><Intl initialLocale={locale}>
-      {params.get("recovery") === "1" && <RecoveryProjection />}
-      <WelcomeScreen onComplete={() => events.push(["complete"])}
-        {...(upstream ? {} : { header: <AiscooLoginHeader />, hideApiKeyLogin: true })} />
-    </Intl></StoreProvider>
-  </PlatformProvider></ServiceProvider>
-);
-`,
+      contents: logoutOnly ? logoutRenderer : loginRenderer,
     },
+    absWorkingDir: root,
+    nodePaths: [resolve(root, "packages/desktop/node_modules")],
     bundle: true,
     write: false,
     platform: "browser",
@@ -148,6 +78,12 @@ createRoot(document.getElementById("root")).render(
   const blockOutside = (route) =>
     route.request().url().startsWith(`${origin}/`) ? route.continue() : route.abort();
 
+  async function openLoginPage(page, query) {
+    // 原因：Vite/HMR 不保证网络静默；完成条件是 effect 就绪及调用方断言的真实可见控件。
+    await page.goto(`${origin}/?${new URLSearchParams(query)}`, { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.loginFixture?.ready === true);
+  }
+
   async function checkPage(page, { locale, theme, width, engine }) {
     const productLogin = locale === "zh-CN" ? "登录" : "Sign in";
     const apiKey = locale === "zh-CN" ? "使用 API key" : "Use API key";
@@ -160,10 +96,10 @@ createRoot(document.getElementById("root")).render(
     };
     page.on("pageerror", onError);
     page.on("response", onResponse);
-    await page.goto(`${origin}/?locale=${locale}&theme=${theme}`, { waitUntil: "networkidle" });
     const button = page.getByRole("button", { name: productLogin, exact: true });
     try {
-      await button.waitFor({ timeout: 10000 });
+      await openLoginPage(page, { locale, theme, desktop: engine === "electron" ? "1" : "0" });
+      await button.waitFor({ state: "visible", timeout: 10000 });
     } catch (error) {
       throw new Error(
         `登录夹具未渲染: ${JSON.stringify({ locale, theme, width, errors, text: await page.locator("body").innerText() })}`,
@@ -206,6 +142,8 @@ createRoot(document.getElementById("root")).render(
       await page.screenshot({ path: join(evidence, `${engine}-${width}-${locale}-${theme}.png`) });
     }
     await button.click();
+    await page.getByRole("button", { name: cancel, exact: true }).waitFor({ state: "visible" });
+    assert.equal(await page.getByText(/New API/u).count(), 0);
     await page.getByRole("button", { name: cancel, exact: true }).click();
     assert.deepEqual(
       await page.evaluate(() => window.loginFixture.events.filter((e) => e[0] === "cancel")),
@@ -249,12 +187,23 @@ createRoot(document.getElementById("root")).render(
       await context.route("**/*", blockOutside);
       try {
         const page = await context.newPage();
-        await page.goto(`${origin}/?locale=zh-CN&providers=${providerMode}`, {
-          waitUntil: "networkidle",
-        });
+        await openLoginPage(page, { locale: "zh-CN", providers: providerMode });
+        const ready =
+          providerMode === "mixed"
+            ? page.getByRole("button", { name: "登录", exact: true })
+            : page.getByTestId("oauth-error");
+        await ready.waitFor({ state: "visible" });
         assert.equal(await page.getByRole("button", { name: /Z\.ai|BigModel/u }).count(), 0);
+        assert.equal(
+          await page.getByRole("button", { name: "使用 API key", exact: true }).count(),
+          0,
+        );
+        assert.equal(
+          await page.getByRole("img", { name: "Aiscoo", exact: true }).isVisible(),
+          true,
+        );
         if (providerMode === "mixed") {
-          await page.getByRole("button", { name: "登录", exact: true }).click();
+          await ready.click();
           await page.getByRole("button", { name: "取消", exact: true }).waitFor();
           assert.deepEqual(
             await page.evaluate(() =>
@@ -278,10 +227,7 @@ createRoot(document.getElementById("root")).render(
     await defaultContext.route("**/*", blockOutside);
     try {
       const page = await defaultContext.newPage();
-      await page.goto(`${origin}/?locale=zh-CN&upstream=1`, { waitUntil: "networkidle" });
-      await page.getByRole("button", { name: "登录 New API", exact: true }).waitFor();
-      await page.getByRole("button", { name: "使用 API key", exact: true }).click();
-      assert.equal(await page.getByRole("heading", { name: "API Key", exact: true }).count(), 1);
+      await checkUpstreamLoginControls(page, openLoginPage);
     } finally {
       await defaultContext.close();
     }
@@ -335,11 +281,36 @@ app.whenReady().then(() => {
     const waitStep = (step) =>
       page.waitForFunction((name) => window.logoutFixture.events.includes(name), step);
     const release = (step) => page.evaluate((name) => window.logoutFixture.release(name), step);
+    async function stableParentRerender(expectedMounts = 1) {
+      const target = await page.evaluate(() => window.logoutFixture.rerender());
+      await page.waitForFunction(
+        (revision) => window.logoutFixture.state().parentRevision === revision,
+        target,
+      );
+      const state = await page.evaluate(() => window.logoutFixture.state());
+      assert.equal(state.contextsMatch, true);
+      assert.equal(state.adaptersStable, true);
+      assert.equal(state.mounts, expectedMounts);
+      assert.equal(state.unmounts, expectedMounts - 1);
+      assert.equal(state.effectMounts, expectedMounts);
+      assert.equal(state.effectUnmounts, expectedMounts - 1);
+    }
     async function open(options = {}) {
       await page.goto(
         `${origin}/?${new URLSearchParams({ locale: "zh-CN", theme: "zai-light", ...options })}`,
-        { waitUntil: "networkidle" },
+        { waitUntil: "domcontentloaded" },
       );
+      // 远控夹具同样等待 hook effect 与真实退出按钮，不依赖 Vite/HMR 进入网络静默。
+      await page.waitForFunction(() => window.logoutFixture?.ready === true);
+      await page.getByTestId("fixture-logout").waitFor({ state: "visible" });
+      const state = await page.evaluate(() => window.logoutFixture.state());
+      assert.equal(state.contextsMatch, true);
+      assert.equal(state.adaptersStable, true);
+      assert.equal(
+        state.presentationAttached,
+        !["web", "remote", "generic"].includes(options.mode),
+      );
+      await stableParentRerender();
       await page.getByTestId("fixture-logout").click();
       await page.getByTestId("confirm-dialog-confirm").waitFor();
       assert.equal(
@@ -353,6 +324,7 @@ app.whenReady().then(() => {
       await page.getByTestId("confirm-dialog-confirm").click();
     }
     async function covered() {
+      await stableParentRerender();
       await transition.waitFor();
       assert.equal(await page.getByTestId("old-root").isVisible(), false);
       assert.equal(
@@ -364,6 +336,9 @@ app.whenReady().then(() => {
       const state = await page.evaluate(() => window.logoutFixture.state());
       assert.equal(state.mounts, 1);
       assert.equal(state.unmounts, 0);
+      assert.equal(state.presentationAttached, true);
+      assert.equal(state.contextsMatch, true);
+      assert.equal(state.adaptersStable, true);
       assert.equal(await page.getByRole("button", { name: /^(登录|Sign in)$/ }).count(), 0);
       assert.equal(
         await page.evaluate(() => window.logoutFixture.repeat()),
@@ -427,6 +402,16 @@ app.whenReady().then(() => {
             locale === "zh-CN" ? /正在退出/ : /Signing out/,
           );
           if (os !== "mac") {
+            for (const control of ["minimize", "close"]) {
+              assert.equal(
+                await transition
+                  .getByTestId(`window-control-${control}`)
+                  .locator("svg")
+                  .getAttribute("stroke-width"),
+                "1.5",
+                `${os} ${control} must retain the production Lucide stroke width`,
+              );
+            }
             for (const control of ["minimize", "maximize", "close"])
               await transition.getByTestId(`window-control-${control}`).click();
             assert.deepEqual(await page.evaluate(() => window.logoutFixture.controls), [
@@ -465,6 +450,7 @@ app.whenReady().then(() => {
       await page
         .getByRole("button", { name: locale === "zh-CN" ? "登录" : "Sign in", exact: true })
         .waitFor();
+      await stableParentRerender(2);
       assert.deepEqual(
         await page.evaluate(() => {
           const { mounts, unmounts } = window.logoutFixture.state();
@@ -505,6 +491,9 @@ app.whenReady().then(() => {
       await waitStep("rejected");
       await transition.waitFor({ state: "detached" });
       assert.equal(await page.getByTestId("old-root").isVisible(), true);
+      assert.equal(await page.evaluate(() => window.logoutFixture.state().adaptersStable), true);
+      assert.equal(await page.evaluate(() => window.logoutFixture.state().contextsMatch), true);
+      await stableParentRerender();
       assert.equal(
         await page
           .getByTestId("old-root")
@@ -525,7 +514,16 @@ app.whenReady().then(() => {
       await confirm();
       await waitStep("provider");
       assert.equal(await transition.count(), 0);
-      await login.waitFor();
+      await login.waitFor({ state: "visible" });
+      const welcomeReadiness = await waitForLogoutWelcome(page, mode);
+      assert.equal(
+        await page.getByRole("button", { name: "使用 API key", exact: true }).isVisible(),
+        mode === "generic",
+      );
+      assert.equal(
+        await page.getByRole("img", { name: "Aiscoo", exact: true }).isVisible(),
+        mode !== "generic",
+      );
       assert.equal(
         await page.evaluate(() => window.logoutFixture.state().presentationAttached),
         false,
@@ -547,8 +545,10 @@ app.whenReady().then(() => {
         name: `no-boundary-${mode}`,
         status: "passed",
         loginVisibleAtProviderHold: true,
+        welcomeReadiness,
       });
     }
+    assert.equal(results.length, 14, "The complete logout matrix must reach all 14 cases");
     assert.deepEqual(runtimeErrors, []);
     await writeFile(
       join(evidence, "result.json"),
@@ -559,9 +559,9 @@ app.whenReady().then(() => {
           results,
           runtimeErrors,
           component:
-            "real useRootWorkspaceActions + ConfirmDialogHost + WelcomeScreen + AiscooLogoutPresentationBoundary",
+            "public createAiscooAccountLoginRoot + real useRootWorkspaceActions + ConfirmDialogHost + WelcomeScreen",
           limitations:
-            "Minimal Root wrapper; synthetic platform ports; Windows/Linux controls rendered on macOS Electron; no OS relaunch or credentials",
+            "Lightweight FixtureRoot using production product assembly; synthetic platform ports; Windows/Linux controls rendered on macOS Electron; no OS relaunch or credentials",
         },
         null,
         2,
@@ -704,7 +704,10 @@ export { setDataBaseDir } from "./packages/services/src/paths.ts";
       if (method === "startOAuth") started = result;
       return result;
     });
-    await electronPage.goto(`${origin}/?locale=zh-CN&recovery=1`, { waitUntil: "networkidle" });
+    await openLoginPage(electronPage, { locale: "zh-CN", recovery: "1", desktop: "1" });
+    await electronPage
+      .getByRole("button", { name: "登录", exact: true })
+      .waitFor({ state: "visible" });
     await electronPage.getByRole("button", { name: "登录", exact: true }).click();
     await electronPage.getByRole("button", { name: "取消", exact: true }).waitFor();
     await electronPage.waitForFunction(() =>
@@ -772,7 +775,7 @@ export { setDataBaseDir } from "./packages/services/src/paths.ts";
       engine: "electron",
     });
     console.log(
-      "PASS: 12 Chrome viewport/theme/locale cases, 4 provider admission cases, upstream API key form, 2 isolated Electron cases; synthetic OAuth only",
+      "PASS: 12 Chrome viewport/theme/locale cases, 4 provider admission cases, upstream New API copy and official polling/API key controls, 2 isolated Electron cases; public product assembly, synthetic OAuth only",
     );
   }
 } finally {

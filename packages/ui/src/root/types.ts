@@ -1,6 +1,7 @@
 import type {
   IPlatformService,
   UserInfo,
+  OAuthProviderMeta,
   WebRemoteControlMobileNavigationIntent,
   WebRemoteControlMobileTaskView,
   WebRemoteControlTaskTarget,
@@ -59,6 +60,20 @@ export interface RestoredDraftContext {
   readonly taskGroupId?: string | null;
 }
 
+// XCODE: 入口可复用欢迎页已有展示插槽，缺省不施加产品登录策略。
+export interface RootWelcomeScreenPresentation {
+  header?: ReactNode;
+  footer?: (providers: readonly OAuthProviderMeta[]) => ReactNode;
+  hideApiKeyLogin?: boolean;
+  oauthWaitingDisplayNames?: Readonly<Record<string, string>>;
+}
+
+// XCODE: 只包装原退出动作与确认通知，不拥有身份或退出副作用。
+export interface RootLogoutPresentation {
+  run(action: () => Promise<void>): Promise<void>;
+  confirmed(): void;
+}
+
 export interface RootProps {
   services: IServiceAccessor;
   platform: IPlatformService;
@@ -110,6 +125,10 @@ export interface RootProps {
   webRemoteControlFeatureEnabled?: boolean;
   /** Assistant code-comment 卡片灰度；默认关闭，关闭时保留原始 directive。 */
   assistantCodeCommentCardsEnabled?: boolean;
+  /** XCODE: 产品展示由入口注入；缺省沿用 WelcomeScreen 原有配置。 */
+  welcomeScreenPresentation?: RootWelcomeScreenPresentation;
+  /** XCODE: 可选退出展示；未注入时直接执行原动作。 */
+  logoutPresentation?: RootLogoutPresentation;
 }
 
 export interface WorkspaceSettingsLayerProps {

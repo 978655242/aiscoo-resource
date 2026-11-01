@@ -52,20 +52,6 @@ import { setPendingSettingsSectionIntent } from "@/lib/settingsNavigation.js";
 import { CodingPlanUpgradeDialogProvider } from "@/settings/CodingPlanUpgradeDialogProvider.js";
 import { RewardsProvider } from "@/rewards/RewardsProvider.js";
 import { WelcomeScreen, type LoginCompleteReason } from "@/WelcomeScreen.js";
-// XCODE: 品牌登录头通过可选插槽装配，原登录页默认头部保持上游语义。
-import { AiscooLoginHeader, resolveAiscooOAuthWaitingDisplayNames } from "@/xwork/brand/index.js";
-// XCODE: 仅桌面装配公开法律入口，其他平台保留默认登录页。
-import { AiscooLegalLinks } from "@/aiscoo/legal/index.js";
-// XCODE: 产品入口固定只允许 Aiscoo 账号；空配置也不回退上游官方认证。
-import {
-  createAiscooAccountLoginPlatform,
-  createAiscooAccountLoginServices,
-} from "@/aiscoo/account-login/index.js";
-// XCODE: Desktop 只追加退出展示边界，不替换上游账号清理与重启动作。
-import {
-  AiscooLogoutPresentationBoundary,
-  useAiscooLogoutPresentation,
-} from "@/aiscoo/account-login/logout-presentation.js";
 import { setDefaultFileDisplayBasePath } from "@/lib/fileDisplay.js";
 import { readRendererLaunchTimings, shouldReportLaunchToInput } from "@/lib/launchToInputReport.js";
 import { reportUiLaunchToInput } from "@/lib/uiPerfArmsTelemetry.js";
@@ -157,15 +143,6 @@ type WelcomeScreenOpenReason =
  * 外层挂载 StoreProvider（连接广播服务）+ TabStoreProvider，内层处理认证和路由。
  */
 export function Root(props: RootProps) {
-  // XCODE: 同一个产品边界供 Context、Root effects 与本机服务注册复用，不复制身份状态。
-  const services = useMemo(
-    () => createAiscooAccountLoginServices(props.services),
-    [props.services],
-  );
-  const platform = useMemo(
-    () => createAiscooAccountLoginPlatform(props.platform),
-    [props.platform],
-  );
   return (
     <LucideProvider strokeWidth={DEFAULT_LUCIDE_STROKE_WIDTH}>
       {/*
@@ -180,11 +157,11 @@ export function Root(props: RootProps) {
          * React 点击切换任务时会同步构造数量级相同的 Radix 上下文树；根层共享一次即可保留零延迟配置。
          */}
         <ServiceProvider
-          services={services}
+          services={props.services}
           composerClientNamespace={props.composerClientNamespace}
           terminalOwnerId={props.terminalOwnerId}
         >
-          <PlatformProvider platform={platform}>
+          <PlatformProvider platform={props.platform}>
             <StoreProvider
               broadcastService={props.services.broadcastService}
               initialIsRestoringOAuthSession
@@ -201,18 +178,7 @@ export function Root(props: RootProps) {
                             <RequestSecurityHost />
                             <MarketingTouchProvider desktop={props.isDesktop === true}>
                               <RemoteConnectionProgressProvider>
-                                <AiscooLogoutPresentationBoundary
-                                  enabled={
-                                    props.isDesktop === true &&
-                                    !props.webRemoteControlWorkspaceSwitcher
-                                  }
-                                >
-                                  <AiscooLogoutRootContent
-                                    {...props}
-                                    services={services}
-                                    platform={platform}
-                                  />
-                                </AiscooLogoutPresentationBoundary>
+                                <RootInner {...props} />
                               </RemoteConnectionProgressProvider>
                             </MarketingTouchProvider>
                           </RewardsProvider>
@@ -227,23 +193,6 @@ export function Root(props: RootProps) {
         </ServiceProvider>
       </TooltipProvider>
     </LucideProvider>
-  );
-}
-
-// XCODE: 原生菜单事件不经过 DOM inert；只在旧窗口退出过渡期间暂停新用户意图。
-function AiscooLogoutRootContent(props: RootProps) {
-  const presentation = useAiscooLogoutPresentation();
-  const platform = useMemo(
-    () =>
-      presentation
-        ? createAiscooAccountLoginPlatform(props.platform, presentation.isExiting)
-        : props.platform,
-    [props.platform, presentation],
-  );
-  return (
-    <PlatformProvider platform={platform}>
-      <RootInner {...props} platform={platform} />
-    </PlatformProvider>
   );
 }
 
@@ -272,6 +221,9 @@ function RootInner({
   initialWebRemoteControlMobileNavigationIntent,
   webRemoteControlTerminalTransportState,
   initialWorkspaceLoadingFallback,
+  // XCODE: 通用可选接点只透传入口展示，不在共享 Root 识别具体产品。
+  welcomeScreenPresentation,
+  logoutPresentation,
 }: RootProps) {
   useInterfaceModeTelemetry(platform, isDesktop === true);
   useEffect(() => {
@@ -738,7 +690,6 @@ function RootInner({
     setWelcomeScreenOpenReason("session-expired");
   }, []);
   // XCODE: 仅包装动作调用与已确认通知，账号状态仍由原退出链路持有。
-  const logoutPresentation = useAiscooLogoutPresentation();
   const {
     setWorkspaceActionError,
     startDraftInWorkspace,
@@ -1601,20 +1552,8 @@ function RootInner({
         {requestSecurityBridgeNode}
         {remoteConnectionDialog}
         {directoryBrowserDialog}
-        {/* XCODE: 产品登录页只保留账号入口，组件默认行为留给未注入配置的调用方。 */}
-        <WelcomeScreen
-          onComplete={handleWelcomeScreenComplete}
-          header={<AiscooLoginHeader />}
-          // XCODE: 普通 Web 和手机远控不挂载桌面法律扩展。
-          footer={
-            isDesktop && !isWebRemoteControlRoot
-              ? (providers) => <AiscooLegalLinks providers={providers} placement="login" />
-              : undefined
-          }
-          hideApiKeyLogin
-          // XCODE: 等待提示使用产品品牌，保留原 provider 与 release 的认证链路。
-          oauthWaitingDisplayNames={resolveAiscooOAuthWaitingDisplayNames()}
-        />
+        {/* XCODE: 未注入时与原欢迎页配置相同，产品展示只由入口显式提供。 */}
+        <WelcomeScreen {...welcomeScreenPresentation} onComplete={handleWelcomeScreenComplete} />
       </RootShell>
     );
   }
