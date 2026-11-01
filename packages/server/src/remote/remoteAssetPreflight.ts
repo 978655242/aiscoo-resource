@@ -1,6 +1,6 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 // XCODE: 仅本地安装预检提示消费共享品牌，命令和外部输出原样保留。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 import type { IRemoteBackend, StdioStream } from "@zcode/server/remote/backend.js";
 import { waitForClose } from "@zcode/server/remote/deployShared.js";
 

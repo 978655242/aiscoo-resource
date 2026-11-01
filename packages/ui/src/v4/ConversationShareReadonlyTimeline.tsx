@@ -75,7 +75,7 @@ import {
 } from "@/lib/codePreviewSettings.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 // XCODE: 自包含分享时间线显式使用产品词典，避免内层 Provider 覆盖品牌。
-import { AiscooIntlProvider as ZCodeIntlProvider } from "@/xwork/brand/index.js";
+import { AiscooIntlProvider as ZCodeIntlProvider } from "@/aiscoo/brand/index.js";
 import type { Theme } from "@/useTheme.js";
 import { FileDisplayIcon, resolveFileDisplayDescriptor } from "@/lib/fileDisplay.js";
 import { formatAttachmentSize } from "@/lib/chatAttachmentMetadata.js";

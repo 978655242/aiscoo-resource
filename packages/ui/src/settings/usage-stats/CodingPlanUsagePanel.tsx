@@ -10,7 +10,6 @@ import type {
   CodingPlanUsageSnapshot,
   UsageQuotaLimit,
   UsageQuotaSnapshot,
-  ZCodeAccountAccess,
 } from "@zcode/shared";
 import { LocalizedCodingPlanQuotaResetAction } from "@/components/coding-plan-quota-reset/CodingPlanQuotaResetAction.js";
 import { CodingPlanQuotaResetOpportunity } from "@/components/coding-plan-quota-reset/CodingPlanQuotaResetOpportunity.js";
@@ -18,14 +17,13 @@ import { buildCodingPlanQuotaResetDialogConfig } from "@/components/coding-plan-
 import { Button } from "@/components/ui/button.js";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
-import { BUILTIN_MODEL_PROVIDER_IDS, getModelProviderFamilySpec } from "@zcode/shared";
+import { BUILTIN_MODEL_PROVIDER_IDS } from "@zcode/shared";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 // XCODE: 单周期私有额度与模型设置共用源版布局。
 import { NativePlanQuotaCard } from "@/settings/model-provider-section/NativePlanProviderDetail.js";
 import { useUsageEntitlement } from "@/hooks/useUsageEntitlement.js";
 import { useCodingPlanQuotaResetUi } from "@/hooks/useCodingPlanQuotaResetUi.js";
 import { useCodingPlanUsageStats } from "@/hooks/useUsageStats.js";
-import { useOfficialCloudConnection } from "@/hooks/useOfficialCloudConnection.js";
 import { buildUsageEntitlementCacheKey } from "@/lib/usageEntitlementCache.js";
 import {
   findCodingPlanQuotaLimit,
@@ -310,119 +308,11 @@ export function CodingPlanUsagePanel({
             onEntitlementRefresh={handleResetEntitlementRefresh}
             onUsageStatsRefresh={handleUsageStatsRefresh}
           />
-          {nativeSource ? <NativeOfficialMcpCard /> : null}
           <CodingPlanActivitySection snapshot={snapshot} />
           <CodingPlanUsageTrendsSection snapshot={snapshot} />
         </>
       ) : null}
     </div>
-  );
-}
-
-function NativeOfficialMcpCard() {
-  const { intl, locale } = useZCodeIntl();
-  const cloud = useOfficialCloudConnection();
-  const connection = cloud.snapshot?.status === "connected" ? cloud.snapshot : null;
-  const accountAccess = useMemo<ZCodeAccountAccess | undefined>(() => {
-    if (!connection?.planScope) return undefined;
-    const scope = connection.planScope;
-    return scope.targetType === "TEAM"
-      ? {
-          type: "zhipu-account",
-          family: connection.family,
-          planKind: "team-coding-plan",
-          productId: scope.productId,
-          organizationId: scope.organizationId,
-          projectId: scope.projectId,
-        }
-      : { type: "zhipu-account", family: connection.family, planKind: "individual-coding-plan" };
-  }, [connection]);
-  const providerId = connection
-    ? connection.planScope?.targetType === "TEAM"
-      ? getModelProviderFamilySpec(connection.family).teamCodingPlanProviderId
-      : getModelProviderFamilySpec(connection.family).individualCodingPlanProviderId
-    : undefined;
-  const usage = useUsageEntitlement({
-    enabled: Boolean(connection && accountAccess),
-    accountAccess,
-    preferredProviderId: providerId,
-    allowEnvApiKey: false,
-    requirePreferredProvider: true,
-    cacheKey: connection
-      ? `official-mcp:${connection.connectionKey}:${connection.credentialGeneration}`
-      : undefined,
-    // XCODE: 官方 MCP 卡首次挂载及凭据换代必须读取真实额度，不能只等待手动刷新。
-    refreshOnMount: true,
-  });
-  const limit = resolveMcpQuotaLimit(usage.snapshot);
-  return (
-    <section className="space-y-3">
-      <h3 className="text-ui-lg font-medium">
-        {intl.formatMessage({ id: "settings.usage.entitlementServerMcpUsage" })}
-      </h3>
-      <div className="rounded-xl bg-surface/70 p-4">
-        {connection ? (
-          <>
-            <p className="text-ui-base text-foreground-subtle">
-              {intl.formatMessage(
-                { id: "settings.usage.nativeOfficialScope" },
-                {
-                  family: connection.family,
-                  name: connection.identity.displayName,
-                },
-              )}
-            </p>
-            <p className="mt-1 text-ui-xl font-semibold">
-              {limit
-                ? formatQuotaRemainingPercentage(locale, limit)
-                : intl.formatMessage({ id: "settings.usage.nativeUnavailable" })}
-            </p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                void usage.refresh({ force: true });
-              }}
-            >
-              {intl.formatMessage({ id: "settings.usage.refresh" })}
-            </Button>
-            {/* XCODE: 独立官方连接操作保留在原有 MCP 用量区，不占据 Native 套餐详情。 */}
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={cloud.loading}
-              onClick={() => void cloud.logout()}
-            >
-              {intl.formatMessage({ id: "settings.usage.nativeOfficialDisconnect" })}
-            </Button>
-          </>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            <p className="w-full text-ui-base text-foreground-subtle">
-              {intl.formatMessage({ id: "settings.usage.nativeOfficialConnectDescription" })}
-            </p>
-            {(["zai", "bigmodel"] as const).map((family) => (
-              <Button
-                key={family}
-                variant="secondary"
-                size="sm"
-                disabled={cloud.loading}
-                onClick={() => {
-                  void cloud.startOAuth(family);
-                }}
-              >
-                {intl.formatMessage({ id: "settings.usage.nativeOfficialConnect" }, { family })}
-              </Button>
-            ))}
-          </div>
-        )}
-        {cloud.error || usage.error ? (
-          <p role="alert" className="mt-2 text-ui-sm text-destructive">
-            {cloud.error ?? usage.error}
-          </p>
-        ) : null}
-      </div>
-    </section>
   );
 }
 

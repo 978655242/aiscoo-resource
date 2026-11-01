@@ -47,8 +47,6 @@ export function isZCodeCuaInternalFeatureEnabled(env: EnvRecord = process.env): 
 const SANITIZED_RUNTIME_ENV_KEYS = [
   "NODE_ENV",
   "ELECTRON_RUN_AS_NODE",
-  // XCODE: OS保护的私有加密 key 只允许 Main 定向下发 Host，禁止传给 worker/tool。
-  "XCODE_PRIVATE_CREDENTIAL_SECRET",
   "NODE_NO_WARNINGS",
   "HTTP_PROXY",
   "HTTPS_PROXY",
@@ -107,7 +105,6 @@ const NON_TOOL_PASSTHROUGH_RUNTIME_ENV_KEYS = [
   "NODE_ENV",
   "ELECTRON_RUN_AS_NODE",
   "NODE_NO_WARNINGS",
-  "XCODE_PRIVATE_CREDENTIAL_SECRET",
   // CUA broker 凭据不得经 tool-env-passthrough 恢复到 Bash/tool 子进程（否则等于绕过上面的剔除）。
   ZCODE_CUA_BROKER_SOCKET_ENV_KEY,
   "ZCODE_CUA_PERMISSION_BROKER_REFRESH_MARKER",

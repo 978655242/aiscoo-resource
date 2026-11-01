@@ -52,10 +52,6 @@ import { setPendingSettingsSectionIntent } from "@/lib/settingsNavigation.js";
 import { CodingPlanUpgradeDialogProvider } from "@/settings/CodingPlanUpgradeDialogProvider.js";
 import { RewardsProvider } from "@/rewards/RewardsProvider.js";
 import { WelcomeScreen, type LoginCompleteReason } from "@/WelcomeScreen.js";
-// XCODE: 品牌登录头通过可选插槽装配，原登录页默认头部保持上游语义。
-import { AiscooLoginHeader, resolveAiscooOAuthWaitingDisplayNames } from "@/xwork/brand/index.js";
-// XCODE: 仅桌面装配公开法律入口，其他平台保留默认登录页。
-import { AiscooLegalLinks } from "@/aiscoo/legal/index.js";
 import { setDefaultFileDisplayBasePath } from "@/lib/fileDisplay.js";
 import { readRendererLaunchTimings, shouldReportLaunchToInput } from "@/lib/launchToInputReport.js";
 import { reportUiLaunchToInput } from "@/lib/uiPerfArmsTelemetry.js";
@@ -225,6 +221,9 @@ function RootInner({
   initialWebRemoteControlMobileNavigationIntent,
   webRemoteControlTerminalTransportState,
   initialWorkspaceLoadingFallback,
+  // XCODE: 通用可选接点只透传入口展示，不在共享 Root 识别具体产品。
+  welcomeScreenPresentation,
+  logoutPresentation,
 }: RootProps) {
   useInterfaceModeTelemetry(platform, isDesktop === true);
   useEffect(() => {
@@ -690,11 +689,12 @@ function RootInner({
   const handleReauthenticationRequired = useCallback(() => {
     setWelcomeScreenOpenReason("session-expired");
   }, []);
+  // XCODE: 仅包装动作调用与已确认通知，账号状态仍由原退出链路持有。
   const {
     setWorkspaceActionError,
     startDraftInWorkspace,
     startNewTaskFromActiveWorkspace,
-    handleLogout,
+    handleLogout: handleOriginalLogout,
     handleSelectProject,
     handleSelectConversationWorkspace,
     handleResolveConversationWorkspace,
@@ -721,6 +721,7 @@ function RootInner({
     updateAppSettings,
     setOAuthError,
     setUser,
+    onLogoutConfirmed: logoutPresentation?.confirmed,
     onProviderFamilyDomainClearedAfterLogout: () => {
       setWelcomeScreenOpenReason("logout-provider-required");
     },
@@ -732,6 +733,11 @@ function RootInner({
       ? "web-remote-replayable"
       : "desktop-continuous",
   });
+  const handleLogout = useCallback(
+    () =>
+      logoutPresentation ? logoutPresentation.run(handleOriginalLogout) : handleOriginalLogout(),
+    [logoutPresentation, handleOriginalLogout],
+  );
   const handleRemoteWorkspaceActivated = useCallback(
     ({
       workspacePath,
@@ -1546,20 +1552,8 @@ function RootInner({
         {requestSecurityBridgeNode}
         {remoteConnectionDialog}
         {directoryBrowserDialog}
-        {/* XCODE: 产品登录页只保留账号入口，组件默认行为留给未注入配置的调用方。 */}
-        <WelcomeScreen
-          onComplete={handleWelcomeScreenComplete}
-          header={<AiscooLoginHeader />}
-          // XCODE: 普通 Web 和手机远控不挂载桌面法律扩展。
-          footer={
-            isDesktop && !isWebRemoteControlRoot
-              ? (providers) => <AiscooLegalLinks providers={providers} placement="login" />
-              : undefined
-          }
-          hideApiKeyLogin
-          // XCODE: 等待提示使用产品品牌，保留原 provider 与 release 的认证链路。
-          oauthWaitingDisplayNames={resolveAiscooOAuthWaitingDisplayNames()}
-        />
+        {/* XCODE: 未注入时与原欢迎页配置相同，产品展示只由入口显式提供。 */}
+        <WelcomeScreen {...welcomeScreenPresentation} onComplete={handleWelcomeScreenComplete} />
       </RootShell>
     );
   }

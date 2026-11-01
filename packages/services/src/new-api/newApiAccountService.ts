@@ -1,5 +1,6 @@
 import {
   NEW_API_PROVIDER_ID,
+  isCredentialDecryptError,
   type NewApiOwner,
   type NewApiSessionBundle,
   type OAuthCachedSessionRestoreResult,
@@ -51,8 +52,10 @@ export class NewApiAccountService {
   #owner: NewApiOwner | null = null;
   #mutations: Promise<unknown> = Promise.resolve();
   #refreshFlight: NewApiSessionRefreshFlight | null = null;
-  #restoreFlight: { generation: number; promise: Promise<OAuthCachedSessionRestoreResult> } | null =
-    null;
+  #restoreFlight: {
+    generation: number;
+    promise: Promise<OAuthCachedSessionRestoreResult>;
+  } | null = null;
 
   constructor(dependencies: {
     adapter: NewApiProviderAdapter;
@@ -83,6 +86,7 @@ export class NewApiAccountService {
       pollPendingOAuth: async () => {
         throw sessionError("XCODE_PRIVATE_POLLING_UNSUPPORTED");
       },
+      // XCODE: 回环 code 只能由 Host 送入 owner，公共 RPC 不接受转发的授权回调。
       handleCallback: async (url: string) => this.#handleCallback(url),
       refreshToken: async (provider?: OAuthProviderId) => {
         validateProvider(provider);
@@ -162,7 +166,6 @@ export class NewApiAccountService {
 
   async #start(provider: OAuthProviderId): Promise<OAuthStartResponse> {
     validateProvider(provider);
-    this.#repo.assertStorageAvailable();
     const authorization = this.#adapter.createAuthorization();
     const generation = ++this.#generation;
     this.#owner = null;
@@ -222,7 +225,8 @@ export class NewApiAccountService {
       const result = await this.#mutate<OAuthCallbackResult | null>(async () => {
         if (!isPendingAuthorizationCurrent(this.#pending, pending, this.#generation, this.#readNow))
           return null;
-        // 旧密文不可读时，只有已验证的新登录可在锁内恢复，并在等待期间复核代次。
+        // 旧密文不可读时，普通 load/commit 都会解密失败；只对已验证的新登录持锁恢复，
+        // 并在等锁与备份后复核代次，防止取消或迟到回调覆盖另一窗口的新登录。
         const previous = await this.#repo.commitVerifiedLogin(record, () => {
           if (
             !isPendingAuthorizationCurrent(this.#pending, pending, this.#generation, this.#readNow)
@@ -264,7 +268,20 @@ export class NewApiAccountService {
         return { kind: "session", provider: NEW_API_PROVIDER_ID, userInfo };
       });
       if (published && displaced && displaced.bundle.session_id !== bundle.session_id) {
-        const removed = await this.#mutate(async () => this.#repo.remove(displaced!));
+        const removed = await this.#mutate(async () => {
+          try {
+            return await this.#repo.remove(displaced!);
+          } catch (error) {
+            // 同进程恢复已发布新登录；旧坏记录保留备份，不能让清理再次解密失败反转成功结果。
+            // 仅记录损坏使用已确认内存 SID 撤销；存储 IO 和安全库错误仍原样传播。
+            if (
+              !isCredentialDecryptError(error) &&
+              errorCode(error) !== "XCODE_CREDENTIAL_RECORD_INVALID"
+            )
+              throw error;
+            return null;
+          }
+        });
         await revokeSession(this.#adapter, (removed ?? displaced).bundle);
       }
       return pending.generation === this.#generation ? result : null;
@@ -280,6 +297,7 @@ export class NewApiAccountService {
 
   async #restore(): Promise<OAuthCachedSessionRestoreResult> {
     const generation = this.#generation;
+    // 授权进行中不恢复旧会话，避免与新登录交错。
     if (this.#pending) return { status: "signed-out" };
     if (this.#restoreFlight?.generation === generation) return this.#restoreFlight.promise;
     const promise = this.#restoreCurrent(generation);
@@ -295,7 +313,6 @@ export class NewApiAccountService {
   async #restoreCurrent(generation: number): Promise<OAuthCachedSessionRestoreResult> {
     let record: NewApiStoredSession | null = null;
     try {
-      this.#repo.assertStorageAvailable();
       record = this.#session ?? (await this.#repo.loadActive());
       if (generation !== this.#generation || this.#pending) return { status: "signed-out" };
       if (!record) return { status: "signed-out" };
@@ -418,7 +435,11 @@ export class NewApiAccountService {
     await revokeSession(this.#adapter, (removed ?? expected).bundle);
   }
 
-  async #logout(): Promise<void> {
+  #logout(): Promise<void> {
+    return this.#logoutDesktop();
+  }
+
+  async #logoutDesktop(): Promise<void> {
     const expected = this.#session;
     this.#generation++;
     this.#owner = null;

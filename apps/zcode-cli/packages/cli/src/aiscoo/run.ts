@@ -12,11 +12,13 @@ import { run } from "../run.js";
 import { registerCliShutdownHandlers } from "../shutdown.js";
 import { setZenKeyringModuleLoader } from "@zcode/adapters/auth";
 import { loadCliKeyringModule } from "../sea-keyring/index.js";
+import { parseSlashCommand } from "../command-center/slash-commands.js";
+import { withAiscooTuiCommandCenter } from "./tui-zen.js";
 
 // 撤销请求本身有 15 秒 HTTP 期限；给补偿留出完成时间，超时仍退出不挂起终端。
 const ZEN_LOGIN_SHUTDOWN_TIMEOUT_MS = 16_000;
 
-export interface XworkRunDependencies extends RunDependencies {
+export interface AiscooRunDependencies extends RunDependencies {
   loginZenCli?: BootstrapModule["loginZenCli"];
   logoutZenCli?: BootstrapModule["logoutZenCli"];
 }
@@ -34,10 +36,17 @@ function parseZenInvocation(argv: string[]) {
     return null; // 解析错误交给上游输出用法。
   }
   const [name, target, ...rest] = parsed.positionals;
-  if ((name === "login" || name === "logout") && target === "zen" && rest.length === 0)
-    return { command: name, values: parsed.values };
   const isHelp = parsed.values.help === true || (name === "help" && target === undefined);
-  return isHelp ? { command: "help" as const, values: parsed.values } : null;
+  if (isHelp) return { command: "help" as const, values: parsed.values };
+  const slash = typeof parsed.values.prompt === "string" ? parseSlashCommand(parsed.values.prompt) : null;
+  const command = slash?.type === "known" && (slash.name === "login" || slash.name === "logout") ? slash.name : name;
+  const account = slash?.type === "known" && (slash.name === "login" || slash.name === "logout") ? slash.args : target;
+  if (command === "login" || command === "logout") {
+    if (rest.length > 0 || (account && !["zen", "aiscoo"].includes(account)))
+      return { command: "unsupported" as const, values: parsed.values };
+    return { command, values: parsed.values };
+  }
+  return null;
 }
 
 /** 覆盖 stdout.write 只追加帮助，不改上游帮助字符串。 */
@@ -45,7 +54,8 @@ function withHelpAppended(ctx: RunContext, text: string): RunContext {
   const stdout = Object.create(ctx.stdout) as NodeJS.WriteStream;
   let appended = false;
   stdout.write = ((chunk: string | Uint8Array, ...args: never[]) => {
-    const result = ctx.stdout.write(chunk, ...args);
+    const projected = typeof chunk === "string" ? chunk.replaceAll("login [zai|bigmodel]", "login [zen|aiscoo]") : chunk;
+    const result = ctx.stdout.write(projected, ...args);
     if (!appended) {
       appended = true;
       ctx.stdout.write(text);
@@ -55,18 +65,26 @@ function withHelpAppended(ctx: RunContext, text: string): RunContext {
   return { ...ctx, stdout };
 }
 
-export async function runXwork(ctx: RunContext, deps: XworkRunDependencies = {}): Promise<number> {
+export async function runAiscoo(ctx: RunContext, deps: AiscooRunDependencies = {}): Promise<number> {
   // Zen 安全存储在 SEA 中从内嵌资源加载原生钥匙串绑定；普通 bundle 仍走 node_modules。
   // 放在所有命令前：TUI、--prompt 与 login/logout zen 都可能读取 Zen 凭据。
   setZenKeyringModuleLoader(() => loadCliKeyringModule());
   const invocation = parseZenInvocation(ctx.argv);
-  if (!invocation) return run(ctx, deps);
+  // 产品依赖固定拒绝官方 polling；通用 run 和第三方 MCP OAuth 实现保持原样。
+  const rejectOfficial = async (): Promise<never> => { throw new Error(`Use login zen to sign in to ${PRODUCT_NAME}.`); };
+  // TUI 命令中心经 RunDependencies 的可选工厂注入，上游 tui-prompt-handler 只做一次可选回退。
+  const productDeps = withAiscooTuiCommandCenter({ ...deps, loginZCodeCli: rejectOfficial, loginBigmodelCodingPlan: rejectOfficial, logoutZCodeCli: rejectOfficial });
+  if (!invocation) return run(ctx, productDeps);
   const env = deps.env ?? process.env;
   if (invocation.command === "help") {
     // 与上游帮助相同的语言判定：--locale 优先，缺省或 auto 时按环境检测。
     const requested = invocation.values.locale as string | undefined;
     const locale = resolveLocale(requested ?? "auto", detectCliLocale(env));
-    return run(withHelpAppended(ctx, brandProductText(zenHelp[locale])), deps);
+    return run(withHelpAppended(ctx, brandProductText(zenHelp[locale])), productDeps);
+  }
+  if (invocation.command === "unsupported") {
+    ctx.stderr.write(`Use login zen to sign in to ${PRODUCT_NAME}.\n`);
+    return 1;
   }
   const json = invocation.values.json === true;
   try {

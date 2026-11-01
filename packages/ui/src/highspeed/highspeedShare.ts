@@ -2,8 +2,8 @@ import type { GlobalNoticeEnvelope } from "@/global-notice/globalNoticeStore.js"
 import type { HighspeedShareMetrics } from "@/highspeed/highspeedTurnStore.js";
 import { calculateHighspeedSavedDurationMs } from "@/highspeed/highspeedSavedTime.js";
 // XCODE: 导出图片复用用户原稿，内嵌后光栅化仍保留几何与眼睛。
-import { aiscooMarkSvgDataUri } from "@/xwork/brand/index.js";
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { aiscooMarkSvgDataUri } from "@/aiscoo/brand/index.js";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 
 export const HIGHSPEED_NOTICE_DISMISS_COOLDOWN_MS = 24 * 60 * 60_000;
 export const HIGHSPEED_NOTICE_AUTO_CLOSE_MS = 24 * 60 * 60_000;

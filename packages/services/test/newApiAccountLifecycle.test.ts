@@ -799,6 +799,39 @@ for (const fault of ["active", "session", "foreign-key", "plaintext", "invalid-o
   });
 }
 
+for (const fault of ["ciphertext", "schema"] as const) {
+  test(`warm verified login survives displaced ${fault} cleanup and revokes the old SID`, async () => {
+    const f = await fixture();
+    try {
+      await f.login();
+      const records: Record<string, string> = JSON.parse(await readFile(f.credentialsFile, "utf8"));
+      const ownerKey = Object.keys(records).find((key) => key.endsWith("1:sid-1"))!;
+      records[ownerKey] =
+        fault === "ciphertext" ? "enc:v1:invalid" : f.cipherProvider.encrypt("{}");
+      const before = JSON.stringify(records);
+      await writeFile(f.credentialsFile, before);
+      f.setExchange(async () => bundle("2", "sid-warm-recovered", "refresh-warm"));
+      const result = await f.login();
+      assert.equal(result?.kind, "session");
+      assert.equal(f.service.getOwner()?.userId, "2");
+      assert.equal((await f.repo.loadActive())?.bundle.session_id, "sid-warm-recovered");
+      const after = JSON.parse(await readFile(f.credentialsFile, "utf8"));
+      assert.equal(after[ownerKey], records[ownerKey]);
+      assert.ok(f.revoked.includes("sid-1"));
+      assert.equal(f.revoked.includes("sid-warm-recovered"), false);
+      const backups = (await readdir(f.dir)).filter((name) => name.endsWith(".bak"));
+      assert.equal(backups.length, 1);
+      assert.equal(await readFile(join(f.dir, backups[0]!), "utf8"), before);
+      assert.equal(
+        (await f.newService().oauth.restoreCachedSessionState()).status,
+        "authenticated",
+      );
+    } finally {
+      await f.dispose();
+    }
+  });
+}
+
 test("recovery can retry after an interrupted partial backup", async () => {
   const f = await fixture();
   try {

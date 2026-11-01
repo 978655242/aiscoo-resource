@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createXworkCommandCenter, runXwork } from "../src/xwork/index.js";
+import { createAiscooCommandCenter, runAiscoo } from "../src/aiscoo/index.js";
 import { createCommandCenter } from "../src/command-center.js";
 import type { CommandCenterDeps } from "../src/command-center/types.js";
 
@@ -24,10 +24,10 @@ test("Zen CLI login and logout route to isolated account without leaking secrets
     loginZenCli: async () => ({ providerId: "zen", user: { id: "1", display_name: "Test" } }),
     logoutZenCli: async () => ({ localCleared: true, serverRevoked: true }),
   };
-  assert.equal(await runXwork(ctx(["login", "zen", "--json", "--no-browser"]), deps as never), 0);
+  assert.equal(await runAiscoo(ctx(["login", "zen", "--json", "--no-browser"]), deps as never), 0);
   assert.match(out.read(), /"provider": "zen"/);
   out.reset();
-  assert.equal(await runXwork(ctx(["logout", "zen", "--json"]), deps as never), 0);
+  assert.equal(await runAiscoo(ctx(["logout", "zen", "--json"]), deps as never), 0);
   assert.match(out.read(), /"serverRevoked": true/);
 });
 
@@ -40,7 +40,7 @@ test("Zen CLI reports failure with exit code 1 and no stack", async () => {
       throw new Error("XCODE_STALE_OWNER");
     },
   };
-  const code = await runXwork(
+  const code = await runAiscoo(
     { argv: ["logout", "zen"], stdout: out.stream, stderr: out.stream } as never,
     deps as never,
   );
@@ -48,15 +48,15 @@ test("Zen CLI reports failure with exit code 1 and no stack", async () => {
   assert.equal(out.read(), "Error: XCODE_STALE_OWNER\n");
 });
 
-test("help keeps upstream text and appends Zen commands once", async () => {
+test("Aiscoo help exposes only product account login", async () => {
   const out = capture();
-  const code = await runXwork(
+  const code = await runAiscoo(
     { argv: ["--help", "--locale", "zh-CN"], stdout: out.stream, stderr: out.stream } as never,
     { env: {} } as never,
   );
   assert.equal(code, 0);
-  assert.match(out.read(), /login \[zai\|bigmodel\]/);
-  assert.equal(out.read().match(/login zen/g)?.length, 1);
+  assert.doesNotMatch(out.read(), /login \[zai\|bigmodel\]/);
+  assert.match(out.read(), /login \[zen\|aiscoo\]/);
   assert.match(out.read(), /退出 Aiscoo Zen Plan/);
 });
 
@@ -75,9 +75,9 @@ const baseDeps = (locale: "zh-CN" | "en-US"): CommandCenterDeps => ({
   },
 });
 
-test("Zen Plan is prepended to the unchanged upstream login choices", async () => {
+test("Aiscoo login choices retain manual keys and exclude official OAuth", async () => {
   const upstream = await createCommandCenter(baseDeps("zh-CN"))("/login", {} as never);
-  const center = createXworkCommandCenter(baseDeps("zh-CN"), zenDeps());
+  const center = createAiscooCommandCenter(baseDeps("zh-CN"), zenDeps());
   const items = (await center("/login", {} as never)).selection?.items ?? [];
   assert.equal(items[0]?.command, "/login zen");
   // TUI 只为带 pending 的选项保留可取消的等待态；缺失时浏览器授权期间无法 Esc 取消。
@@ -85,37 +85,76 @@ test("Zen Plan is prepended to the unchanged upstream login choices", async () =
   assert.ok(items[0]?.pending?.cancelStatus);
   assert.deepEqual(
     items.slice(1).map((item) => item.id),
-    upstream.selection?.items.map((item) => item.id),
+    upstream.selection?.items.filter((item) => item.id.endsWith("-api-key")).map((item) => item.id),
   );
 });
 
-test("without Zen configured the command center is the upstream one", async () => {
-  const center = createXworkCommandCenter(baseDeps("en-US"), undefined);
+test("without Zen configured the command center cannot fall back to official login", async () => {
+  const center = createAiscooCommandCenter(baseDeps("en-US"), undefined);
   const items = (await center("/login", {} as never)).selection?.items ?? [];
-  assert.equal(
-    items.some((item) => item.id === "zen"),
-    false,
-  );
+  assert.equal(items[0]?.id, "zen");
+  assert.equal(items.some((item) => ["zai-coding-plan", "bigmodel-coding-plan"].includes(item.id)), false);
+  assert.match((await center("/login zen", {} as never)).response, /AISCOO_ADMIN_BASE_URL/);
+});
+
+test("default and headless product login use Zen; legacy targets never call official login", async () => {
+  const out = capture();
+  let zenCalls = 0;
+  let officialCalls = 0;
+  const deps = {
+    env: {},
+    loadDotenv: () => ({}),
+    loginZenCli: async () => { zenCalls++; return { user: { display_name: "Test" } }; },
+    loginZCodeCli: async () => { officialCalls++; throw new Error("official login called"); },
+  };
+  for (const argv of [["login"], ["login", "aiscoo"], ["--prompt", "/login"], ["--prompt", "/login zen"]]) {
+    assert.equal(await runAiscoo({ argv, stdout: out.stream, stderr: out.stream } as never, deps as never), 0);
+  }
+  for (const argv of [["login", "zai"], ["login", "bigmodel"], ["--prompt", "/login zai-coding-plan"]]) {
+    assert.equal(await runAiscoo({ argv, stdout: out.stream, stderr: out.stream } as never, deps as never), 1);
+  }
+  assert.equal(zenCalls, 4);
+  assert.equal(officialCalls, 0);
+});
+
+test("slash login rejects explicit official OAuth and preserves manual API key setup", async () => {
+  let officialCalls = 0;
+  const center = createAiscooCommandCenter({
+    ...baseDeps("en-US"),
+    login: async () => { officialCalls++; throw new Error("official login called"); },
+    loginBigmodel: async () => { officialCalls++; throw new Error("official login called"); },
+    configureApiKey: async () => ({ configPath: "isolated", model: "custom", providerId: "bigmodel" }),
+  }, zenDeps());
+  for (const provider of ["zai", "bigmodel", "zai-coding-plan", "bigmodel-coding-plan", "authpoll"]) {
+    assert.match((await center(`/login ${provider}`, {} as never)).response, /Aiscoo/);
+  }
+  assert.equal(officialCalls, 0);
+  assert.match((await center("/login bigmodel-coding-plan-api-key fake-test-key", {} as never)).response, /Configured BigModel/);
 });
 
 test("Zen login explains an unavailable catalog without promising a model", async () => {
-  const center = createXworkCommandCenter(baseDeps("zh-CN"), zenDeps());
+  const center = createAiscooCommandCenter(baseDeps("zh-CN"), zenDeps());
   const result = await center("/login zen", {} as never);
   assert.match(result.response, /没有可用的 Zen 套餐模型/);
   assert.doesNotMatch(result.response, /使用 \/model/);
 });
 
 test("Zen logout reports unconfirmed server revocation", async () => {
-  const center = createXworkCommandCenter(baseDeps("en-US"), zenDeps());
+  const center = createAiscooCommandCenter(baseDeps("en-US"), zenDeps());
   const result = await center("/logout zen", {} as never);
   assert.match(result.response, /could not be confirmed/);
 });
 
-test("slash /help keeps upstream text and appends Zen commands", async () => {
+test("slash /help projects product account help without changing other commands", async () => {
   const upstream = await createCommandCenter(baseDeps("en-US"))("/help", {} as never);
-  const result = await createXworkCommandCenter(baseDeps("en-US"), zenDeps())("/help", {} as never);
-  assert.ok(result.response.startsWith(upstream.response));
+  const center = createAiscooCommandCenter(baseDeps("en-US"), zenDeps());
+  const result = await center("/help", {} as never);
   assert.match(result.response, /\/login zen/);
+  assert.doesNotMatch(result.response, /login \[zai-coding-plan\||shared Z\.ai/);
+  assert.equal(result.response.includes("/compact"), upstream.response.includes("/compact"));
+  for (const target of ["login", "logout"]) {
+    assert.match((await center(`/help ${target}`, {} as never)).response, /Aiscoo/);
+  }
 });
 
 // 回归：顶层 login 曾不处理 SIGINT，服务端已签发 SID 后被 Ctrl+C 直接杀死，补偿撤销无机会执行。
@@ -157,7 +196,7 @@ test("SIGINT during Zen login aborts the flow and waits for compensation before 
     exitProcess: (code: number) => exited.resolve(code),
     loginZenCli,
   };
-  const pending = runXwork(
+  const pending = runAiscoo(
     { argv: ["login", "zen", "--json", "--no-browser"], stdout: out.stream, stderr: out.stream } as never,
     deps as never,
   );
@@ -171,4 +210,56 @@ test("SIGINT during Zen login aborts the flow and waits for compensation before 
   assert.equal(compensated, true, "compensation ran");
   assert.equal(exitedEarly, false, "process did not exit before compensation finished");
   assert.equal(listeners.size, 0, "signal handlers are removed afterwards");
+});
+
+// XCODE: 上游 tui-prompt-handler 只读取可选的 createTuiCommandCenter；下面两条回归证明产品入口真的注入了它。
+test("runAiscoo injects the Aiscoo TUI command center through the optional run dependency", async () => {
+  const { withAiscooTuiCommandCenter } = await import("../src/aiscoo/tui-zen.js");
+  const refreshReasons: string[] = [];
+  let authorizeShown = "";
+  const runtime = {
+    zenAccount: {
+      async login(options: { onAuthorizeUrl?: (url: string) => Promise<void> }) {
+        await options.onAuthorizeUrl?.("https://login.example.test/authorize?state=zen");
+        return { user: { display_name: "Test User", username: "test-account" } };
+      },
+      async logout() {
+        return { localCleared: true, serverRevoked: true };
+      },
+    },
+    async refreshStandaloneAccount(reason: string) {
+      refreshReasons.push(reason);
+    },
+    async readZenModelStatus() {
+      return { available: true, reason: null };
+    },
+  };
+  const deps = withAiscooTuiCommandCenter({
+    startProcessProviderRegistryRuntime: (async () => runtime) as never,
+  });
+  assert.ok(deps.createTuiCommandCenter, "product entry must inject a TUI command center");
+  // TUI 启动时由上游 runtime 准备逻辑调用一次；包装后的启动函数必须记下同一 runtime。
+  await deps.startProcessProviderRegistryRuntime!({} as never, {} as never);
+  const center = deps.createTuiCommandCenter!({
+    ...baseDeps("en-US"),
+    getApp: async () => ({ sessionId: "zen-session" }) as never,
+  });
+  const picker = await center("/login", {} as never);
+  assert.equal(picker.response, "Sign in to Aiscoo, or configure your own API key.");
+  assert.equal(picker.selection?.items[0]?.command, "/login zen");
+  const login = await center("/login zen", {
+    onEvent: async (event: { payload?: { content?: string } }) => {
+      authorizeShown += JSON.stringify(event);
+    },
+  } as never);
+  assert.match(authorizeShown, /login\.example\.test\/authorize/);
+  assert.deepEqual(refreshReasons, ["zen-login"]);
+  assert.match(login.response, /Signed in to Aiscoo Zen Plan as Test User/);
+});
+
+test("without injection the upstream TUI keeps its own command center", async () => {
+  const { withAiscooTuiCommandCenter } = await import("../src/aiscoo/tui-zen.js");
+  // 上游默认依赖不含工厂；只有经过 runAiscoo 的产品依赖才有。
+  assert.equal(({} as import("../src/cli-types.js").RunDependencies).createTuiCommandCenter, undefined);
+  assert.equal(typeof withAiscooTuiCommandCenter({}).createTuiCommandCenter, "function");
 });

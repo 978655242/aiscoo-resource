@@ -1,13 +1,14 @@
 // XCODE: XWork Zen Plan 的 slash 命令组合层；上游 createCommandCenter 保持原样，其余输入原样委托。
-import type { TuiSelection, TuiSelectionItem, TuiSubmitPrompt } from "@zcode/tui";
+import type { TuiSelectionItem, TuiSubmitPrompt } from "@zcode/tui";
 import { PRODUCT_NAME, brandProductText, getZCodeCopy } from "@zcode/i18n";
 import { normalizeTuiPromptInput } from "../command-center/metadata.js";
 import { createCommandCenter } from "../command-center/create.js";
 import { recordSlashCommandInHistory } from "../command-center/history.js";
-import { emitLoginAuthorizeMessage } from "../command-center/login-flow.js";
+import { buildLoginSelection, emitLoginAuthorizeMessage, parseApiKeyLoginArgs } from "../command-center/login-flow.js";
 import { parseSlashCommand } from "../command-center/slash-commands.js";
 import type { CommandCenterDeps } from "../command-center/types.js";
-import type { XworkZenCommandDeps } from "./contract.js";
+import type { AiscooZenCommandDeps } from "./contract.js";
+import { aiscooAccountCommandHelp, projectAiscooSlashHelp } from "./help.js";
 
 
 export function buildZenLoginItem(locale?: string): TuiSelectionItem {
@@ -32,13 +33,14 @@ export function buildZenLoginItem(locale?: string): TuiSelectionItem {
   };
 }
 
-/** zen 未配置（未设 AISCOO_ADMIN_BASE_URL）时传 undefined，行为与上游完全一致。 */
-export function createXworkCommandCenter(
+/** 产品登录入口固定只有 Aiscoo；未配置不能恢复为上游账号入口。 */
+export function createAiscooCommandCenter(
   deps: CommandCenterDeps,
-  zen: XworkZenCommandDeps | undefined,
+  zen: AiscooZenCommandDeps | undefined,
 ): TuiSubmitPrompt {
-  const upstream = createCommandCenter(deps);
-  if (!zen) return upstream;
+  // 旧官方 login/logout 即使从别的命令分支触发，也不能绕过产品门禁。
+  const rejectOfficial = async (): Promise<never> => { throw new Error(`Use /login zen to sign in to ${PRODUCT_NAME}.`); };
+  const upstream = createCommandCenter({ ...deps, login: rejectOfficial, loginBigmodel: rejectOfficial, logout: rejectOfficial });
   return async (input, options) => {
     const promptInput = normalizeTuiPromptInput(input);
     const command = parseSlashCommand(promptInput.text);
@@ -47,27 +49,37 @@ export function createXworkCommandCenter(
     const mode = deps.getMode?.();
     const zh = deps.getLocale?.() === "zh-CN";
     if (command.name === "model") {
-      await zen.refreshAccountModels();
+      await zen?.refreshAccountModels();
       return upstream(input, options);
+    }
+    if (command.name === "help" && command.args.length > 0) {
+      const response = aiscooAccountCommandHelp(command.args);
+      if (response) return { mode, response };
     }
     if (command.name === "help" && command.args.length === 0) {
       // 只在上游帮助后追加，不改写上游文案。
       const result = await upstream(input, options);
       return {
         ...result,
-        response: `${result.response}\n\n${brandProductText(zh ? "XWork Zen Plan：/login zen 登录，/logout zen 退出。" : "XWork Zen Plan: /login zen to sign in, /logout zen to sign out.")}`,
+        response: `${projectAiscooSlashHelp(result.response)}\n\n${brandProductText(zh ? "XWork Zen Plan：/login zen 登录，/logout zen 退出。" : "XWork Zen Plan: /login zen to sign in, /logout zen to sign out.")}`,
       };
     }
     if (command.name === "login" && command.args.length === 0) {
-      const result = await upstream(input, options);
-      const selection: TuiSelection | undefined = result.selection && {
-        ...result.selection,
-        items: [buildZenLoginItem(deps.getLocale?.()), ...result.selection.items],
+      const selection = buildLoginSelection(deps.getLocale?.());
+      return {
+        mode,
+        response: zh ? `登录 ${PRODUCT_NAME}，或配置自有 API Key。` : `Sign in to ${PRODUCT_NAME}, or configure your own API key.`,
+        selection: { ...selection, items: [buildZenLoginItem(deps.getLocale?.()), ...selection.items.filter((item) => item.id.endsWith("-api-key"))] },
       };
-      return { ...result, selection };
     }
-    if (command.name === "login" && command.args === "zen") {
-      const result = await zen.loginZen({
+    if (command.name === "login" && !["zen", "aiscoo"].includes(command.args) && !parseApiKeyLoginArgs(command.args)) {
+      return { mode, response: zh ? `请使用 /login zen 登录 ${PRODUCT_NAME}。` : `Use /login zen to sign in to ${PRODUCT_NAME}.` };
+    }
+    if ((command.name === "logout" || (command.name === "login" && !parseApiKeyLoginArgs(command.args))) && !zen) {
+      return { mode, response: `Configure AISCOO_ADMIN_BASE_URL to use ${PRODUCT_NAME} account login.` };
+    }
+    if (command.name === "login" && ["zen", "aiscoo"].includes(command.args)) {
+      const result = await zen!.loginZen({
         signal: options.abortSignal,
         onAuthorizeUrl: async (url) =>
           emitLoginAuthorizeMessage(options, url, `${PRODUCT_NAME} Zen Plan`, await deps.getApp()),
@@ -82,8 +94,11 @@ export function createXworkCommandCenter(
           : `Signed in to ${PRODUCT_NAME} Zen Plan as ${accountName}. ${result.modelStatus.available ? "Select a Zen model with /model." : result.modelStatus.reason}`,
       };
     }
-    if (command.name === "logout" && command.args === "zen") {
-      const result = await zen.logoutZen();
+    if (command.name === "logout" && !["", "zen", "aiscoo"].includes(command.args)) {
+      return { mode, response: `Use /logout zen to sign out of ${PRODUCT_NAME}.` };
+    }
+    if (command.name === "logout") {
+      const result = await zen!.logoutZen();
       await recordSlashCommandInHistory(deps, promptInput.text, command);
       return {
         mode,

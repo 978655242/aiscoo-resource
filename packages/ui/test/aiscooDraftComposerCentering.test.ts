@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveDraftComposerTopSpace } from "@/xwork/brand/useDraftComposerCentering.js";
+import { resolveDraftComposerTopSpace } from "@/aiscoo/brand/useDraftComposerCentering.js";
 
 describe("Aiscoo 初始输入框居中", () => {
   it.each([

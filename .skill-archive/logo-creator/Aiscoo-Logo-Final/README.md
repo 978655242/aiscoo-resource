@@ -57,6 +57,8 @@ flowchart LR
 
 `.skill-archive/logo-creator/Aiscoo-Logo-Final/` 是本包的完整镜像，包括 source、预览、SVG、PNG、ICNS 与 ICO；所有同名文件必须逐字节一致。修改在 `docs/brand/aiscoo` 完成，归档中的脚本只随包同步，不独立维护设计。历史方案通过 Git 历史查阅，不保留为当前素材。
 
+对外交付使用 `.skill-archive/logo-creator/Aiscoo-Logo-Final.zip`：从本包全量重建并覆盖旧压缩包，ZIP 内统一置于 `Aiscoo-Logo-Final/`，文件集合和字节与本包、解压镜像一致，排除 Python 缓存和系统文件。接收方解压后打开 `preview.html` 即可查看两种字标的静态与 10 秒笑眼弹跳动画；单独分享此 HTML 也无需附带资源。
+
 从仓库根目录同步并验证，命令只触及这个设计包，不恢复 `.skill-archive` 的其他模块：
 
 ```bash

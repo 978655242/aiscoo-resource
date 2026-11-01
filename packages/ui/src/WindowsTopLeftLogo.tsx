@@ -1,6 +1,6 @@
 import { cn } from "@/components/lib/utils.js";
 // XCODE: 窗口品牌使用自有 ai 原稿，不修改 ZAI 供应商资源。
-import { AiscooMark, PRODUCT_NAME } from "@/xwork/brand/index.js";
+import { AiscooMark, PRODUCT_NAME } from "@/aiscoo/brand/index.js";
 
 export function WindowsTopLeftLogo({
   className,

@@ -1,5 +1,5 @@
 // XCODE: 此模块也被 main 内联，必须静态导入品牌，不能在产物中读取源码相对路径。
-import { PRODUCT_BRAND as productBrand } from "@zcode/shared/xwork-brand";
+import { PRODUCT_BRAND as productBrand } from "@zcode/shared/aiscoo-brand";
 // XCODE: 下游身份只在导出配置处叠加，保留上游默认表与环境选择逻辑。
 import { getAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
 

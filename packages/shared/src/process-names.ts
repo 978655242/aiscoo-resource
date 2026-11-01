@@ -1,6 +1,6 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 // XCODE: 接受当前窗口展示名，技术进程前缀继续使用兼容身份。
-import { PRODUCT_NAME } from "./xwork-brand/runtime.js";
+import { PRODUCT_NAME } from "./aiscoo-brand/runtime.js";
 
 const ZCODE_PROCESS_PREFIX = "zcode";
 const MAX_PROCESS_NAME_SEGMENT_LENGTH = 24;

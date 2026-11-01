@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
-import { AiscooIntlProvider as ZCodeIntlProvider } from "@/xwork/brand/index.js";
+import { AiscooIntlProvider as ZCodeIntlProvider } from "@/aiscoo/brand/index.js";
 import { ZCodeAboutLogo, ZCodeWordmarkLogo } from "@/components/ui/ZCodeAboutLogo.js";
 import { WindowsTopLeftLogo } from "@/WindowsTopLeftLogo.js";
 import { normalizeZCodeUiError } from "@/lib/zcodeUiError.js";

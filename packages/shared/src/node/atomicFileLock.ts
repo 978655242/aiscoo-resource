@@ -1,7 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { ZCODE_FILE_LOCK_TIMEOUT_ERROR_CODE } from "../errors.js";
 // XCODE: 只投影自有锁错误模板，路径与稳定错误码保持兼容。
-import { brandProductText } from "../xwork-brand/runtime.js";
+import { brandProductText } from "../aiscoo-brand/runtime.js";
 import { mkdir, readFile, readdir, rmdir, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";

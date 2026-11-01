@@ -15,6 +15,9 @@ import {
   type OAuthProviderId,
 } from "@zcode/shared";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+// XCODE: 可选产品准入只过滤账号套餐，API key 与自配 Provider 保留原导航。
+import { useOptionalPlatform } from "@/hooks/usePlatform.js";
+import type { OAuthLifecyclePlatform } from "@/oauth-lifecycle/contract.js";
 import {
   CODING_PLAN_PROVIDER_SPECS,
   type CodingPlanEntitlementState,
@@ -81,6 +84,8 @@ export function useModelProviderNavigation({
   setSelectedNodeKey,
   intl,
 }: UseModelProviderNavigationOptions) {
+  const accountPolicy = (useOptionalPlatform() as OAuthLifecyclePlatform | null)
+    ?.oauthAccountPolicy;
   const customProviders = useMemo(() => {
     const allCustomProviders = modelProviders.filter(
       (provider) => provider.config.group === "standard-personal",
@@ -93,6 +98,7 @@ export function useModelProviderNavigation({
     () =>
       CODING_PLAN_PROVIDER_SPECS.filter(
         (spec) =>
+          (!accountPolicy || accountPolicy.acceptsProvider(spec.oauthProviderId)) &&
           !modelProviders.some((provider) => provider.config.group === "new-api-family") &&
           shouldShowCodingPlanForProviderFamilyDomain(spec.oauthProviderId, providerFamilyDomain),
       ).map((spec) => {
@@ -144,6 +150,7 @@ export function useModelProviderNavigation({
         };
       }),
     [
+      accountPolicy,
       entitledAccountProviderIds,
       codingPlanEntitlements,
       intl,

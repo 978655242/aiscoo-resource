@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createServer, type ViteDevServer } from "vite";
 
 const webRoot = resolve(import.meta.dirname, "..");
-const assetRoot = resolve(webRoot, "../ui/src/xwork/brand/assets");
+const assetRoot = resolve(webRoot, "../ui/src/aiscoo/brand/assets");
 const logos = [
   { variant: "motion", theme: "light", file: "wordmark-animated-light.svg" },
   { variant: "motion", theme: "dark", file: "wordmark-animated-dark.svg" },

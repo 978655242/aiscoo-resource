@@ -54,6 +54,8 @@ import { join, resolve } from "node:path";
 import { homedir, hostname } from "node:os";
 import {
   createCredentialService,
+  // XCODE: Main 只通过同一产品策略读取允许的身份投影。
+  createAiscooAccountPolicy,
   createSettingService,
   createTelemetryCore,
   createTelemetryMarketingParamsLoader,
@@ -72,7 +74,6 @@ import {
   resolveDefaultZCodeAgentCommand,
   startupStorage,
 } from "@zcode/services/node";
-import { loadPrivateCredentialSecret } from "./privateCredentialKey.js";
 import {
   desktopMenuMessageIds,
   type Locale,
@@ -157,6 +158,8 @@ import { applyAppIcon } from "./desktopWindowChrome.js";
 import { resolveWindowsAppUserModelIdForFlavor } from "../../scripts/desktop-product-identity.mjs";
 // XCODE: 开发与正式 Aiscoo 都使用自身 AUMID，保留通用未注入身份的上游默认。
 import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
+// XCODE: Aiscoo 自有更新源解析，只读账号源，不持有更新状态。
+import { resolveAiscooUpdateEndpointOrigin } from "../aiscoo-desktop-identity/index.js";
 import type { DesktopWindowSize } from "./desktopWindowSize.js";
 import { maybeWarnArchitectureMismatch } from "./desktopArchitectureGuard.js";
 import { maybeBlockStartupForForceUpdate } from "./forceUpdateGuard.js";
@@ -609,12 +612,23 @@ mainMemoryDiagnosticsRegistry.register("app", () => ({
   willDownloadListeners: session.defaultSession.listenerCount("will-download"),
 }));
 const hostProcessLocalEnv = loadHostProcessEnvFromLocalFiles();
-delete hostProcessLocalEnv.XCODE_PRIVATE_CREDENTIAL_SECRET;
-// XCODE: 与 Host 使用相同 dotenv→process 优先级，避免有私有服务但未加载 OS 加密密钥。
+// XCODE: 与 Host 使用相同 dotenv→process 优先级解析 Aiscoo 账号服务地址。
+// XCODE: 渠道只决定账号限制；实际 origin 可用性由同一严格解析器裁定。
+const mainAccountPolicy = resolveAiscooDesktopIdentity()
+  ? createAiscooAccountPolicy({
+      adminBaseUrl: process.env.AISCOO_ADMIN_BASE_URL ?? hostProcessLocalEnv.AISCOO_ADMIN_BASE_URL,
+    })
+  : undefined;
 const nativePrivateMode = Boolean(
+  // XCODE: Aiscoo 渠道始终保留原生隔离，缺配置也不开放 legacy scheduler/凭据路径。
+  mainAccountPolicy ||
   (process.env.AISCOO_ADMIN_BASE_URL ?? hostProcessLocalEnv.AISCOO_ADMIN_BASE_URL)?.trim(),
 );
-let privateCredentialSecret: string | undefined;
+// XCODE: 应用内更新与强制升级改问 Aiscoo 账号服务；undefined 保持上游，null 表示关闭。
+const aiscooUpdateEndpointOrigin = resolveAiscooUpdateEndpointOrigin({
+  hasAiscooChannel: resolveAiscooDesktopIdentity() !== null,
+  accountOrigin: process.env.AISCOO_ADMIN_BASE_URL ?? hostProcessLocalEnv.AISCOO_ADMIN_BASE_URL,
+});
 interface RuntimeProcessEnvPreparation {
   patchPromise: Promise<Record<string, string>>;
   fallbackPatch: Record<string, string>;
@@ -751,10 +765,16 @@ const UPDATE_STATUS_WINDOW_PROGRESS_HEIGHT = 224;
 const UPDATE_STATUS_WINDOW_READY_HEIGHT = UPDATE_STATUS_WINDOW_PROGRESS_HEIGHT - 54;
 const UPDATE_STATUS_WINDOW_TRAFFIC_LIGHT_POSITION = { x: 10, y: 10 } as const;
 const mainSettingService = createSettingService();
-const webRemoteControlCredentialService = createCredentialService();
+// XCODE: Main 的远控/遥测不能把历史官方 token 认作当前 Aiscoo 身份。
+const webRemoteControlCredentialStore = createCredentialService();
+const webRemoteControlCredentialService =
+  mainAccountPolicy?.wrapCredentials(webRemoteControlCredentialStore) ??
+  webRemoteControlCredentialStore;
 const appLaunchGate = createAppLaunchGate();
 const appLaunchCoordinator = createAppLaunchCoordinator(appLaunchGate);
-const appTelemetryCredentialService = createCredentialService();
+const appTelemetryCredentialStore = createCredentialService();
+const appTelemetryCredentialService =
+  mainAccountPolicy?.wrapCredentials(appTelemetryCredentialStore) ?? appTelemetryCredentialStore;
 async function resolveCurrentZCodeEndpointOrigin() {
   return resolveZCodeEndpointOrigin({
     env: ZCODE_ENV,
@@ -1993,9 +2013,7 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
           zcodeBuiltinProviderConfigFilePath: resolveZCodeBuiltinProviderConfigFilePath(),
         },
         {
-          // XCODE: 私有cipher key定向传窗口Host，通用env仍用于不含key的scheduler。
           hostProcessLocalEnv,
-          privateCredentialSecret,
           desktopContextPromptEnabled: resolveDesktopContextPromptEnabledForHost,
           logger,
           broadcastHub,
@@ -2247,18 +2265,6 @@ app.whenReady().then(async () => {
   } catch {
     // 读取失败不影响启动，使用默认 homedir
   }
-  // XCODE: 显式私有配置才访问 OS key；不可用时不降级旧 key，不影响非私有启动。
-  if (nativePrivateMode) {
-    try {
-      privateCredentialSecret = await loadPrivateCredentialSecret();
-    } catch {
-      privateCredentialSecret = undefined;
-      logger.warn(
-        "[private-credentials] Secure storage unavailable; private login requires recovery",
-      );
-    }
-  }
-
   // scheduler 也会打开 tasks-index；等 Host 完成统一准备，避免在启动页出现前抢先迁移。
   configureDatabaseStartupQuit(() => {
     markExplicitQuit("database-startup-exit");
@@ -2343,7 +2349,11 @@ app.whenReady().then(async () => {
   // 不向 Preview 渠道提供更新。构建期未启用自动更新时同样不更新
   // （见 docs/desktop/build-time-optional-capabilities.md）。
   void initAutoUpdater({
-    enabled: ZCODE_PRODUCT_FLAVOR === "production" && ZCODE_AUTO_UPDATE_ENABLED,
+    // XCODE: Aiscoo 渠道取不到自有更新源时关闭更新，不回退官方 ZCode 更新源。
+    enabled:
+      ZCODE_PRODUCT_FLAVOR === "production" &&
+      ZCODE_AUTO_UPDATE_ENABLED &&
+      aiscooUpdateEndpointOrigin !== null,
     onBeforeQuitAndInstall: async () => {
       notifyStabilityLifecycle("update_install");
       await prepareAppQuit("auto-update quitAndInstall", "update-install");
@@ -2354,7 +2364,10 @@ app.whenReady().then(async () => {
     settingService: mainSettingService,
     locale: currentApplicationLocale,
     deviceMid,
-    resolveEndpointOrigin: resolveCurrentZCodeEndpointOrigin,
+    resolveEndpointOrigin: aiscooUpdateEndpointOrigin
+      ? () => aiscooUpdateEndpointOrigin
+      : resolveCurrentZCodeEndpointOrigin,
+    ...(aiscooUpdateEndpointOrigin ? { trustedEndpointOrigins: [aiscooUpdateEndpointOrigin] } : {}),
     updateFeedSource: resolveUpdateFeedSourceFromStartupConfig({
       argv: process.argv,
       env: process.env,
@@ -2657,11 +2670,14 @@ app.whenReady().then(async () => {
   // gate 照常生效，对真实用户零影响。
   const skipForceUpdateForLocalDevRuntime = !app.isPackaged;
   const forceUpdateGuardResult =
-    ZCODE_PRODUCT_FLAVOR === "production" && !skipForceUpdateForLocalDevRuntime
+    ZCODE_PRODUCT_FLAVOR === "production" &&
+    !skipForceUpdateForLocalDevRuntime &&
+    // XCODE: Aiscoo 渠道向自有后端查询强制升级；取不到自有 origin 时跳过，不请求官方配置。
+    aiscooUpdateEndpointOrigin !== null
       ? await maybeBlockStartupForForceUpdate({
           locale: currentApplicationLocale,
           logger,
-          endpointOrigin: await resolveCurrentZCodeEndpointOrigin(),
+          endpointOrigin: aiscooUpdateEndpointOrigin ?? (await resolveCurrentZCodeEndpointOrigin()),
           onBlocked: () => {
             forceUpdateMainWindowCreationBlocked = true;
           },
@@ -2671,6 +2687,9 @@ app.whenReady().then(async () => {
     logger.info("[force-update] Preview 跳过远端强制升级检查");
   } else if (skipForceUpdateForLocalDevRuntime) {
     logger.info("[force-update] 本地 dev 构建（未打包）跳过远端强制升级检查");
+  } else if (aiscooUpdateEndpointOrigin === null) {
+    // XCODE: 不记录实际地址，只说明缺少可用的 Aiscoo 更新源。
+    logger.info("[force-update] Aiscoo 账号源不可用，跳过强制升级检查并关闭自动更新");
   }
   if (forceUpdateGuardResult.blocked) {
     return;

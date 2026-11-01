@@ -6,7 +6,6 @@
     "#src/*": "./src/*"
   },
   "exports": {
-    "./xwork-plugin-guides": "./src/xwork-plugin-guides/index.ts",
     "./storage-startup": "./src/project-storage/startup-entry.ts",
     ".": "./src/index.ts",
     "./cua-permission-broker": "./src/cua-permission-broker/index.ts",

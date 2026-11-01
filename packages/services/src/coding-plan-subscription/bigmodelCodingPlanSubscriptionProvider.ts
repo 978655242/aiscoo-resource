@@ -94,7 +94,7 @@ import {
 } from "#src/bigmodel/teamPlanApiKey.js";
 
 // XCODE: 客户端本地错误模板统一品牌，后端套餐名、文案与协议字段保留来源原值。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 
 const BIGMODEL_CODING_PLAN_API_PREFIX = "/api/biz";
 const ZAI_CODING_PLAN_PAY_API_PREFIX = "/api/pay";

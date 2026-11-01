@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 
-const assetRoot = new URL("../../packages/ui/src/xwork/brand/assets/", import.meta.url);
+const assetRoot = new URL("../../packages/ui/src/aiscoo/brand/assets/", import.meta.url);
 const assetPattern =
-  /\.\.\/ui\/src\/xwork\/brand\/assets\/wordmark-(?:animated-)?(?:light|dark)\.svg/g;
+  /\.\.\/ui\/src\/aiscoo\/brand\/assets\/wordmark-(?:animated-)?(?:light|dark)\.svg/g;
 
 /** 在 HTML 生成时内联品牌原稿，保留无需脚本的首屏图片。 */
 /** @returns {import("vite").Plugin} */

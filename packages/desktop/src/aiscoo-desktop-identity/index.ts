@@ -33,3 +33,8 @@ export function buildAiscooDesktopStorageEnv(
     ZCODE_LOG_DIR: env.ZCODE_LOG_DIR?.trim() || join(root, "cli", "log"),
   };
 }
+
+// XCODE: 打包账号源解析与应用。
+export * from "./packagedAccountOrigin.js";
+// XCODE: 应用内更新 manifest 改用 Aiscoo 账号服务同一 origin。
+export * from "./updateEndpoint.js";

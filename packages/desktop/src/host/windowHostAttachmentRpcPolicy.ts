@@ -1,5 +1,5 @@
 // XCODE: 产品说明频道仅在 attachment 装配时追加，不修改上游默认暴露策略。
-import { withPluginGuideExposure } from "@zcode/services/xwork-plugin-guides";
+import { withPluginGuideExposure } from "@zcode/services/aiscoo-plugin-guides";
 import { ProxyChannel, type IDisposable, type IChannelServer } from "@zcode/rpc";
 import {
   ServiceCollection,

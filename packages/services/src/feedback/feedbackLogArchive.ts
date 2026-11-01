@@ -6,7 +6,7 @@ import { join, posix } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { ZipFile } from "yazl";
 // XCODE: 归档说明标题使用共享品牌，采集的日志正文不做品牌替换。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 import { redactFeedbackText, ZCODE_VERSION, ZCODE_COMMIT } from "@zcode/shared";
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024;

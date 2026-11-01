@@ -39,6 +39,7 @@
 App 业务单测已退役，不新增或恢复 App 业务单测 test/spec 或 `contract.test.ts`；保留 CLI、CUA、E2E、浏览器验收和工程门禁测试。工程 Vitest 使用 `pnpm test:engineering <文件>`，push 自动运行 `pnpm test:engineering:affected --scope push`，CLI/CUA 使用各包独立入口，不默认全量。范围见 [测试规格](docs/testing/unit-test-quality.md)，推送合同见 [pre-push 说明](docs/testing/pre-push-hook.md)。
 
 <!-- XCODE: 保留已批准的 Aiscoo 扩展回归，不恢复上游已退役的 App 套件。 -->
+
 Aiscoo 的既有品牌、New API 与归属隔离回归使用独立 `pnpm test:aiscoo <文件>` 显式清单及 `pnpm test:unit:node`；它们不加入上游工程测试清单，按对应下游变更执行并进入 Aiscoo CI。
 
 测试入口以目标包当前的 `package.json` 和实际测试文件为准，不假定存在统一的单测或 E2E 命令。
@@ -98,3 +99,12 @@ Aiscoo 的既有品牌、New API 与归属隔离回归使用独立 `pnpm test:ai
 - `info` 用于进程和会话生命周期、权限结果、一次性初始化等生产可用事件。
 - `warn` 用于可恢复异常；`error` 用于崩溃、握手失败、鉴权丢失等不可恢复错误。
 - 不在日志、示例或提交中写入凭据、真实用户数据和内部服务地址。
+
+<!-- proma:memory:start -->
+
+## 记忆维护
+
+- 项目记忆索引：[MEMORY.md](~/.proma/agent-workspaces/aiscoo-1/memory/MEMORY.md)；详细主题按索引按需读取，新增、移动、归档主题时同步索引。
+- 全局用户画像：[user_profile.md](~/.proma/memory/user_profile.md)，跨项目共享；本项目补充偏好存入 ~/.proma/agent-workspaces/aiscoo-1/memory/project-preferences.md 并加入项目索引，仅在本项目覆盖全局偏好。
+- 在任务中及时修订已确认的偏好、经验和决策，保留来源、适用范围和核验日期；不把临时任务进度写成永久偏好。超过一周的阶段性要求结合本轮证据复查；到期或被替代的内容移出有效入口并可恢复地归档。读取不等于核验，不编造用户事实。
+<!-- proma:memory:end -->

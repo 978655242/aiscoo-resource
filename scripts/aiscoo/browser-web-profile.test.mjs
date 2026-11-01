@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { browserWebProfile, composeBrowserWebProxy } from "./browser-web-profile.mjs";
+import { preview } from "vite";
+import { fileURLToPath } from "node:url";
+import {
+  browserWebProfile,
+  composeBrowserWebProxy,
+  aiscooAccountLoginBoundaryPlugin,
+} from "./browser-web-profile.mjs";
 
 const env = { AISCOO_BROWSER_NEW_API: "1", AISCOO_ADMIN_BASE_URL: "https://account.example" };
 test("disabled profile leaves existing Web configuration unchanged", () => {
@@ -99,7 +105,7 @@ test("authorization callback permits only a cross-site top-level navigation", ()
           reached = true;
         },
       );
-      assert.equal(reached, mode === "navigate", `${path} ${mode}`);
+      assert.equal(reached, path === "/oauth/callback" && mode === "navigate", `${path} ${mode}`);
     }
   }
 });
@@ -123,6 +129,61 @@ test("local account proxies preserve existing OAuth and remote routes ahead of t
   assert.equal(target("/api/info").target, "http://127.0.0.1:3030");
   assert.equal(target("/ws").target, "ws://127.0.0.1:3030");
   assert.equal(existing["/api"].target, "http://localhost:3030");
+});
+
+test("product boundary rejects the official token proxy before it can forward cookies", () => {
+  let middleware;
+  const plugin = aiscooAccountLoginBoundaryPlugin();
+  for (const register of [plugin.configureServer, plugin.configurePreviewServer]) {
+    assert.equal(
+      register({
+        middlewares: {
+          use(fn) {
+            middleware = fn;
+            return () => {
+              throw new Error("connect instance must not become a Vite post hook");
+            };
+          },
+        },
+      }),
+      undefined,
+    );
+    let forwarded = false;
+    let result;
+    const res = {
+      setHeader() {},
+      end(body) {
+        result = body;
+      },
+    };
+    middleware({ url: "/api/v1/oauth/token?secret=never-forward", method: "POST" }, res, () => {
+      forwarded = true;
+    });
+    assert.equal(res.statusCode, 403);
+    assert.equal(forwarded, false);
+    assert.match(result, /AISCOO_ACCOUNT_LOGIN_UNSUPPORTED/);
+    assert.doesNotMatch(result, /secret/);
+  }
+});
+
+test("actual Vite preview starts with the product boundary and rejects old OAuth HTTP", async () => {
+  const server = await preview({
+    root: fileURLToPath(new URL("../../packages/web", import.meta.url)),
+    configFile: false,
+    plugins: [aiscooAccountLoginBoundaryPlugin()],
+    preview: { host: "127.0.0.1", port: 0, open: false },
+  });
+  try {
+    const address = server.httpServer.address();
+    assert.ok(address && typeof address !== "string");
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/v1/oauth/token`, {
+      method: "POST",
+    });
+    assert.equal(response.status, 403);
+    assert.deepEqual(await response.json(), { code: "AISCOO_ACCOUNT_LOGIN_UNSUPPORTED" });
+  } finally {
+    await server.close();
+  }
 });
 
 test("invalid origins never turn into a proxy target", () => {

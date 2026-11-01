@@ -82,11 +82,28 @@ class StartupTests(unittest.TestCase):
     def test_desktop_environment_injects_admin_origin(self):
         launcher = load_launcher()
         configured = {"AISCOO_ADMIN_BASE_URL": "https://other.example", "KEEP": "unchanged"}
-        environment = launcher.desktop_environment({"desktopEnvironment": configured}, "/mock/bin")
+        with mock.patch.dict(os.environ, {}, clear=True):
+            environment = launcher.desktop_environment({"desktopEnvironment": configured}, "/mock/bin")
         self.assertEqual(environment, {**configured, "HOME": str(launcher.HOME),
-                                      "PATH": "/mock/bin", "AISCOO_ADMIN_BASE_URL": launcher.ORIGIN})
+                                      "PATH": "/mock/bin", "AISCOO_ADMIN_BASE_URL": launcher.ORIGIN,
+                                      "ZCODE_REACT_SCAN": "0"})
         self.assertNotIn("NEW_API_BASE_URL", environment)
         self.assertEqual(configured["AISCOO_ADMIN_BASE_URL"], "https://other.example")
+        self.assertNotIn("ZCODE_REACT_SCAN", configured)
+
+    def test_react_scan_defaults_off_and_honors_explicit_configuration(self):
+        launcher = load_launcher()
+        for inherited, configured, expected in ((None, None, "0"), ("1", None, "1"),
+                                                 ("0", None, "0"), ("other", None, "0"),
+                                                 ("1", "0", "0"), ("0", "1", "1")):
+            environment = {} if inherited is None else {"ZCODE_REACT_SCAN": inherited}
+            settings = {} if configured is None else {"ZCODE_REACT_SCAN": configured}
+            original = settings.copy()
+            with self.subTest(inherited=inherited, configured=configured), \
+                    mock.patch.dict(os.environ, environment, clear=True):
+                result = launcher.desktop_environment({"desktopEnvironment": settings}, "/mock/bin")
+                self.assertEqual(result["ZCODE_REACT_SCAN"], expected)
+                self.assertEqual(settings, original)
 
     def test_job_attests_only_admin_origin(self):
         launcher = load_launcher()

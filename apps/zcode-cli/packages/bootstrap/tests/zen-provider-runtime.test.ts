@@ -14,6 +14,127 @@ import {
 } from "@zcode/shared";
 
 describe("Zen account model authorization", () => {
+  it("product credentials canonicalize every key before policy or backing IO", async () => {
+    const { createAiscooProductCredentialStore } =
+      await import("../src/zen/product-credentials.js");
+    const values: Record<string, string> = {
+      "oauth:zai:access_token": "old-official",
+      zcodejwttoken: "old-jwt",
+      "mcp:oauth:third-party:authorization_credentials": "third-party-credentials",
+      "account-provider:old:identity": "official-user",
+      "account-provider:old:auth-source": "oauth",
+      "account-provider:coding-plan:old:account:official-user:api-key": "old-derived-key",
+      "account-provider:manual:identity": "key-user",
+      "account-provider:manual:auth-source": "manual",
+      "account-provider:coding-plan:manual:account:key-user:api-key": "manual-key",
+    };
+    // 复现底层 validateCredentialKey 的 trim 行为；每次 backing 调用都记录，拒绝不能产生 IO。
+    const calls: string[] = [];
+    const backing = {
+      load: async (key: string) => {
+        calls.push(`load:${key}`);
+        return values[key.trim()] ?? null;
+      },
+      save: async (key: string) => {
+        calls.push(`save:${key}`);
+      },
+      saveMany: async (entries: Record<string, string>) => {
+        calls.push(`saveMany:${Object.keys(entries).join(",")}`);
+      },
+      saveReplacing: async (key: string, _value: string, replaced: string[]) => {
+        calls.push(`saveReplacing:${key}:${replaced.join(",")}`);
+      },
+      delete: async (key: string) => {
+        calls.push(`delete:${key}`);
+      },
+      deleteIfValue: async (key: string) => {
+        calls.push(`deleteIfValue:${key}`);
+        return true;
+      },
+      deleteIfValues: async (entries: Record<string, string>) => {
+        calls.push(`deleteIfValues:${Object.keys(entries).join(",")}`);
+        return {};
+      },
+      deleteManyIfValue: async (key: string, _value: string, deleted: string[]) => {
+        calls.push(`deleteManyIfValue:${key}:${deleted.join(",")}`);
+        return true;
+      },
+      clearZaiLoginCredentials: async () => {
+        calls.push("clearZaiLoginCredentials");
+      },
+      saveZaiLoginCredentials: async () => {
+        calls.push("saveZaiLoginCredentials");
+      },
+    };
+    const store = createAiscooProductCredentialStore({}, backing as never);
+    const allowed = "mcp:oauth:third-party:authorization_credentials";
+    for (const key of ["oauth:zai:access_token", "oauth:bigmodel:access_token", "zcodejwttoken"]) {
+      for (const variant of [key, ` ${key}`, `${key} `, `\t ${key} \r\n`]) {
+        calls.length = 0;
+        expect(await store.load(variant)).toBeNull();
+        const blocked = [
+          () => store.loadMany([allowed, variant]),
+          () => store.loadMany([variant, allowed]),
+          () => store.save(variant, "replacement"),
+          () => store.saveMany({ [allowed]: "safe", [variant]: "replacement" }),
+          () => store.saveMany({ [variant]: "replacement", [allowed]: "safe" }),
+          () => store.delete(variant),
+          () => store.deleteIfValue(variant, "old-official"),
+          () => store.deleteIfValues({ [allowed]: "safe", [variant]: "old-official" }),
+          () => store.saveReplacing(variant, "replacement", [allowed]),
+          () => store.saveReplacing(allowed, "replacement", [allowed, variant]),
+          () => store.deleteManyIfValue(variant, "old-official", [allowed]),
+          () => store.deleteManyIfValue(allowed, "safe", [allowed, variant]),
+        ];
+        for (const operation of blocked) {
+          await expect(operation()).rejects.toThrow("AISCOO_ACCOUNT_LOGIN_UNSUPPORTED");
+          expect(calls).toEqual([]);
+        }
+      }
+    }
+    await expect(store.clearZaiLoginCredentials()).rejects.toThrow(
+      "AISCOO_ACCOUNT_LOGIN_UNSUPPORTED",
+    );
+    await expect(store.saveZaiLoginCredentials({} as never)).rejects.toThrow(
+      "AISCOO_ACCOUNT_LOGIN_UNSUPPORTED",
+    );
+    expect(calls).toEqual([]);
+    const readable = Object.keys(values).filter(
+      (key) => !key.startsWith("oauth:") && key !== "zcodejwttoken",
+    );
+    expect(await store.loadMany(readable.map((key) => `\t ${key} \n`))).toEqual({
+      [allowed]: "third-party-credentials",
+      "account-provider:old:identity": null,
+      "account-provider:old:auth-source": null,
+      "account-provider:coding-plan:old:account:official-user:api-key": null,
+      "account-provider:manual:identity": "key-user",
+      "account-provider:manual:auth-source": "manual",
+      "account-provider:coding-plan:manual:account:key-user:api-key": "manual-key",
+    });
+    expect(calls).not.toContain("load:account-provider:old:identity");
+    expect(calls).not.toContain(
+      "load:account-provider:coding-plan:old:account:official-user:api-key",
+    );
+    calls.length = 0;
+    await store.save(` ${allowed} `, "own-token");
+    await store.saveMany({ " own-api-key ": "own-secret" });
+    await store.delete(" own-api-key ");
+    await store.saveReplacing(` ${allowed} `, "own-token", [" own-api-key "]);
+    await store.deleteIfValue(" own-api-key ", "own-secret");
+    await store.deleteIfValues({ " own-api-key ": "own-secret" });
+    await store.deleteManyIfValue(` ${allowed} `, "own-token", [" own-api-key "]);
+    expect(calls).toEqual([
+      `save:${allowed}`,
+      "saveMany:own-api-key",
+      "delete:own-api-key",
+      `saveReplacing:${allowed}:own-api-key`,
+      "deleteIfValue:own-api-key",
+      "deleteIfValues:own-api-key",
+      `deleteManyIfValue:${allowed}:own-api-key`,
+    ]);
+    expect(values["oauth:zai:access_token"]).toBe("old-official");
+    expect(values.zcodejwttoken).toBe("old-jwt");
+  });
   it.each([
     {},
     { NEW_API_BASE_URL: "http://127.0.0.1:3001" },

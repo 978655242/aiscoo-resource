@@ -2,13 +2,22 @@
 
 原品牌显示迁移已通过 PR 合入 `release`。下文“项目代码与目录命名迁移”为独立后续工作，当前尚待全部验证与集成；其分支和验证结果不继承原品牌 PR 的完成状态。原品牌迁移基线：`84e1e3dd`；分支：`feature/aiscoo-branding`。未发布安装包；提交与合并结果以对应 PR 为准。
 
+## 兼容入口清理（2026-11-01，取代下文兼容描述）
+
+下文“项目代码与目录命名迁移”阶段为保证平滑过渡而保留的 `xwork-*` 兼容入口已按 [aiscoo-only-login.md §12](../specs/aiscoo-only-login.md) 清理，现行结构如下；下文凡把旧路径、旧导出键、旧架构别名描述为“保留”“转发”“保持兼容”的条目，均是当时事实，不再是现行要求：
+
+- 品牌事实唯一所有者为 `packages/shared/src/aiscoo-brand/brand.json`，唯一公开入口为 `@zcode/shared/aiscoo-brand`；UI 品牌组件与资源位于 `packages/ui/src/aiscoo/brand/`（资源为 `assets/`），入口为 `@zcode/ui/aiscoo-brand`。`@zcode/shared`、`@zcode/ui`、`@zcode/services` 的 `./xwork-*` 子路径和 `xwork-*` 转发目录已删除，字节内容随 `git mv` 保持不变。
+- 架构模块 ID 统一为 `aiscoo-*`（`cli-aiscoo`、`cli-aiscoo-brand`、`aiscoo-brand`、`aiscoo-brand-ui`、`aiscoo-startup-context`、`aiscoo-plugin-guides-{protocol,cli,service,ui}`、`aiscoo-account-avatar`），`architecture-policy.xwork.yaml` 不再包含 `aliases`。该文件名因同步脚本沿用而保留。
+- CLI 测试脚本只剩 `test:aiscoo`，`posttest` 指向它；`test:xwork` 已删除。`scripts/xcode/start-local.py`、`scripts/xcode/启动 XCode.command` 等历史启动脚本不在本次清理范围，仍可用。
+- 仍然保留且不属于兼容残留的持久化与协议身份：RPC 通道 `xwork-plugin-guides`、`xwork/plugins/*` 与 `xwork/workspace/*` 线路方法名及 `zcodeProtocolMethods` 中 `xwork*`/`aiscoo*` 同值对照、macOS 钥匙串名、CLI Zen 钥匙串 service 与 AAD、`client_id`。
+
 ## 当前品牌与历史验证边界（2026-10-31）
 
 现行图形以 [图标与显示名规范](icon-spec.md) 和 [设计包](../../brand/aiscoo/README.md) 为准：常态竖胶囊眼、闭合填充的厚圆拱笑眼及整头弹跳，统一使用 10 秒循环；减少动态效果时使用中性眼、圆形头部的收起静态姿态。下文 8 秒动效、38 个设计文件及早期像素哈希保留为各阶段历史事实，不作为当前资源要求。
 
 [品牌验证记录](robot-motion-verification.md) 区分来源分支的历史证据与本次提取后实测。本次从 `b4aeece7` 提取 39 文件设计工具镜像、图标规范及 11 份现行功能说明；管理端 8 张 README 合成示意图仅保留来源记录，不在本次访问或重新验证。生产生成入口继续使用 `scripts/xcode/generate-icons.py`，UI 资源继续由 `packages/ui/src/xwork/brand/assets` 唯一维护。
 
-本页各阶段的测试、构建、部署和平台结果仅属于当时基线，不代表本次已重新执行。当前本机浏览器规范以 [浏览器持有凭据规格](../specs/browser-new-api.md) 为准；本页不复用旧本机 Web 方案的验证结论。根类型检查、Lint 与整体验证由主 PR 统一记录。
+本页“本次提取”指 PR #52 独立发布树 `f52e110d`（基线 `cd4af779`）；当前本地 release 合并基线为 `6a4ab9cd`，仍保留旧 Host WIP。`e2721fd6` 合并前记录的 7 项 logout 失败未由品牌检查修复。本页各阶段的测试、构建、部署和平台结果仅属于当时基线，不代表本轮合并已重新执行。当前本机浏览器规范以 [浏览器持有凭据规格](../specs/browser-new-api.md) 为准；本页不复用旧本机 Web 方案的验证结论。根类型检查、Lint 与整体验证由主 PR 统一记录。
 
 ## 产品规则与唯一所有者
 
@@ -86,7 +95,7 @@ flowchart LR
 
 浏览器启动壳居中显示完整 `aiscoo` 字标，使用随应用已保存主题切换的动态原稿；启用减少动态效果时使用对应主题的完整静态原稿。桌面视口字标宽 320px，窄屏最大宽度为视口宽度减 48px，保持原稿比例且不裁切。沿用既有主题 bootstrap 及无主题时的深色默认值；只在应用 JavaScript bundle 执行前展示，不新增状态所有者。
 
-开发和生产 HTML 均在生成时内联 `packages/ui/src/xwork/brand/assets` 中的四张 SVG，浏览器不依赖额外网络请求或脚本为图片设置地址。部署若设置 Content Security Policy，须允许现有首屏内联脚本和样式，且 `img-src`（或其回退的 `default-src`）须包含 `data:`；该改动不放宽任何部署策略。验收覆盖浅／深主题、系统主题、减少动态效果、320px 与 390px 窄屏、开发及生产四张原稿解码，以及允许 `data:` 的 CSP。
+开发和生产 HTML 均在生成时内联 `packages/ui/src/aiscoo/brand/assets` 中的四张 SVG，浏览器不依赖额外网络请求或脚本为图片设置地址。部署若设置 Content Security Policy，须允许现有首屏内联脚本和样式，且 `img-src`（或其回退的 `default-src`）须包含 `data:`；该改动不放宽任何部署策略。验收覆盖浅／深主题、系统主题、减少动态效果、320px 与 390px 窄屏、开发及生产四张原稿解码，以及允许 `data:` 的 CSP。
 
 ## 验收场景
 
@@ -113,13 +122,15 @@ flowchart LR
 
 登录页通过 Root 的可选 `header` 插槽装配下游 `AiscooLoginHeader`，保留上游 `LoginPanelHeader` 默认实现和 title／description／children 接口；品牌模块只负责视觉，不引用登录业务组件。产品头部使用完整动态 `aiscoo` 字标，保留 240px 宽及窄屏自适应，移除欢迎标题；中文说明为“连接账号，开始使用”。浅深主题复用原稿的 8 秒动效，系统减少动态效果时显示完整静态字标。真实组件预览验证 320／390px 与桌面布局，未见横向溢出；两次截图确认探头动作变化。登录状态与取消／重试测试及品牌契约合计 14/14 通过，文案调整后的三文件定向测试 36/36 通过。
 
-2026-10-30 用户确认登录页产品简化：Aiscoo 的 New API 主按钮中英文分别显示“登录”和“Sign in”，隐藏登录页的“使用 API key”入口；登录、取消、重试仍使用原 provider ID。Desktop、普通 Web 及远控连接后的共享 Root 都采用这一展示规则；远控连接前的独立登录页仍显示 Z.ai 和 BigModel，供用户选择与桌面相同的账号。`WelcomeScreen` 未传可选配置时保留原按钮和 API key 表单。此改动不新增认证状态或本机 Web OAuth，也不改变已有用户配置、设置中的 provider、协议及远控身份。验收应覆盖中英文、原默认值、provider 选择和取消重试、真实远控登录入口，以及隔离的桌面／浏览器界面。
+2026-10-30 的登录页简化保留历史：Aiscoo 的 New API 主按钮中英文分别显示“登录”和“Sign in”，隐藏登录页的“使用 API key”入口；登录、取消、重试仍使用稳定 provider ID。2026-10-31 用户进一步要求 [仅保留 Aiscoo 登录](../specs/aiscoo-only-login.md)：Desktop、Web、远控前置页和 Aiscoo CLI 均不再显示或发起 Z.ai/BigModel 产品账号登录；缺配置时明确不可用，不启用旧官方 owner。Root 的产品策略与服务/RPC/原生边界共同拒绝旧官方恢复、polling 和 callback；独立官方云连接卡也移除。`WelcomeScreen` 未注入产品配置时保留通用上游行为，自配模型/API Key 与第三方 MCP OAuth 不受影响。旧视觉回归不作为本次唯一登录验收结果。
 
 品牌隔离预览曾显式使用临时数据目录，因此不显示原有会话和自定义模型；这是测试启动参数，不是产品迁移。按用户要求关闭隔离预览后，真实 Aiscoo Dev 复用原 `~/.zcode` 与 `ZCode Dev` Electron 用户目录启动；进程文件句柄确认读取原 `tasks-index.sqlite` 与 CLI `db.sqlite`，任务列表、项目树和模型设置接口均成功返回。没有复制或删除原会话／模型配置。
 
 本机 New API 服务健康，但此前真实客户端记录过 `Secure storage unavailable; private login requires recovery`。提交前复核 Electron 41.0.3 发现品牌更名会改变 ready 前的 `app.getName()`，从而改变 macOS `safeStorage` 选择的钥匙串服务／账号；这与 userData 路径无关。现已将历史钥匙串身份与展示身份分离：ready 前选择 XWork／XWork Preview／XWork Dev，ready 后恢复 Aiscoo；显式测试身份继续隔离。新增按服务名隔离的模拟钥匙串密文回归与启动顺序检查，不迁移或重置真实密钥。此修复消除已证实的品牌兼容风险，但未实际完成用户登录，不把原日志的底层异常或完整登录恢复写为已证实。验证 HTML 的固定失败提示仅为视觉夹具，不是认证结果；夹具均在忽略的 `out` 目录，不进入发布资源。
 
 ### 登录失败根因与真实恢复验证（2026-10-29）
+
+> 2026-11-01 起桌面端已不再使用 `safeStorage` 保护登录凭据，也不再读取这里提到的钥匙串条目，原因与现行规则见 [客户端集成规格 §4.2](new-api-integration.md#42-安全持久化与恢复)；下文保留当时的事实。
 
 确认根因是运行产物仍使用更名前后未分离的旧启动顺序：故障 Main 在 ready 前以 Aiscoo Dev 初始化 safeStorage，现存密文由 Aiscoo Dev 钥匙串保护，`decryptString` 因身份不匹配而失败；Main 的安全密钥加载失败后，Local Host 的 `oauth.startOAuth` 在联网前被 `XCODE_SECURE_STORAGE_UNAVAILABLE` 拦截。与 Renderer、用户数据目录或账号密码无关。
 

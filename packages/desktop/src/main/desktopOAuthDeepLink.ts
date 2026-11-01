@@ -19,7 +19,7 @@ import {
   isWorkspaceOpenUrl,
   isShareImportUrl,
 } from "./desktopDeepLinkUrl.js";
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import { registerLinuxDeepLinkProtocol } from "./desktopLinuxDeepLinkRegistration.js";
 import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
 
@@ -99,7 +99,11 @@ export function parseOAuthStateRegistration(payload: unknown): OAuthStateRegistr
     !["new-api", "bigmodel", "zai"].includes(candidate.provider) ||
     (candidate.purpose !== "primary-account" && candidate.purpose !== "official-cloud") ||
     (candidate.provider === "new-api" && candidate.purpose !== "primary-account") ||
-    (candidate.provider === "new-api" && candidate.state.length < 22)
+    (candidate.provider === "new-api" && candidate.state.length < 22) ||
+    // XCODE: Aiscoo 渠道只接收主账号登录。路由表只经 IPC 登记，此处是唯一入口，
+    // 官方 state 进不了路由表，后续回调派发与 pending 投递无需重复判断。
+    (desktopIdentity &&
+      (candidate.provider !== "new-api" || candidate.purpose !== "primary-account"))
   ) {
     return null;
   }

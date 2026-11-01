@@ -1,8 +1,10 @@
 import type { OffPeakOwnerFence } from "@zcode/services/node";
+// XCODE: Aiscoo 渠道无官方执行权益，缺配置也必须保持空 owner admission。
+import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
 
-let nativeOwnerKeys: readonly string[] | undefined = process.env.AISCOO_ADMIN_BASE_URL?.trim()
-  ? []
-  : undefined;
+const officialCloudDisabled = Boolean(resolveAiscooDesktopIdentity());
+let nativeOwnerKeys: readonly string[] | undefined =
+  officialCloudDisabled || process.env.AISCOO_ADMIN_BASE_URL?.trim() ? [] : undefined;
 let nativeAdmissionGeneration = 0;
 const nativeOwnerEpochs = new Map<string, number>();
 
@@ -12,7 +14,8 @@ export function requiresOffPeakOwnerAdmission(): boolean {
 
 export function updateOffPeakOwnerAdmission(ownerKeys: readonly string[] | undefined): void {
   if (nativeOwnerKeys !== undefined && ownerKeys !== undefined) {
-    const nextKeys = [...new Set(ownerKeys)];
+    // XCODE: 历史 Main 消息不能为已关闭的官方能力重新授予执行身份。
+    const nextKeys = officialCloudDisabled ? [] : [...new Set(ownerKeys)];
     for (const key of new Set([...nativeOwnerKeys, ...nextKeys])) {
       if (nativeOwnerKeys.includes(key) !== nextKeys.includes(key)) {
         nativeOwnerEpochs.set(key, (nativeOwnerEpochs.get(key) ?? 0) + 1);

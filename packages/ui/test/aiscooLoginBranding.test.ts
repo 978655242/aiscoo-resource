@@ -10,7 +10,7 @@ import {
   AiscooIntlProvider,
   AiscooLoginHeader,
   resolveAiscooOAuthWaitingDisplayNames,
-} from "@/xwork/brand/index.js";
+} from "@/aiscoo/brand/index.js";
 import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import { WelcomeScreen } from "@/WelcomeScreen.js";
 
@@ -44,6 +44,7 @@ vi.mock("@/store/StoreProvider.js", () => ({
   useZCodeStore: (selector: (state: unknown) => unknown) =>
     selector({
       user: null,
+      setOAuthPollingActive: vi.fn(),
       oauthError: null,
       oauthSuccessSeq: 0,
       lastOAuthSuccessProvider: null,
@@ -74,6 +75,18 @@ afterEach(() => {
 });
 
 describe("Aiscoo 登录页完整字标", () => {
+  it("账号服务未配置时，产品词典把通用无提供方提示替换为 Aiscoo 不可用说明", () => {
+    // 产品服务包装过滤后没有可用渠道；上游登录页按原逻辑显示 noProviders，文案由产品词典替换。
+    oauthState.providers = [];
+    render(
+      createElement(AiscooIntlProvider, {
+        initialLocale: "zh-CN",
+        children: createElement(WelcomeScreen, { onComplete: vi.fn(), hideApiKeyLogin: true }),
+      }),
+    );
+    expect(screen.getByText("Aiscoo 登录尚未配置或暂不可用，请联系管理员。")).toBeTruthy();
+  });
+
   it.each([
     ["zh-CN", "等待 aiscoo 完成认证..."],
     ["en-US", "Waiting for aiscoo authentication..."],
@@ -171,7 +184,7 @@ describe("Aiscoo 登录页完整字标", () => {
     expect(screen.getByTestId("api-key-form-fixture")).toBeTruthy();
   });
 
-  it("其他登录提供方仍保留真实名称和原有选择", () => {
+  it("未注入产品策略的通用登录保留真实提供方名称", () => {
     oauthState.providers = [
       { id: "zai", displayName: "Z.ai", enabled: true, order: 1 },
       { id: "bigmodel", displayName: "BigModel", enabled: true, order: 0 },

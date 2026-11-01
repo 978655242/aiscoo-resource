@@ -1,6 +1,6 @@
 import type { CuaPermissionKind, Locale } from "@zcode/shared";
 // XCODE: 仅投影权限页面静态词典，运行时返回的真实 Helper 主体不参与转换。
-import { brandMessageCatalog } from "@zcode/shared/xwork-brand";
+import { brandMessageCatalog } from "@zcode/shared/aiscoo-brand";
 
 export interface CuaPermissionPanelMessages {
   documentTitle: string;

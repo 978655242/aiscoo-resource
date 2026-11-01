@@ -1,7 +1,7 @@
 // XCODE: 仅统一产品展示名称，保留内部标识与用户内容。
 import type { Locale, SkillScope } from "@zcode/shared";
 // XCODE: 只投影内置映射的自有静态描述，第三方正文与未命中的技能描述保持原样。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 
 interface SkillDisplayCandidate {
   name: string;

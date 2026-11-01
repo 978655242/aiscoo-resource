@@ -7,7 +7,7 @@ import {
 } from "@zcode/shared";
 import type { IFeedbackService } from "@zcode/services";
 // XCODE: 反馈产品标签使用共享模板，提交协议及用户正文不变。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 import { persistFeedbackContactPreference } from "@/feedback/feedbackContactPreference.js";
 import type { FeedbackSubmitDraft } from "@/feedback/feedbackStore.js";
 import type { ScreenshotAttachmentDraft } from "@/feedback/FeedbackScreenshotPicker.js";

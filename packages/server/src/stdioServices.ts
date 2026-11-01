@@ -1,4 +1,8 @@
-import { createLocalServices, type ZCodeAgentCommandResolver } from "@zcode/services/node";
+import {
+  createLocalServices,
+  createAiscooAccountPolicy,
+  type ZCodeAgentCommandResolver,
+} from "@zcode/services/node";
 import type { IChannel } from "@zcode/rpc";
 import {
   parseServiceAuthorityMode,
@@ -41,6 +45,8 @@ export function createStdioServices(options: CreateStdioServicesOptions) {
     zcodeBuiltinProviderConfigFilePath: options.zcodeBuiltinProviderConfigFilePath,
     topicResourceRelayChannel: options.topicResourceRelayChannel,
     serviceAuthorityMode: authorityModeParseResult.mode,
+    // XCODE: 远程 Host 只复用已有 attachment，不在远端恢复官方或桌面产品登录。
+    accountPolicy: createAiscooAccountPolicy(),
     zcodeAgentCommandResolver: options.zcodeAgentCommandResolver,
     remoteAgentNetwork,
   });

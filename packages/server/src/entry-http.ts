@@ -1,5 +1,7 @@
 import {
   createServerHostServices,
+  // XCODE: Server 产品入口也固定账号策略，未启用浏览器 profile 不读取旧官方身份。
+  createAiscooAccountPolicy,
   createTopicResourcePeers,
   getAppConfigDir,
 } from "@zcode/services/node";
@@ -36,6 +38,8 @@ async function main(): Promise<void> {
       sourceServerId: serverId,
       zcodeBuiltinProviderConfigFilePath,
       providerProvisioningTargetEnabled: Boolean(authToken),
+      // XCODE: 无浏览器凭据权威时不认领 Host 历史会话，也不创建桌面 native owner。
+      accountPolicy: createAiscooAccountPolicy({ adminBaseUrl: browserProfile?.origin }),
       // XCODE: 相同 Native 目录和请求 resolver 只更换凭据来源。
       ...(browserProfile
         ? {

@@ -7,7 +7,7 @@ import {
   PLUGIN_GUIDE_SECTIONS,
   type PluginGuideSource,
   type PluginGuideTarget,
-} from "@zcode/shared/xwork-plugin-guides";
+} from "@zcode/shared/aiscoo-plugin-guides";
 import type { PluginGuideAgentPort, PluginGuideServiceDependencies } from "./contract.js";
 import { createPluginGuideService } from "./app/service.js";
 import { createPluginGuideFileRepository } from "./adapters/repository.js";
@@ -85,7 +85,7 @@ export const modelSelectionView: ModelSelectionView = {
   ),
 };
 export async function setup(stream?: PluginGuideAgentPort["streamWorkspaceModelText"]) {
-  const root = await mkdtemp(join(tmpdir(), "xwork-plugin-guides-"));
+  const root = await mkdtemp(join(tmpdir(), "aiscoo-plugin-guides-"));
   roots.push(root);
   const repository = createPluginGuideFileRepository(root);
   const requests: Parameters<PluginGuideAgentPort["streamWorkspaceModelText"]>[0][] = [];

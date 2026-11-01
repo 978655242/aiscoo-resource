@@ -28,7 +28,6 @@ import {
 } from "@/root/oauthCachedSessionRestore.js";
 import { shouldApplyOAuthPollingFailure } from "@/root/oauthLoginAttemptGuard.js";
 import { useAccountConnectionLossNotification } from "@/root/useAccountConnectionLossNotification.js";
-import { OFFICIAL_CLOUD_CONNECTION_CHANGED_CHANNEL } from "@/hooks/useOfficialCloudConnection.js";
 
 export { refreshRestoredOAuthProviderFamilyAfterStartup } from "@/root/oauthProviderFamilySelectionRefresh.js";
 
@@ -380,32 +379,6 @@ export function useRootOAuthEffects({
         const { url, provider: callbackProvider, purpose } = event;
         const providers = await services.oauthService.getProviders();
         const nativeMode = providers.some((provider) => provider.id === NEW_API_PROVIDER_ID);
-        if (purpose === "official-cloud") {
-          if (!nativeMode || (callbackProvider !== "bigmodel" && callbackProvider !== "zai"))
-            return;
-          try {
-            const cloud = await services.officialCloudConnectionService?.handleCallback(url);
-            if (cloud) {
-              await services.broadcastService.send({
-                channel: OFFICIAL_CLOUD_CONNECTION_CHANGED_CHANNEL,
-                payload: { status: "changed" },
-              });
-            }
-          } catch {
-            logger.warn("[Root] Official cloud callback failed; primary identity unchanged");
-            // XCODE: broadcast不回送当前Renderer；复用本机Alert而不写主账号oauthError。
-            void requestAlert({
-              title: intl.formatMessage({ id: "login.oauth.loginFailure" }),
-            }).catch(() => logger.warn("[Root] Official cloud failure dialog unavailable"));
-            await services.broadcastService
-              .send({
-                channel: OFFICIAL_CLOUD_CONNECTION_CHANGED_CHANNEL,
-                payload: { status: "failed" },
-              })
-              .catch(() => logger.warn("[Root] Official cloud UI invalidation failed"));
-          }
-          return;
-        }
         if (purpose !== "primary-account") return;
         if (nativeMode && callbackProvider !== NEW_API_PROVIDER_ID) return;
         const result = await services.oauthService.handleCallback(url);

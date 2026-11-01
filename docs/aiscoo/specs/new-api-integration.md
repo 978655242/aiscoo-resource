@@ -1,6 +1,6 @@
 # XCode / XWork 私有网关：客户端适配实现规范
 
-状态：2026-10-09 开始按客户端独立执行计划实施；已有 wire/主身份工作继续完成。代码实现、确定性回归与真实联调分别记录，不以测试或旧服务 status 代替桌面验收。
+状态：2026-10-09 开始按客户端独立执行计划实施。2026-10-31 用户要求仅保留 Aiscoo 登录；账号入口、未配置行为及官方云连接以 [Aiscoo 唯一登录规格](aiscoo-only-login.md) 为准，下文相关历史规则已退役。代码实现、确定性回归与真实联调分别记录，不以测试或旧服务 status 代替桌面验收。
 
 跨仓库 HTTP、认证、额度、模型 metadata 与错误定义以 [New API canonical spec](../../../../new-api/docs/specs/xcode-integration.md) 为准。本文件规定 XCode 的 Host/RPC/Registry/UI 映射，不维护第二套 HTTP 契约。XCode 为代码目录，该基线产品展示名是 XWork；不再重命名，也不删除 New API / QuantumNous 归属。
 
@@ -14,7 +14,7 @@
 - 不开发私有网关的 SSH/WSL/Docker/远程接入、转发、凭据 provisioning、远程部署或独立 Web 多用户登录。
 - 不删除现有远程/Web 功能；不将它们列为私有网关已支持，不把远程环境的 localhost 当成桌面地址。
 - 普通 Agent 的所有官方 BigModel/Z.ai 个人、企业、Start Plan 通道切到 New API；用户自配 API Provider、key、模型及会话历史不改。
-- 官方 Server MCP/闲时云任务保留原服务、官方模型、官方计费和独立官方登录。私有账号不是官方权益。
+- 2026-10-31 起 Aiscoo 不再装配 Z.ai/BigModel 主登录或独立官方连接；需要官方账号的 MCP/闲时云功能明确不可用，不借用 Aiscoo 凭据、不伪造官方权益。自配模型/API Key 与第三方 MCP OAuth 保持原行为。
 - 现有布局、导航、组件、交互保留；后端相关名称、单位、周期和无法提供数据的文案允许真实适配。不是要求所有旧 wire DTO 完全不变。
 - 已保存官方 Plan 模型选择统一不可自动迁移；用户重新选择 New API 实际模型，即使 ID 相同。自配 Provider 选择不受影响。
 - 不做已有 New API 用户/订阅迁移绑定、企业组织权限、Start 独立余额、线上购买、额外 reset 机会或新增遥测采集。
@@ -49,11 +49,11 @@
 | 私有控制 API client        | Local Host，绑定已验证主账号                               | 请求 origin 固定为 New API；401/403 与网络失败分开处理                            |
 | 私有模型授权/目录          | Host AccountProviderService                                | 以当前 user/SID/auth generation/canonical revision 构建快照；不是 Personal Config |
 | 本机 worker 配置           | 现有 providerUpdateAccountConfig                           | 数据快照和请求期 secret 分离；过期/另一用户快照不执行                             |
-| 官方云连接                 | 独立 Host 官方连接服务                                     | 按 New API 主用户命名空间持久化；不由当前私有模型 provider 推断                   |
-| 官方云目录与权益           | 原官方 source/adapter，绑定独立官方连接                    | 只用官方真实模型/Plan/组织项目，不能读 New API model catalog 替代                 |
+| 官方历史凭据               | 原有安全库，产品不再装配读取者                             | 不删除或迁移，不认领为 Aiscoo 身份，不恢复旧官方连接                              |
+| 官方云目录与权益           | 产品不可用投影                                             | 无官方网络、认证或缓存恢复，不用 Aiscoo catalog/凭据冒充                          |
 | UI                         | 现有 RPC/hooks                                             | 订阅状态是投影，不能自行授予、重置或重新解释金额                                  |
 
-每轮异步请求冻结 `origin + NewApiUserId + SID + authGeneration`；官方请求还冻结 `officialConnectionKey + credentialGeneration`。返回前核对，身份变了则丢弃旧结果。不得把 A 用户的订阅、模型、图表、WebView 或云凭据写进 B 用户的状态。
+每轮异步请求冻结 `origin + NewApiUserId + SID + authGeneration`。返回前核对，身份变了则丢弃旧结果。不得把 A 用户的订阅、模型、图表或 WebView 写进 B 用户的状态。`officialConnectionKey + credentialGeneration` 仅为未注入产品策略的通用上游官方实现契约；Aiscoo 不发起该请求。
 
 主账号 logout、换号、refresh 失效、明确 SID/key 撤销立即清理可执行授权，失效 in-flight 请求/缓存及本机 worker credentials；尽力调用服务端 logout，并按真实结果处理网络失败。不宣称本机离线删除等于已经服务端撤销。
 
@@ -61,14 +61,14 @@
 
 - 退出、换号、取消和明确撤销先同步失效 owner/代次，再发布 `signed-out`，最后执行现有 `onOwnerChanged` 派生清理与撤销；订阅者回读时不得仍得到旧有效 owner。
 - 登录只有在 Me 核验、原子 commit、owner hook 及最终代次/期限 fence 均接受后发布 `signed-in`。冷恢复首次确认 owner 同样发布；迟到或取消的激活不能发布登录成功。
-- 同 SID 正常 refresh 不模拟退出/登录；503 不发伪造退出事件。独立官方云连接的登录、刷新或退出仅更新自身事件，不改变 Native 主会话事实。
+- 同 SID 正常 refresh 不模拟退出/登录；503 不发伪造退出事件。退役的官方连接不产生产品登录、恢复或刷新事件，不改变 Native 主会话事实。
 - 现有远控认证同步 hook 消费真实事件并使迟到初始 UI 恢复投影失效；不以头像、设置更新或成功计数重新推断会话变更。
 
 ```mermaid
 sequenceDiagram
   participant A as Native account owner
   participant C as OAuth 事件消费者
-  participant D as 官方连接与 Provider 派生清理
+  participant D as Provider 与 Worker 派生清理
   A->>A: 失效旧 owner / 代次
   A-->>C: signed-out
   A->>D: 现有 onOwnerChanged
@@ -76,7 +76,9 @@ sequenceDiagram
   A-->>C: 仅已接受的新 owner 发布 signed-in
 ```
 
-Account refresh 的过期失败不能恢复启动请求时捕获的旧授权；失败失效基于当前快照。logout、换号、官方连接失效与新 owner 的已发布状态不被旧异常覆盖。
+Account refresh 的过期失败不能恢复启动请求时捕获的旧授权；失败失效基于当前快照。logout、换号与新 owner 的已发布状态不被旧异常覆盖。
+
+历史官方云凭据保留安全存储，但 Aiscoo 产品不再读取、恢复或认领；再次登录相同 Aiscoo 用户也不恢复官方连接。不因移除登录能力而删除真实 token 或改变历史密文格式。以下官方 Project Token 契约仅供未注入 Aiscoo 策略的通用上游实现，不代表产品允许官方登录。
 
 ### 已验证 Native 登录的凭据恢复
 
@@ -136,8 +138,12 @@ sequenceDiagram
 ### 4.1 配置与 Adapter
 
 公开配置使用 `AISCOO_ADMIN_BASE_URL`，开发值 `http://127.0.0.1:3001`；解析并规范化精确 origin，HTTP 仅允许本机 loopback。旧键 `NEW_API_BASE_URL` 不再读取，也不提供 fallback；用户需自行更新 `.env`、进程环境或启动配置中的键名，本次更名不自动改写用户文件或凭据。不要复用 Z.ai/BigModel/官方 XCode 服务的 env 或从网页 metadata 接受任意 endpoint。
-此显式 origin 启用桌面私有组合；未配置的原非私有宿主及独立 Web/远程路径保留。已配置后，认证、目录、套餐或用量失败不得回退到原官方身份/资金或自配 Provider；配置值不是从 status、metadata 或旧官方 origin 推导的默认值。
-Main 与 Host 使用同一有效环境配置：开发 `.env`/`.env.local` 与进程环境的既有优先级一致，进程中的显式空值也必须一致关闭；安全密钥加载及闲时 scheduler 模式不能仅检查未经合并的进程环境。
+Aiscoo 产品入口始终启用唯一账号策略；此 origin 仅用于选择合法 Aiscoo 后端，不再作为启用旧官方登录的开关。未配置、空或非法配置时显示 `AISCOO_ACCOUNT_CONFIG_UNAVAILABLE`，不创建或恢复 Z.ai/BigModel OAuth owner；认证、目录、套餐或用量失败不得回退到原官方身份/资金或自配 Provider。配置值不是从 status、metadata 或旧官方 origin 推导的默认值。未注入产品策略的通用上游宿主默认实现保留。
+Main 与 Host 使用同一有效环境配置：开发 `.env`/`.env.local` 与进程环境的既有优先级一致，进程中的显式空值使 Aiscoo 配置不可用，不能切换到官方登录；安全密钥加载及闲时 scheduler 模式不能仅检查未经合并的进程环境。
+
+2026-10-30 配置命名迁移：Desktop Main/Host/scheduler、Web/Vite/Server、CLI、Host→Worker 及本机启动器统一读取和传递 `AISCOO_ADMIN_BASE_URL`；旧键 `NEW_API_BASE_URL` 退役，不作为别名或回退。已有部署和个人 `.env` 需自行改键名，本次改名不写入或自动迁移这些文件。此变更不修改 API 路径、Provider ID、OAuth client_id、凭据存储 key 或认证业务逻辑。
+
+迁移验收：新键配置的合法 origin 继续生效；process 值覆盖 dotenv，process 显式空值或仅设置旧键时配置不可用且无官方回退；Host→Worker 和启动器只发送新键，CLI 缺配置时提示新键。
 
 主登录 Provider ID 为 `new-api`；在已有 OAuth adapter/service 框架中增加原生授权 code + PKCE adapter。所有浏览器登录/注册页转到 New API 本源，复用原生密码、注册、2FA、Passkey 等流程。不在 Electron 保存密码，也不复制 Native 登录表单/账户库。
 
@@ -145,9 +151,9 @@ Main 与 Host 使用同一有效环境配置：开发 `.env`/`.env.local` 与进
 - state/verifier 保留在 Host pending flow；深链只交给精确 provider/state 对应的窗口，不能拿“当前窗口”兜底跨窗口登录。
 - `handleCallback` 对 code 兑换并校验 SessionBundle schema、identity、expiry/origin；不能把 private token 写进 zcodeJwtToken 字段。
 - 当前 IOAuthService 的主账号恢复/刷新/退出语义保留，由 new-api adapter 实现。新增私有凭据字段/Repo 方法必须有真实领域名称，不能伪装成 zai token。
-- 本期不将 `startOAuthWithPolling` 的官方 polling 协议套给 New API；保留原方法供独立官方路径，私有不支持时明确返回稳定错误而非 mock pending。
+- 不将官方 `startOAuthWithPolling` 协议套给 Aiscoo；产品入口和 RPC 以稳定错误拒绝官方 polling，不生成 mock pending 或重建官方登录。
 
-保持登录入口与个人信息菜单布局；主账号区域展示真实 New API 用户，提供原有登录/注册操作。官方云连接入口是现有云功能的连接操作，不能让官方登录覆盖主账号头像/用户名或 `getActiveProvider` 的 new-api 主身份。
+保持登录入口与个人信息菜单布局；主账号区域只展示真实 Aiscoo 用户并提供原有登录/注册操作。移除 Z.ai/BigModel 主登录及独立官方云连接入口，既有官方缓存和回调不得产生已登录投影；`getActiveProvider` 仅在真实 Aiscoo owner 存在时返回 new-api。
 
 浏览器授权页的账户切换遵循 [已确认页面规格](new-api-authorization-account-switch.md)：显示当前真实账户并提供“使用其他账户”，明确告知同源后台登录态会改变；仅退出确认时的浏览器 SID，重新登录后仍须主动授权，不延长原 AuthFlow。此增量于 2026-10-17 完成设计确认与实施计划编写，尚未实施或部署；不新增独立授权会话、不改变本节 PKCE 和桌面凭据边界。
 
@@ -157,7 +163,7 @@ Main 与 Host 使用同一有效环境配置：开发 `.env`/`.env.local` 与进
 - Local Host 的 `NewApiProviderAdapter` 从已验证的 `NewApiClient.origin` 生成 `OAuthProviderMeta` 的可选 `legalLinks`，只包含同源 `/user-agreement` 和 `/privacy-policy`；不读取会话、访问网络、创建 handoff 或附带 query、fragment、凭据和认证参数。正文及版本由 New API 公开页面维护。
 - 登录面板使用已有 `useOAuth` providers 投影，经可选的通用展示插槽装配下游模块。通用设置经可选插槽装配相同扩展，读取本窗口 Local Host 的 OAuth 服务；远程 workspace 的服务不能替换该来源。各入口只在桌面启用，普通 Web、手机远控、API Key 和无可选 metadata 的原有业务行为保持原样。
 - 扩展仅接受已启用的 `new-api` 完整 metadata、同一合法 HTTPS 或 loopback HTTP origin 及精确公开路径；缺失、不完整、跨源、含认证参数或其他路径时隐藏全部法律入口，不使用默认地址。点击经 `IPlatformService.openExternal` 打开；不改变用户内容、OAuth、PKCE、会话、套餐、支付或自定义 Provider。
-- 运营主体属于既有唯一 `xwork-brand/brand.json`，PR #38 的 `@zcode/shared/xwork-brand` 与 `@zcode/shared/aiscoo-brand` 两个出口共享该数据。法律界面独立为 `aiscoo/legal` managed 模块；中英文本只追加到现有字典。
+- 运营主体属于唯一的 `aiscoo-brand/brand.json`，经 `@zcode/shared/aiscoo-brand` 公开（PR #38 时期的 `xwork-brand` 旧出口已于 2026-11-01 删除）。法律界面独立为 `aiscoo/legal` managed 模块；中英文本只追加到现有字典。
 
 ```mermaid
 sequenceDiagram
@@ -180,14 +186,34 @@ sequenceDiagram
 
 安全凭据域按 `new-api:<origin-key>:<user-id>:<sid>` 命名，保存 control、refresh、relay 的类型/expiry。origin-key 是规范化 origin 的稳定非秘密标识；不能同用户名不同服务器复用 token。
 
-复用现有 `credentials.json`、目录锁和原子替换。私有 typed bundle 与 active pointer 同次加密落盘，refresh/delete/取消补偿按精确 owner 与前继 refresh CAS；公共 `ICredentialService` 拒绝 `new-api:` / `official-cloud:` 秘密域。Desktop Main 使用平台 `safeStorage` 保护独立随机私有加密 key，仅传给 Host；拒绝 Linux `basic_text` 或无安全 keystore 的降级。旧官方密文不改 key，Headless 缺私有 cipher 时明确不可用。
+复用现有 `credentials.json`、目录锁和原子替换。私有 typed bundle 与 active pointer 同次加密落盘，refresh/delete/取消补偿按精确 owner 与前继 refresh CAS；公共 `ICredentialService` 拒绝 `new-api:` / `official-cloud:` 秘密域。
+
+**加密密钥（2026-11-01 决定，取代此前的 `safeStorage` 随机私有 key 方案）。** 私有记录与上游一致，使用上游 `createCredentialCipherProvider()` 的密钥来源：环境变量 `ZCODE_CREDENTIAL_SECRET`，未设置时由 `platform + homedir + username` 推导。Desktop Main 不再读取 Electron `safeStorage`、不再创建或读取 `private-credential-key.v1`、不再向 Host 下发 `XCODE_PRIVATE_CREDENTIAL_SECRET`；因此应用启动和登录**不会触发系统钥匙串授权，也不会要求用户输入电脑密码**。旧官方密文、私有记录、`official-cloud:` 记录使用同一个 cipher。
+
+- **原因**：产品要求最终用户不被要求输入电脑密码，且上游 ZCode 的登录凭据路径没有这一步。此前的 `safeStorage` 方案在 macOS 上读取由其他签名身份创建的钥匙串条目会弹出授权窗，读取失败时登录在联网前被拦截，界面只显示泛化的“登录失败”。
+- **接受的安全取舍**：该密钥可由系统公开信息推导（仓库审计文档 `docs/security/security-audit-2026-06-09.md` 与 `docs/analysis/credentials-json-code-audit.md` 已记录）。同一台电脑上能读取 `credentials.json` 的同用户本地进程，可以离线推导密钥并解密其中的登录会话；AES-GCM 只防止未获得推导信息的读取者，不是操作系统级保护。该风险与上游相同，由用户在知情后接受。需要更强保护时，部署方设置 `ZCODE_CREDENTIAL_SECRET`（Host 与 CLI 对空白字符的处理不同，设置值不得含首尾空白）。文件权限仍为 0600，`credentials.json` 不进入日志导出。
+- **旧记录**：此前由 `safeStorage` 密钥加密的私有记录，使用上游 cipher 无法解密，按“解密失败”处理：启动恢复显示需要重新登录，用户重新登录时，已验证登录的恢复路径（见 §3“已验证 Native 登录的凭据恢复”）先保存原始密文备份再覆盖。不尝试读取旧 `private-credential-key.v1` 或钥匙串，不做迁移。旧密钥文件不再被使用，留在磁盘上无害，可以手动删除。
+- **不再有“存储不可用”分支**：Host 创建 cipher 不会因缺少 OS 密钥而失败，`XCODE_SECURE_STORAGE_UNAVAILABLE` 不再由 Desktop 产生；校验层仍把该码按“需要恢复凭据”分类，以兼容测试夹具注入的故障。
+
+**范围。** 只涉及桌面端 New API 私有凭据。CLI 的 Zen 凭据存储（服务 `XWork CLI Zen`，`@napi-rs/keyring`）是独立入口，由用户运行 CLI 登录命令触发，桌面端不调用，不在本次范围内；Chrome 登录状态导入读取 Chrome Safe Storage 是用户主动发起的功能，也不变。
+
+```mermaid
+sequenceDiagram
+  participant M as Main
+  participant H as Local Host
+  participant C as credentials.json
+  M->>H: 启动 Host（不携带任何加密密钥）
+  H->>H: 上游 cipher：ZCODE_CREDENTIAL_SECRET，缺省按平台、家目录、用户名推导
+  H->>C: 加密读写 new-api 私有记录
+  Note over M,C: 全程不访问 Electron safeStorage 与系统钥匙串
+```
 
 原生 JWT本地 exp 解析只作刷新提示；身份、SID、授权最终由服务端确认。Opaque/不可解析不等于已经登录。刷新采用 Host 内单飞，复用原生 refresh 轮换和竞态恢复，及时原子替换安全库中的后继 refresh。
 
 - control 过期：允许一次正常 refresh 后重试原只读请求；不要对安全拒绝无限重试。
 - Native 明确 session/key 已撤销：主登录失效，清可执行私有授权，要求重新登录。
 - 503/网络故障：显示暂不可用，不伪装 signed-out/no_plan，不删除可恢复凭据。
-- 解密失败：沿用稳定错误及人工恢复提示，不能静默换到官方或环境变量 key。
+- 解密失败：沿用稳定错误及重新登录提示，不能静默换到其他 key（环境变量 `ZCODE_CREDENTIAL_SECRET` 是上游 cipher 自身的一部分，不属于“换 key”）。
 - 取消/新登录覆盖：迟到回调不持久化；若已兑换到有效 SID，按 canonical 撤销，不发布错误主用户。
 
 同 SID 的正常 refresh 不重建 relay key；删 key 后不通过 refresh 自动“修复”用户的明确撤销。
@@ -234,9 +260,9 @@ group 为 `new-api-family`，不要按每个套餐新建 provider ID。模型归
 
 Native Provider 归类为 ordinary model-selection 行为，但 access 仍为 managed account；不套原 `account-plan` 的“唯一 current Provider 自动 remap”，避免三种 transport 产生歧义。选择由实际 provider+model ref 决定，不自动转成另一协议或模型。
 
-XWork 前端仅开放 `account:new-api-openai-chat-completions`，模型设置与对话模型选择中的提供商展示名称固定为 `XWork Zen`。另两个 anchor 使用现有 `visibility: hidden`，不进入模型设置、聊天模型选择或默认候选；历史 ref 保留但不自动迁移，重新选择可见模型。底层协议契约与管理员模型归属不改，不把其他 transport 的模型移入 Chat Completions。可见入口即使目录为空也保留，按真实权限和配置显示不可用。用户自配 Provider 与独立官方云连接不受影响。
+XWork 前端仅开放 `account:new-api-openai-chat-completions`，模型设置与对话模型选择中的提供商展示名称固定为 `XWork Zen`。另两个 anchor 使用现有 `visibility: hidden`，不进入模型设置、聊天模型选择或默认候选；历史 ref 保留但不自动迁移，重新选择可见模型。底层协议契约与管理员模型归属不改，不把其他 transport 的模型移入 Chat Completions。可见入口即使目录为空也保留，按真实权限和配置显示不可用。用户自配 Provider 不受影响；独立官方云连接已由唯一登录规格退役。
 
-模型设置遵循 [原版呈现规格](new-api-model-settings-ui.md)：托管入口复用现有标题、编程套餐状态卡、个人/团队入口，数据只取 Native `/plans` 与 `/entitlements`。参考价只在相同币种/完整周期的启用模板中比较；团队明确不支持。独立官方连接操作保留在使用统计 MCP 区，不在套餐详情另造横幅。UI 投影按既有 connectionKey、登录 epoch、服务实例与请求序号隔离，换号/退出首帧清空旧数据，查询失败不解释为未开通。
+模型设置遵循 [原版呈现规格](new-api-model-settings-ui.md)：托管入口复用现有标题、编程套餐状态卡、个人/团队入口，数据只取 Native `/plans` 与 `/entitlements`。参考价只在相同币种/完整周期的启用模板中比较；团队明确不支持。独立官方连接操作及 MCP 连接卡按唯一账号规格移除，不在套餐详情或使用统计另造登录入口。UI 投影按既有 connectionKey、登录 epoch、服务实例与请求序号隔离，换号/退出首帧清空旧数据，查询失败不解释为未开通。
 
 ### 5.2 动态能力的真实通道
 
@@ -309,7 +335,7 @@ secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或
 | UI              | usePlanIdentitySnapshot、accountProviderAccess、codingPlanUsageSources、modelVisionBadge、ModelProviderSection/Detail 以及账号失效提示 |
 | 身份分支        | 任何 `family === "zai" ? ... : bigmodel` 式 fallback 必须显式处理 native 与 official-cloud；不得把 new-api 当 bigmodel                 |
 
-不删除仍由官方云使用的旧 family、off-peak ID/配置和官方 adapters；删除的是普通私有路径上的旧依赖、fallback、secret alias 和失效兼容逻辑。
+保留通用上游使用的旧 family、off-peak ID/配置和官方 adapters；Aiscoo 产品不再装配官方账号读取者。删除的是产品私有路径上的旧登录依赖、fallback、secret alias 和失效兼容逻辑，自配 Provider 的模型协议不受影响。
 
 ## 6. 套餐、余额与支付 RPC
 
@@ -318,14 +344,14 @@ secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或
 | 现有 ICodingPlanSubscriptionService 方法                                                                                            | 一期映射                                                                                                                        |
 | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | getStaticProducts / getStaticTeamProducts / getStartPlanPreview / batchPreview / productInfo / preview                              | canonical plans + entitlements；返回带 native/private-user 语义的 shared 读 DTO，真实模板 ID/名称/价格/周期。不要强塞假企业结构 |
-| getEnterprisePricing / getEnterpriseBalance                                                                                         | 主套餐页面为统一私人订阅的预算/额度展示；明确不是企业组织钱包。真实官方 team scope 读取移至独立官方连接路径                     |
-| getManualClaimPlanPreviews / claimManualPlan / getBillingDiscount                                                                   | 私有模式拒绝 `XCODE_SELF_SERVICE_DISABLED`；不领取官方 Start 赠送或读取官方促销，非私有模式保留原官方行为                       |
+| getEnterprisePricing / getEnterpriseBalance                                                                                         | 主套餐页面为统一私人订阅的预算/额度展示；明确不是企业组织钱包。Aiscoo 不再读取官方 team scope 或独立连接                        |
+| getManualClaimPlanPreviews / claimManualPlan / getBillingDiscount                                                                   | 有效 Aiscoo 配置拒绝 `XCODE_SELF_SERVICE_DISABLED`，缺配置返回配置错误；不领取官方 Start 赠送或读取官方促销                     |
 | createSign / updateSign                                                                                                             | 拒绝 `XCODE_SELF_SERVICE_DISABLED`；不返回 agreement/payment URL                                                                |
 | bindStripeCard / unbindStripeCard / payStripe                                                                                       | 同上；不调用官方/native支付写接口                                                                                               |
 | createPaypalSetupToken / subscribePaypal                                                                                            | 同上；不创建假 setup token                                                                                                      |
 | calculateEnterpriseOrder / createEnterpriseOrder / cancelEnterpriseOrder / continueEnterpriseOrderPayment                           | 同上；本期不存在 XCode 下单/订单修改操作                                                                                        |
 | checkPayment / checkPendingOrders / queryStripeCards / checkPaypalSupport / getEnterprisePendingOrders / checkEnterpriseOrderStatus | 使用下文确定的 SelfServiceReadResult；私有模式返回 not-supported，不返回 paid 成功、空订单/false 等代替未提供的业务事实         |
-| getOffPeakClientConfig / getDynamicWorkflowClientConfig                                                                             | 保持原官方配置读取，改用独立官方连接；不从 Native client-config 仿造                                                            |
+| getOffPeakClientConfig / getDynamicWorkflowClientConfig                                                                             | Aiscoo 产品不读取旧官方连接；依赖官方身份的能力明确不可用，不从 Native client-config 仿造                                       |
 | getModelContextBudgetStrategy                                                                                                       | 保留现有 preflight-v1 客户端策略；管理员 metadata 决定模型硬上限                                                                |
 | getForceUpdateConfig                                                                                                                | 保留实际应用更新来源，不伪装成 New API 套餐字段                                                                                 |
 
@@ -349,12 +375,12 @@ secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或
 
 ### 7.1 统计口径必须拆开
 
-| 视图            | 数据范围                                                            |
-| --------------- | ------------------------------------------------------------------- |
-| App Usage       | 当前本机 Agent 数据库，原统计不改                                   |
-| 私有额度卡      | 唯一 XCode 指定实例；只有一个真实 quota 周期                        |
-| 私有云用量/图表 | New API 账号全部已记录消费/退款；包括其他 native key、订阅和钱包    |
-| 官方 MCP/云任务 | 独立官方连接的官方范围/账务；不并入 Native 套餐卡或 Native 账号图表 |
+| 视图            | 数据范围                                                                     |
+| --------------- | ---------------------------------------------------------------------------- |
+| App Usage       | 当前本机 Agent 数据库，原统计不改                                            |
+| 私有额度卡      | 唯一 XCode 指定实例；只有一个真实 quota 周期                                 |
+| 私有云用量/图表 | New API 账号全部已记录消费/退款；包括其他 native key、订阅和钱包             |
+| 官方 MCP/云任务 | Aiscoo 产品不可用，不读取历史官方范围/账务，也不并入 Native 套餐卡或账号图表 |
 
 `getCodingPlanUsageSnapshot` 调 canonical `/usage`；`getEntitlementSnapshot` 调 `/entitlements`；旧 monitor 路径不再决定主私有权益。`getAppUsageSnapshot` 保留本地实现。generic `getSnapshot` 按明确数据源调用；私有不可用时不降级为本地或官方 monitor。
 
@@ -375,8 +401,7 @@ secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或
 - today/7d/30d/custom 和原 date controls 保留；custom 最多 30 个自然日，IANA/DST 与服务端 canonical 一致。显示时间与服务端 quota reset 时区分开。自然日桶标签不经客户端时区改日；小时桶完整 UTC offset 保留在图表横轴和 tooltip，DST 回拨的同名小时不能合并成同一显示标签。
 - metadata 和统计里的历史 model_id 可不同集合；历史模型不再授权也可以展示消费，但不能因此恢复为可选模型。
 
-Native 主权益的 mcpQuota 必须 null，不能暗示新私有套餐附带官方 quota；官方 MCP 卡通过真实官方连接读取其真实配额。布局容器保留，未独立连接显示连接操作，已连接显示官方来源标签。
-卡片标题使用「官方 MCP」（英文为「Official MCP」），不使用「XWork MCP」。
+Native 主权益的 mcpQuota 必须 null，不能暗示 Aiscoo 套餐附带官方 quota。移除需要 Z.ai/BigModel 登录的官方 MCP 卡及连接/断开操作；相关云能力真实不可用，不读取旧官方凭据或展示其缓存额度。
 
 #### 对话上下文浮层的模型来源边界
 
@@ -405,36 +430,15 @@ shared `CodingPlanResetStatusSnapshot` 改为有 mode 的联合：原官方窗�
 
 后端模板/服务端到期、额度不足与网络故障分别映射 existing unavailable 提示；DB 失败不得当 no_plan。主账号保持已登录时可显示已过期授权及账号级统计。
 
-## 8. 官方云服务独立连接
+## 8. 官方账号能力退役（2026-10-31）
 
-这是保持原功能的必要改造，不是新增第二套通用认证平台。
+本节原独立官方连接方案由 [Aiscoo 唯一登录规格](aiscoo-only-login.md) 取代。产品不再装配 Z.ai/BigModel 官方主账号、`official-cloud` pending flow、官方 polling、连接恢复或登录按钮；底层通用上游实现不以批量删改方式处理。
 
-### 8.1 官方 connection owner
-
-在现有官方服务/账号连接边界增加一个明确的 `IOfficialCloudConnectionService` 契约及 RPC：读取连接快照、发起已有官方 OAuth、注销该官方连接、刷新真实云 entitlement/catalog。复用 BigModel/Z.ai adapter 与安全 Repo，不复制 OAuth token exchange 实现。
-
-官方登录目的必须 `official-cloud`，与主登录 pending state 分开；完成后只更新当前 Native owner 的官方连接，不调用主 `setActiveProvider` 覆盖 New API 身份。凭据 namespace 包含 Native origin/user_id、官方 family/account 和 credential generation。
-
-官方连接快照保存真实 family、official account identity、个人/team 的实际 plan scope 及真实 org/project；不存在权益则明确不可用，不造 org/project ID，也不因 Native 有套餐认为官方 Plan 有效。当前官方 family 来自连接选择，不从私有模型 selection 推断。
-
-### 8.2 断开对普通 Registry 的依赖
-
-必须重接：
-
-- `resolveOfficialMcpCredentials/resolveSelectedProvider`：输入独立官方 connection/entitlement，不扫描普通模型 Registry找唯一 zhipu-account。
-- `offPeakRuntimeModel.resolveOffPeakCredentials` 与 node 的 resolveAccountProvider：从同一官方连接拿原 JWT/官方 coding-plan API key，拒绝混 generation/owner。
-- `buildOffPeakModelSelectionView`：从原官方配置建立独立云模型 view，不能过滤 Native普通 view 或显示 New API 私有模型。
-- `getOffPeakClientConfig/getDynamicWorkflowClientConfig`：保留原官方 origin及灰度/权限，采用独立 connection；不拿 Native client-config 打开官方 feature。
-- 官方 MCP usage：保留 `/api/v1/mcp/usage` 和 buildOfficialMcpAuthHeaders 的真实 scope；Native quota/read token 不参与。
-- 官方会话分享：`node.ts` 的 ConversationShareHttpClient tokenProvider 改从独立官方连接取得当前 owner 的真实官方凭据，覆盖发布/能力发现及其分享读取调用；禁止 `getActiveProvider()` 后取主账号 token 或用 Native accessToken 兜底。原 client 的 required-auth 操作无官方连接时维持 authentication_required；public preview/continuation 的 optional-auth 语义保留，可以匿名访问，但也不能附 Native token。异步能力/导入结果按主 owner 与官方 generation 栅栏校验。
-  - 发布/导入入口冻结整次操作的 Native owner 与官方 generation；本地正文/附件读取期间换号，后续 preparation/upload/confirm 不得重新取得新账号凭据。所有 HTTP attempt 与最终返回沿用同一 operation fence。
-  - 导入 fence 通过仅 Host 可携带的准入契约进入 MCP/worker/config 异步准备及实际 durable session-create 边界；过期操作不得写 session、index 或广播。持久化确认后先解除附件清理武装，再拒绝过期结果，不能通过事后删除会话引用的安全产物掩盖错误提交。公开 optional-auth/匿名读取仍保留，匿名导入也受当前 Native owner 约束。
-
-现有“二次读取 credential fingerprint 防混代”保护保留，并增加 Native主用户 owner 栅栏。正式请求不得混 A 的 JWT 与 B 的 coding-plan authorization。
-
-普通 Agent 选择私有模型不改变闲时任务模型。闲时任务执行、quota 和账单继续官方；无官方登录/Plan/云能力时保持原入口但明确要求独立连接或权限，不发送私有模型调用当作云任务。
-
-保留真正官方 endpoints、cloud adapters、hidden off-peak配置、MCP scopes 与现有官方服务错误处理。只有普通主套餐/模型路径不再使用它们。
+- 服务入口用不可变产品策略固定只允许 Aiscoo。有效配置沿用原 New API owner，配置不可用适配器只返回稳定错误与未登录投影，不借用官方凭据。
+- Main/Host/Renderer 对同一策略拒绝旧官方 provider、purpose 和回调；未注册的历史 state 不能路由到活动窗口或重建旧 owner。
+- 官方 MCP、闲时云、官方套餐/用量与受保护分享动作没有可用官方身份时明确不可用，不扫描历史 credential、Registry 或 CLI 配置作为 fallback，不把 Aiscoo token 发送到官方服务。
+- 历史官方安全记录保留原样，不自动删除、迁移或重新认领。公开分享预览/匿名读取继续沿原能力接口运行，浏览器不隐式附带旧官方 cookie。
+- 已有 owner、generation、lease、跨 Host 路由和 stale run 防护保留。产品策略不新建 accepted queue，不改变 Desktop continuous 与手机 replayable 的恢复语义，不为恢复某个云功能重新开放官方登录。
 
 ## 9. 本机 worker 与非本期平台
 
@@ -448,13 +452,13 @@ shared `CodingPlanResetStatusSnapshot` 改为有 mode 的联合：原官方窗�
 
 ## 10. 实现顺序与变更边界
 
-| 切片          | 交付内容                                                                                    | 依赖                                 |
-| ------------- | ------------------------------------------------------------------------------------------- | ------------------------------------ |
-| X1 身份与协议 | Native wire解析、主/官方连接 purpose、凭据 namespace、安全恢复、pending generation          | canonical auth 和 scoped Session后端 |
-| X2 Registry   | 私有 access/anchors、完整 account modelConfigs、严格能力、worker同步、旧选择要求重选        | canonical models/entitlements        |
-| X3 控制面     | Native套餐/usage/reset adapter、manual purchase guards、只读 Web handoff、实际周期/空值映射 | canonical读接口/页面                 |
-| X4 官方云     | 独立连接/目录/权益，MCP与闲时任务解除普通Registry耦合                                       | X1，原官方服务                       |
-| X5 联调       | 本机登录→管理员授予→真实Agent→消费→耗尽/撤销，真实 UI和官方云验收                           | 两仓全部切片                         |
+| 切片            | 交付内容                                                                                    | 依赖                                 |
+| --------------- | ------------------------------------------------------------------------------------------- | ------------------------------------ |
+| X1 身份与协议   | Native wire解析、主账号 purpose、凭据 namespace、安全恢复、pending generation               | canonical auth 和 scoped Session后端 |
+| X2 Registry     | 私有 access/anchors、完整 account modelConfigs、严格能力、worker同步、旧选择要求重选        | canonical models/entitlements        |
+| X3 控制面       | Native套餐/usage/reset adapter、manual purchase guards、只读 Web handoff、实际周期/空值映射 | canonical读接口/页面                 |
+| X4 官方账号退役 | 删除 Aiscoo 产品官方登录/恢复/连接入口，依赖能力真实不可用；历史凭据保留                    | 唯一登录策略                         |
+| X5 联调         | 本机登录→管理员授予→真实Agent→消费→耗尽/撤销，真实 UI及官方登录禁用验收                     | 两仓全部切片                         |
 
 在现有 feature 分支实施，遵守 docs/aiscoo/BRANCHING.md 与仓库架构治理。新增契约放 shared、协调放服务 owner；UI使用现有RPC/hooks。先核对 exported symbol references、复用patterns，再改 union；不加单实现抽象或全局 generic backend framework。
 
@@ -473,9 +477,9 @@ shared `CodingPlanResetStatusSnapshot` 改为有 mode 的联合：原官方窗�
 | 旧官方Plan选择         | 原保存选择即使 model_id 与私有目录完全相同，也不可自动迁移、必须用户重选；不调用旧网关；会话历史和custom provider仍可用                                                       |
 | 三种transport          | 实际SDK路径、stream/tool/reasoning/vision按metadata正确；失败可分辨，不只是typecheck                                                                                          |
 | 目录/权限更新          | 管理员metadata、grant/replace/revoke更新到Host/worker；旧用户/旧revision不可执行                                                                                              |
-| 主用户A→B              | A的用量、model、WebView与官方连接不出现在B；B无法读A任何secret；A再登录可恢复其官方连接                                                                                       |
-| 官方登录               | 不替换Native主用户，不用Nativekey/JWT；MCP/闲时任务使用真实官方model和计费                                                                                                    |
-| 官方会话分享           | 发布/能力使用当前 owner 的官方凭据，主 Native token 不出站到官方；无连接时受保护动作要求官方登录，公开分享导入的匿名能力仍可用                                                |
+| 主用户A→B              | A的用量、model、WebView不出现在B；B无法读A任何secret；相同或不同用户均不恢复历史官方连接                                                                                      |
+| 官方登录               | 主登录、独立连接、polling、callback和旧缓存恢复全部在产品边界拒绝，无官方认证请求                                                                                             |
+| 官方会话分享           | 受保护发布/能力明确不可用，主 Native token 不出站到官方，不再提示官方登录；公开只读分享维持匿名能力                                                                           |
 | 手工购买入口           | 原upgrade/续费入口仍在，原版套餐比较结构/真实manual CTA按§6.1及U01–U04验收；无假order/card/payment成功；Native原生面板支付不受影响                                            |
 | 交接一次性准入         | Host 等待匹配 Main ACK 后返回短 URL；无 seam 不铸码；A URL 重标 B generation、重复 prepare/attach、迟到旧 ACK 均拒绝；真实首屏同源资源可加载，旧分区清理不删除新 owner policy |
 | 单周期与无限额度       | 无五小时+周假双窗；原生period/单位正确；used比例与remaining不反转；unlimited明确                                                                                              |
@@ -497,6 +501,6 @@ pnpm architecture:check --changed
 
 该仓库并无统一现成的 provider/official-mcp源测试套件，不能杜撰命令或声称它们已通过。对风险最高的owner fencing、数据null语义、model config propagation和模型重选保留确定性可运行回归，按实际package脚本接入；新测试应保护消费者可见的状态/边界而非代码文字。
 
-完成必须启动真实桌面应用和New API，操作实际登录、Native管理员授予及模型选择，观察真实流、日志/扣费、用量和撤销；逐项检查保留的UI surfaces。官方云联调必须有真实可用官方账户/Plan，缺少凭据时报告具体未验收项，不能用mock宣称完整替代。
+完整发布验收需启动真实桌面应用和 New API，在明确授权的测试账号中验证登录、管理员授予及模型选择、请求/用量与撤销，逐项检查保留的 UI surfaces。唯一登录清理以隔离回归证明旧官方入口和恢复被拒绝，不再要求或发起官方云登录；真实部署、账号、计费及跨平台限制单独报告，不能用模拟环境宣称完整发布验收。
 
 执行期间须记录每次真实验证及限制。T01–T09 的实现/确定性回归与 T10 的正式联调分开签验；缺少实际部署来源、原生账号、管理员授予或真实官方账户时，不把纯测试、旧 status、模拟上游当成发布验收。

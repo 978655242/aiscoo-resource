@@ -21,6 +21,7 @@ import {
 import {
   browserWebProfile,
   composeBrowserWebProxy,
+  aiscooAccountLoginBoundaryPlugin,
 } from "../../scripts/aiscoo/browser-web-profile.mjs";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
@@ -56,6 +57,8 @@ export default defineConfig(({ mode }) => {
   return {
     // XCODE: 仅转换静态启动 Logo，保持上游 Web 入口及运行时逻辑不变。
     plugins: [
+      // XCODE: 产品入口始终拒绝旧官方 token 代理，不改变通用 OAuth 实现。
+      aiscooAccountLoginBoundaryPlugin(),
       // XCODE: 本机入口限制先于 Vite 内置中间件，原 Web 不注册。
       ...(browserAccount ? [browserAccount.plugin] : []),
       aiscooStartupLogoPlugin(),

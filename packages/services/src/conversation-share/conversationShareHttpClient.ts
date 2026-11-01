@@ -34,7 +34,7 @@ import {
 } from "@zcode/shared";
 import { z } from "zod";
 // XCODE: 仅本地分享兼容提示投影品牌，不改分享内容或服务端响应。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 import { createServiceLogger } from "../logger/serviceLogger.js";
 import { REQUEST_ID_HEADER_NAME, withRequestIdHeader } from "../providers/api/requestIdHeaders.js";
 import { verifyConversationShareIntegrity } from "./conversationShareIntegrity.js";

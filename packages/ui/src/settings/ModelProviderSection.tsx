@@ -69,7 +69,6 @@ import {
 } from "@/lib/settingsNavigation.js";
 import { useEnterpriseCodingPlanProducts } from "@/settings/model-provider-section/useEnterpriseCodingPlanProducts.js";
 import { useNativePlanSettings } from "@/hooks/useNativePlanSettings.js";
-import { useOfficialCloudConnection } from "@/hooks/useOfficialCloudConnection.js";
 
 export {
   fuzzyMatch,
@@ -253,7 +252,6 @@ export function ModelProviderSection({
   const { intl, locale } = useZCodeIntl();
   const confirmDialog = useConfirmDialog();
   const platform = usePlatform();
-  const officialCloud = useOfficialCloudConnection();
   const { modelSelectionService, oauthService, credentialService } = useServices();
   const {
     modelProviders,
@@ -818,12 +816,6 @@ export function ModelProviderSection({
       status: CodingPlanStatus,
       options?: CodingPlanLoginOptions,
     ) => {
-      if (
-        activeOAuthProvider === NEW_API_PROVIDER_ID &&
-        (providerId === "zai" || providerId === "bigmodel")
-      ) {
-        return officialCloud.startOAuth(providerId === "zai" ? "zai" : "bigmodel");
-      }
       setPresetSubscriptionProviderId(presetId);
       setCodingPlanStatusSyncProviderId(presetId);
       logger.info("[ModelProviderSection] 请求通过统一登录入口登录并连接 Coding Plan", {
@@ -846,22 +838,11 @@ export function ModelProviderSection({
       // ZAI/BigModel provider 不再有独立 connection，Connect 必须切换 App active provider。
       return requestLoginEntry(providerId);
     },
-    [
-      activeOAuthProvider,
-      officialCloud.startOAuth,
-      refreshProviderPanelAfterAuthChange,
-      requestLoginEntry,
-    ],
+    [activeOAuthProvider, refreshProviderPanelAfterAuthChange, requestLoginEntry],
   );
 
   const handleCodingPlanDisconnect = useCallback(
     async (presetId: BuiltinModelProviderId, providerId: OAuthProviderId, providerName: string) => {
-      if (
-        (await oauthService.getProviders()).some((provider) => provider.id === NEW_API_PROVIDER_ID)
-      ) {
-        await officialCloud.logout();
-        return;
-      }
       if (providerId !== BIGMODEL_PROVIDER_ID && providerId !== ZAI_PROVIDER_ID) {
         return;
       }
@@ -910,7 +891,6 @@ export function ModelProviderSection({
     },
     [
       oauthService,
-      officialCloud.logout,
       platform,
       updateSharedSettings,
       sharedSettings?.providerFamilyDomain,

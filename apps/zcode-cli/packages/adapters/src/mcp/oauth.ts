@@ -1,5 +1,5 @@
 // XCODE: 自有静态展示模板读取共享品牌；用户内容与稳定标识保持原样。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import { createHash, randomBytes } from "node:crypto";
 import type {
   OAuthClientInformationMixed,

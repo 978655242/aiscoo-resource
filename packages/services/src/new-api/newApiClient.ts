@@ -70,12 +70,14 @@ export class NewApiClient {
   readonly redirectUri: string;
   private readonly fetch: typeof globalThis.fetch;
   private readonly now: () => number;
+  private readonly bodyAbortAsUnavailable: boolean;
 
   constructor(
     baseUrl: string,
     dependencies: {
       fetch?: typeof globalThis.fetch;
       now?: () => number;
+      bodyAbortAsUnavailable?: boolean;
       redirectUri?: string;
     } = {},
   ) {
@@ -87,16 +89,21 @@ export class NewApiClient {
       throw new NewApiClientError("XCODE_AUTH_REQUEST_INVALID", 400);
     this.fetch = dependencies.fetch ?? globalThis.fetch;
     this.now = dependencies.now ?? Date.now;
+    // XCODE: 仅可选本机 Web 期限启用响应体中止分类，桌面保持原行为。
+    this.bodyAbortAsUnavailable = dependencies.bodyAbortAsUnavailable ?? false;
   }
 
   async exchangeAuthorizationCode(input: {
     code: string;
     codeVerifier: string;
+    clientId?: string;
+    redirectUri?: string;
   }): Promise<NewApiSessionBundle> {
     const bundle = await this.request("auth/token", NewApiSessionBundleSchema, undefined, {
       grant_type: "authorization_code",
-      client_id: NEW_API_CLIENT_ID,
-      redirect_uri: this.redirectUri,
+      // XCODE: 本地 Web 保留该轮回环参数；桌面未覆盖时使用构造绑定的精确渠道回调。
+      client_id: input.clientId ?? NEW_API_CLIENT_ID,
+      redirect_uri: input.redirectUri ?? this.redirectUri,
       code: input.code,
       code_verifier: input.codeVerifier,
     });
@@ -107,9 +114,11 @@ export class NewApiClient {
   async refreshSession(input: {
     sessionId: string;
     refreshToken: string;
+    clientId?: string;
   }): Promise<NewApiSessionBundle> {
     const bundle = await this.request("auth/refresh", NewApiSessionBundleSchema, undefined, {
-      client_id: NEW_API_CLIENT_ID,
+      // XCODE: refresh 必须与签发该独立会话的客户端一致。
+      client_id: input.clientId ?? NEW_API_CLIENT_ID,
       session_id: input.sessionId,
       refresh_token: input.refreshToken,
     });
@@ -119,9 +128,14 @@ export class NewApiClient {
     return bundle;
   }
 
-  async logoutSession(input: { sessionId: string; refreshToken: string }): Promise<void> {
+  async logoutSession(input: {
+    sessionId: string;
+    refreshToken: string;
+    clientId?: string;
+  }): Promise<void> {
     await this.request("auth/logout", logoutSchema, undefined, {
-      client_id: NEW_API_CLIENT_ID,
+      // XCODE: 注销和过期登录补偿必须使用签发时的客户端。
+      client_id: input.clientId ?? NEW_API_CLIENT_ID,
       session_id: input.sessionId,
       refresh_token: input.refreshToken,
     });
@@ -223,9 +237,14 @@ export class NewApiClient {
     let envelope: unknown;
     try {
       envelope = await response.json();
-    } catch {
+    } catch (error) {
+      // XCODE: 响应体读取可能被本机 Web 的请求期限中止，不能误报协议错误或暴露原始异常。
+      const aborted =
+        this.bodyAbortAsUnavailable &&
+        error instanceof Error &&
+        (error.name === "AbortError" || error.name === "TimeoutError");
       throw new NewApiClientError(
-        response.status >= 500 ? "XCODE_BACKEND_UNAVAILABLE" : "XCODE_PROTOCOL_INVALID",
+        aborted || response.status >= 500 ? "XCODE_BACKEND_UNAVAILABLE" : "XCODE_PROTOCOL_INVALID",
         response.status,
       );
     }

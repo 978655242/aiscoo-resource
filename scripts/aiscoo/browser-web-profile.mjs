@@ -8,6 +8,28 @@ export function composeBrowserWebProxy(profile, existing) {
   return { ...specific, ...profile.proxy };
 }
 
+// 产品入口不提供旧官方 token 代理，避免直接 HTTP 绕过页面门禁。
+export function aiscooAccountLoginBoundaryPlugin() {
+  const configure = (server) => {
+    // Vite 把返回函数当 post hook；Connect use 返回 app，必须在此显式返回 void。
+    server.middlewares.use((req, res, next) => {
+      if (/^\/api\/v1\/oauth(?:\/|$)/.test(req.url?.split("?")[0] ?? "")) {
+        res.statusCode = 403;
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify({ code: "AISCOO_ACCOUNT_LOGIN_UNSUPPORTED" }));
+        return;
+      }
+      next();
+    });
+  };
+  return {
+    name: "aiscoo-account-login-policy",
+    enforce: "pre",
+    configureServer: configure,
+    configurePreviewServer: configure,
+  };
+}
+
 // 本机 Web 只增加公开配置、同源代理与开发服务器入口限制，不持有登录凭据。
 export function browserWebProfile(env) {
   if (env.AISCOO_BROWSER_NEW_API !== "1") return null;
@@ -52,14 +74,8 @@ export function browserWebProfile(env) {
       configureServer(server) {
         server.middlewares.use((req, res, next) => {
           const requestOrigin = req.headers.origin;
-          // 本机与原远控/分享回跳都是跨站顶层导航；页面仍按原 state 校验处理回调。
-          const callbackPaths = new Set([
-            "/oauth/callback",
-            "/remote/v4",
-            "/remote/v4/",
-            "/share/callback",
-            "/cn/share/callback",
-          ]);
+          // Aiscoo 只接受既有精确 loopback callback；远控/分享旧官方回跳不再开放。
+          const callbackPaths = new Set(["/oauth/callback"]);
           const callbackNavigation =
             req.method === "GET" &&
             callbackPaths.has(req.url?.split("?")[0]) &&

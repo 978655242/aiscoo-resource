@@ -123,7 +123,7 @@ sequenceDiagram
     Note over UI,Pane: 用户显式新建/切换后，旧恢复结果不再覆盖新意图
 ```
 
-通用接点为 `RootProps.restoreDraftContext`：未注入时保留上游的原恢复实现；XWork 在独立 `xwork/startup-context` 模块中提供归属水合，桌面与 Web 通过公开子路径 `@zcode/ui/xwork-startup-context` 的 `createXWorkRoot` 传入原 Root 组件后组合，不改变原 `@zcode/ui` 根导出。没有第二份会话状态、存储键、重试或队列，也不改变桌面 continuous、手机 replayable、Host/CLI 事实所有者及三个既有恢复字段。上游具备通用修复后优先随同步收敛。
+通用接点为 `RootProps.restoreDraftContext`：未注入时保留上游的原恢复实现；Aiscoo 在独立 `aiscoo/startup-context` 模块中提供归属水合，桌面与 Web 通过公开子路径 `@zcode/ui/aiscoo-startup-context` 的 `createAiscooRoot` 传入原 Root 组件后组合，不改变原 `@zcode/ui` 根导出。没有第二份会话状态、存储键、重试或队列，也不改变桌面 continuous、手机 replayable、Host/CLI 事实所有者及三个既有恢复字段。上游具备通用修复后优先随同步收敛。
 
 回归需覆盖：记住作用域但无文字草稿时自动恢复原会话；显式 New Task 优先；迟到水合不覆盖新任务/归属；同路径不同远端身份隔离；远端任务在 Desktop 完整退出期间完成后，重开自动恢复同一 task、输入/请求恰好一次且可续发。手机 replayable 不消费桌面 pane 的本地恢复键。
 

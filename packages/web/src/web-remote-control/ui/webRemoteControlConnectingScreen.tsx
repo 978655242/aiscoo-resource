@@ -1,6 +1,6 @@
 import { LoaderCircleIcon } from "lucide-react";
 // XCODE: 连接过程页在组合处注入品牌，不修改设备名称。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import { DevicePlatformIcon } from "@zcode/ui/device-platform-icon";
 import { WebRemoteControlBrand } from "#src/web-remote-control/ui/webRemoteControlBrand.js";
 import type { WebRemoteControlScreenLocale } from "#src/web-remote-control/domain/webRemoteControlScreenCopy.js";

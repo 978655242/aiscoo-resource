@@ -1,24 +1,14 @@
-# XWork 下游模块登记。scripts/architecture/policy.mjs 的 loadPolicy 把这里的 modules
+# Aiscoo 下游模块登记。scripts/architecture/policy.mjs 的 loadPolicy 把这里的 modules
 # 追加到 architecture-policy.yaml 之后再统一校验（重复 id、未知依赖照常报错）。
-# 上游 architecture-policy.yaml 保持与 ZCode 一致，XWork 模块只登记在本文件，避免同步冲突。
+# 上游 architecture-policy.yaml 保持与 ZCode 一致，下游模块只登记在本文件，避免同步冲突。
 # pnpm architecture:adopt 对上游 YAML 中没有的模块会登记或更新到本文件。
-# 新旧 ID 共用同一模块 owner、依赖和公开边界；旧清单无需重排。
-aliases:
-  cli-aiscoo: cli-xwork
-  cli-aiscoo-brand: cli-brand
-  aiscoo-startup-context: xwork-startup-context
-  aiscoo-plugin-guides-protocol: xwork-plugin-guides-protocol
-  aiscoo-plugin-guides-cli: xwork-plugin-guides-cli
-  aiscoo-plugin-guides-service: xwork-plugin-guides-service
-  aiscoo-plugin-guides-ui: xwork-plugin-guides-ui
-  aiscoo-brand: xwork-brand
-  aiscoo-brand-ui: xwork-brand-ui
+# 文件名沿用 xwork 是为了与上游同步脚本和既有分支保持一致；模块 ID 与路径统一使用 aiscoo。
 modules:
   - id: cli-zen-auth
     roots:
       - apps/zcode-cli/packages/adapters/src/auth/zen
     managed: true
-    requires: [shared, zcode-cli, xwork-brand]
+    requires: [shared, zcode-cli, aiscoo-brand]
     publicEntrypoints:
       - apps/zcode-cli/packages/adapters/src/auth/zen/index.ts
       - apps/zcode-cli/packages/adapters/src/auth/zen/contract.ts
@@ -29,22 +19,19 @@ modules:
     roots:
       - apps/zcode-cli/packages/bootstrap/src/zen
     managed: true
-    requires: [shared, cli-zen-auth, provider, zcode-cli, xwork-brand]
+    requires: [shared, cli-zen-auth, provider, zcode-cli, aiscoo-brand]
     publicEntrypoints:
       - apps/zcode-cli/packages/bootstrap/src/zen/index.ts
       - apps/zcode-cli/packages/bootstrap/src/zen/contract.ts
     layers:
       app: .
     owner: cli
-  - id: cli-xwork
+  - id: cli-aiscoo
     roots:
-      - apps/zcode-cli/packages/cli/src/xwork
       - apps/zcode-cli/packages/cli/src/aiscoo
     managed: true
-    requires: [cli-arguments, cli-sea-keyring, zcode-cli, cli-brand]
+    requires: [cli-arguments, cli-sea-keyring, zcode-cli, cli-aiscoo-brand]
     publicEntrypoints:
-      - apps/zcode-cli/packages/cli/src/xwork/index.ts
-      - apps/zcode-cli/packages/cli/src/xwork/contract.ts
       - apps/zcode-cli/packages/cli/src/aiscoo/index.ts
       - apps/zcode-cli/packages/cli/src/aiscoo/contract.ts
     layers:
@@ -61,50 +48,36 @@ modules:
     layers:
       adapters: .
     owner: cli
-  # xwork-startup-context：由 architecture:adopt 登记
-  - id: xwork-startup-context
+  # aiscoo-startup-context：由 architecture:adopt 登记
+  - id: aiscoo-startup-context
     roots:
-      - packages/ui/src/xwork/startup-context
       - packages/ui/src/aiscoo/startup-context
     managed: true
     requires:
       - ui
     publicEntrypoints:
-      - packages/ui/src/xwork/startup-context/index.ts
-      - packages/ui/src/xwork/startup-context/contract.ts
       - packages/ui/src/aiscoo/startup-context/index.ts
       - packages/ui/src/aiscoo/startup-context/contract.ts
     layers:
       ui: .
     owner: conversation
-  - id: xwork-plugin-guides-protocol
-    roots: [packages/shared/src/xwork-plugin-guides, packages/shared/src/aiscoo-plugin-guides]
+  - id: aiscoo-plugin-guides-protocol
+    roots: [packages/shared/src/aiscoo-plugin-guides]
     managed: true
     requires: [shared]
     publicEntrypoints:
-      - packages/shared/src/xwork-plugin-guides/index.ts
-      - packages/shared/src/xwork-plugin-guides/contract.ts
       - packages/shared/src/aiscoo-plugin-guides/index.ts
       - packages/shared/src/aiscoo-plugin-guides/contract.ts
     layers: { domain: . }
     owner: plugin
-  - id: xwork-plugin-guides-cli
+  - id: aiscoo-plugin-guides-cli
     roots:
-      - apps/zcode-cli/packages/adapters/src/xwork-plugin-guides
-      - apps/zcode-cli/packages/bootstrap/src/xwork-plugin-guides
-      - apps/zcode-cli/packages/core/src/xwork-plugin-guides
       - apps/zcode-cli/packages/adapters/src/aiscoo-plugin-guides
       - apps/zcode-cli/packages/bootstrap/src/aiscoo-plugin-guides
       - apps/zcode-cli/packages/core/src/aiscoo-plugin-guides
     managed: true
-    requires: [zcode-cli, shared, xwork-plugin-guides-protocol]
+    requires: [zcode-cli, shared, aiscoo-plugin-guides-protocol]
     publicEntrypoints:
-      - apps/zcode-cli/packages/adapters/src/xwork-plugin-guides/index.ts
-      - apps/zcode-cli/packages/adapters/src/xwork-plugin-guides/contract.ts
-      - apps/zcode-cli/packages/bootstrap/src/xwork-plugin-guides/index.ts
-      - apps/zcode-cli/packages/bootstrap/src/xwork-plugin-guides/contract.ts
-      - apps/zcode-cli/packages/core/src/xwork-plugin-guides/index.ts
-      - apps/zcode-cli/packages/core/src/xwork-plugin-guides/contract.ts
       - apps/zcode-cli/packages/adapters/src/aiscoo-plugin-guides/index.ts
       - apps/zcode-cli/packages/adapters/src/aiscoo-plugin-guides/contract.ts
       - apps/zcode-cli/packages/bootstrap/src/aiscoo-plugin-guides/index.ts
@@ -113,14 +86,11 @@ modules:
       - apps/zcode-cli/packages/core/src/aiscoo-plugin-guides/contract.ts
     layers: { app: . }
     owner: plugin
-  - id: xwork-plugin-guides-service
-    roots: [packages/services/src/xwork-plugin-guides, packages/services/src/aiscoo-plugin-guides]
+  - id: aiscoo-plugin-guides-service
+    roots: [packages/services/src/aiscoo-plugin-guides]
     managed: true
-    requires: [services, shared, rpc, provider, xwork-plugin-guides-protocol, xwork-brand]
+    requires: [services, shared, rpc, provider, aiscoo-plugin-guides-protocol, aiscoo-brand]
     publicEntrypoints:
-      - packages/services/src/xwork-plugin-guides/index.ts
-      - packages/services/src/xwork-plugin-guides/contract.ts
-      - packages/services/src/xwork-plugin-guides/node.ts
       - packages/services/src/aiscoo-plugin-guides/index.ts
       - packages/services/src/aiscoo-plugin-guides/contract.ts
       - packages/services/src/aiscoo-plugin-guides/node.ts
@@ -131,29 +101,22 @@ modules:
       adapters: adapters
     layerOrder: [contract, domain, app, adapters]
     owner: plugin
-  - id: xwork-plugin-guides-ui
-    roots: [packages/ui/src/xwork/plugin-guides, packages/ui/src/aiscoo/plugin-guides]
+  - id: aiscoo-plugin-guides-ui
+    roots: [packages/ui/src/aiscoo/plugin-guides]
     managed: true
-    requires: [ui, services, shared, xwork-plugin-guides-protocol, xwork-plugin-guides-service]
+    requires: [ui, services, shared, aiscoo-plugin-guides-protocol, aiscoo-plugin-guides-service]
     publicEntrypoints:
-      - packages/ui/src/xwork/plugin-guides/index.ts
-      - packages/ui/src/xwork/plugin-guides/contract.ts
       - packages/ui/src/aiscoo/plugin-guides/index.ts
       - packages/ui/src/aiscoo/plugin-guides/contract.ts
     layers: { contract: contract.ts, ui: . }
     owner: plugin
-  # xwork-brand：由 architecture:adopt 登记
-  - id: xwork-brand
+  # aiscoo-brand：由 architecture:adopt 登记
+  - id: aiscoo-brand
     roots:
-      - packages/shared/src/xwork-brand
       - packages/shared/src/aiscoo-brand
     managed: true
     requires: []
     publicEntrypoints:
-      - packages/shared/src/xwork-brand/index.ts
-      - packages/shared/src/xwork-brand/contract.ts
-      - packages/shared/src/xwork-brand/runtime.js
-      - packages/shared/src/xwork-brand/runtime.d.ts
       - packages/shared/src/aiscoo-brand/index.ts
       - packages/shared/src/aiscoo-brand/contract.ts
       - packages/shared/src/aiscoo-brand/runtime.js
@@ -161,25 +124,20 @@ modules:
     layers:
       domain: .
     owner: product
-  - id: cli-brand
-    roots:
-      [apps/zcode-cli/packages/i18n/src/xwork-brand, apps/zcode-cli/packages/i18n/src/aiscoo-brand]
+  - id: cli-aiscoo-brand
+    roots: [apps/zcode-cli/packages/i18n/src/aiscoo-brand]
     managed: true
-    requires: [zcode-cli, xwork-brand]
+    requires: [zcode-cli, aiscoo-brand]
     publicEntrypoints:
-      - apps/zcode-cli/packages/i18n/src/xwork-brand/index.ts
-      - apps/zcode-cli/packages/i18n/src/xwork-brand/contract.ts
       - apps/zcode-cli/packages/i18n/src/aiscoo-brand/index.ts
       - apps/zcode-cli/packages/i18n/src/aiscoo-brand/contract.ts
     layers: { domain: . }
     owner: product
-  - id: xwork-brand-ui
-    roots: [packages/ui/src/xwork/brand, packages/ui/src/aiscoo/brand]
+  - id: aiscoo-brand-ui
+    roots: [packages/ui/src/aiscoo/brand]
     managed: true
-    requires: [ui, shared, xwork-brand]
+    requires: [ui, shared, aiscoo-brand]
     publicEntrypoints:
-      - packages/ui/src/xwork/brand/index.ts
-      - packages/ui/src/xwork/brand/contract.ts
       - packages/ui/src/aiscoo/brand/index.ts
       - packages/ui/src/aiscoo/brand/contract.ts
     layers: { ui: . }
@@ -188,7 +146,7 @@ modules:
   - id: aiscoo-legal-ui
     roots: [packages/ui/src/aiscoo/legal]
     managed: true
-    requires: [ui, shared, xwork-brand]
+    requires: [ui, shared, aiscoo-brand]
     publicEntrypoints:
       - packages/ui/src/aiscoo/legal/index.ts
       - packages/ui/src/aiscoo/legal/contract.ts
@@ -204,13 +162,13 @@ modules:
       - packages/ui/src/profile-avatar/contract.ts
     layers: { ui: . }
     owner: account
-  - id: xwork-account-avatar
-    roots: [packages/ui/src/xwork/account-avatar]
+  - id: aiscoo-account-avatar
+    roots: [packages/ui/src/aiscoo/account-avatar]
     managed: true
     requires: [profile-avatar, shared]
     publicEntrypoints:
-      - packages/ui/src/xwork/account-avatar/index.ts
-      - packages/ui/src/xwork/account-avatar/contract.ts
+      - packages/ui/src/aiscoo/account-avatar/index.ts
+      - packages/ui/src/aiscoo/account-avatar/contract.ts
     layers: { ui: . }
     owner: account
   # XCODE: 浏览器持有凭据，Server 只装配连接期账号投影。
@@ -232,6 +190,14 @@ modules:
       - packages/server/src/aiscoo-browser-account/contract.ts
     layers: { adapters: . }
     owner: account
+  - id: ui-oauth-lifecycle
+    roots: [packages/ui/src/oauth-lifecycle]
+    managed: true
+    requires: [shared]
+    publicEntrypoints:
+      - packages/ui/src/oauth-lifecycle/contract.ts
+    layers: { contract: . }
+    owner: account
   # aiscoo-desktop-identity：由 architecture:adopt 登记
   - id: aiscoo-desktop-identity
     roots:
@@ -251,10 +217,40 @@ modules:
     roots:
       - packages/desktop/src/aiscoo-desktop-identity
     managed: true
-    requires: [aiscoo-desktop-identity]
+    # XCODE: 打包账号源复用 shared 的严格 origin 解析器，只追加依赖。
+    requires: [aiscoo-desktop-identity, shared]
     publicEntrypoints:
       - packages/desktop/src/aiscoo-desktop-identity/index.ts
       - packages/desktop/src/aiscoo-desktop-identity/contract.ts
     layers:
       adapters: .
     owner: desktop
+  # XCODE: Aiscoo 产品始终使用唯一账号策略，通用服务装配只接受可选策略端口。
+  - id: aiscoo-account-policy
+    roots: [packages/services/src/aiscoo-account-policy]
+    managed: true
+    requires: [services, shared, rpc, provider]
+    publicEntrypoints:
+      - packages/services/src/aiscoo-account-policy/index.ts
+      - packages/services/src/aiscoo-account-policy/contract.ts
+    layers: { adapters: . }
+    owner: account
+  - id: aiscoo-account-login-ui
+    roots: [packages/ui/src/aiscoo/account-login]
+    managed: true
+    requires: [ui, shared, services, ui-oauth-lifecycle, aiscoo-brand-ui, aiscoo-legal-ui]
+    publicEntrypoints:
+      - packages/ui/src/aiscoo/account-login/index.ts
+      - packages/ui/src/aiscoo/account-login/contract.ts
+      - packages/ui/src/aiscoo/account-login/logout-presentation.tsx
+    layers: { contract: contract.ts, adapters: ., ui: logout-presentation.tsx }
+    owner: account
+  - id: aiscoo-account-login-web
+    roots: [packages/web/src/aiscoo-account-login]
+    managed: true
+    requires: [shared, web, aiscoo-brand]
+    publicEntrypoints:
+      - packages/web/src/aiscoo-account-login/index.ts
+      - packages/web/src/aiscoo-account-login/contract.ts
+    layers: { ui: . }
+    owner: account

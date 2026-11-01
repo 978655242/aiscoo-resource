@@ -95,10 +95,11 @@ comm -12 <(git diff --name-only release...main | sort) \
          <(git diff --name-only main...release | sort)
 ```
 
-逐个提交分类，结果写入 [上游同步记录](../xcode/upstream-sync-log.md)：
+逐个提交分类，结果写入唯一的[上游同步记录](../xcode/upstream-sync-log.md)：
 
-- 同步记录固定在 `docs/xcode/upstream-sync-log.md`：同步 PR 必须更新并保留该文件；普通 PR 不得新增、修改、删除或移动它。
-- PR 策略与合并后巡检必须识别移动前的路径，即使 Git 启用了重命名检测；普通 PR 未改动记录时应通过，同步 PR 仍须包含新上游提交并以 merge commit 合入。
+- 同步记录固定保留在 `docs/xcode/upstream-sync-log.md`，品牌或目录迁移不能复制、改名或移动该事实来源；历史相对链接通过原路径的链接页指向现行文档。
+- 同步 PR 必须更新该路径；普通 PR 不得新增、修改、删除或移动它。策略检查和合并后巡检识别改名前后的路径，防止 Git 重命名检测隐藏受保护路径。
+- 普通 PR 若不改变该记录，策略检查和 squash 合并后的巡检应通过；同步 PR 仍须包含新上游提交并以 merge commit 合入。
 
 | 分类 | 判断标准                                       | 处理                          |
 | ---- | ---------------------------------------------- | ----------------------------- |

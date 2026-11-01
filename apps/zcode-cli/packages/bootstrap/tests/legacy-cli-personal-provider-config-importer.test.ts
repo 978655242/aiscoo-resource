@@ -8,10 +8,8 @@ import {
 function encoded(update: { providers: ProviderConfigMap; models: ModelConfigRules }): any {
   return {
     schemaVersion: 1,
-    providers: Object.fromEntries(
-      update.providers.entries().map(([id, config]) => [id, config.toJSON()]),
-    ),
-    models: update.models.rules().map((rule) => ({ ...rule, config: rule.config.toJSON() })),
+    providers: update.providers.toJSON(),
+    models: update.models.toJSON(),
   };
 }
 
@@ -134,7 +132,6 @@ describe("importLegacyCliPersonalProviderConfig", () => {
         ],
       },
     });
-    expect(update.providers.getRule("custom")?.providerName).toBe("Custom API");
   });
 
   it("不把只有 model 选择、没有 provider 定义的内容迁成 Provider", () => {

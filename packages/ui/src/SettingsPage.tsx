@@ -1,6 +1,6 @@
 import { DataSyncSection } from "@/data-sync/index.js";
 // XCODE: Native 产品套餐名通过共享品牌模板显示。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 // XCODE: 桌面通用设置通过可选插槽装配独立法律信息。
 import { AiscooLegalSettings } from "@/aiscoo/legal/index.js";
 import { getWorkspaceSourceServerId } from "@/conversation-workspace-target/sourceIdentity.js";

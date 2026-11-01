@@ -40,6 +40,8 @@ export interface ProviderProvisioningSourceOptions {
   readonly credentialFilePath: string;
   readonly personalConfigFilePath: string;
   readonly cipherProvider?: CredentialCipherProvider;
+  /** XCODE: 组合层可替代账号凭据来源；未注入仍读取上游 allowlist。 */
+  readonly readCredentials?: () => Promise<ProviderProvisioningCredentialEntry[]>;
 }
 
 /** 从 Local Environment 读取可 Provision 的事实；不会读取或导出完整 Registry Snapshot。 */
@@ -51,7 +53,10 @@ export function createProviderProvisioningSource(
       const [personal, settings, credentials] = await Promise.all([
         readProvisionablePersonalConfig(options.personalRepository, options.personalConfigFilePath),
         options.settingService.get(),
-        readProvisioningCredentials(options.credentialFilePath, options.cipherProvider),
+        // XCODE: 先选端口再做 IO，产品关闭旧账号时不能为分发而解密历史凭据。
+        options.readCredentials
+          ? options.readCredentials()
+          : readProvisioningCredentials(options.credentialFilePath, options.cipherProvider),
       ]);
       // 默认与规则来自同一份持锁读取，不能把两次读取的值拼成不存在的配置版本。
       const personalConfig = encodeProviderConfigFile(personal).config;

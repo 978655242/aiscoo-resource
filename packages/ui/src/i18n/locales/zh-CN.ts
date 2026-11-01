@@ -2,13 +2,17 @@
 import { requestSecurityMessagesZhCN } from "@/request-security-edition/messages.js";
 /** 中文翻译 */
 const zhCN: Record<string, string> = {
+  // XCODE: 产品账号错误不包含后端 origin 或凭据。
+  "aiscoo.login.configUnavailable": "Aiscoo 登录尚未配置或暂不可用，请联系管理员。",
+  // XCODE: 退出只改变旧进程的展示，账号清理与重启沿用原流程。
+  "aiscoo.logout.exiting": "正在退出…",
+  "aiscoo.logout.description": "应用将自动重启，随后显示登录页。",
   // XCODE: 额度标题按后端真实周期展示，与源版剩余额度卡一致。
   "settings.usage.nativeRemaining.daily": "每日剩余",
   "settings.usage.nativeRemaining.weekly": "每周剩余",
   "settings.usage.nativeRemaining.monthly": "每月剩余",
   "settings.usage.nativeRemaining.custom": "当前周期剩余",
   "settings.usage.nativeRemaining.never": "订阅剩余",
-  "settings.usage.nativeOfficialDisconnect": "断开官方云",
   "settings.modelProvider.native.providerGroup": "官方",
   "settings.modelProvider.native.expiresAt": "有效期至 {time}",
   "settings.modelProvider.native.teamUnsupported": "当前不支持团队套餐。",
@@ -21,9 +25,9 @@ const zhCN: Record<string, string> = {
   "settings.modelProvider.native.duration.day": "{count} 天",
   "settings.modelProvider.native.duration.hour": "{count} 小时",
   "settings.modelProvider.native.duration.custom": "{count} 秒",
-  "login.privateCredentialRecovery.title": "私有凭据需要人工恢复",
+  "login.privateCredentialRecovery.title": "需要重新登录",
   "login.privateCredentialRecovery.description":
-    "请解锁操作系统凭据存储，或恢复 XWork 凭据备份后重启。现有凭据未被删除，也不会改用其他密钥或官方账号。",
+    "已保存的登录凭据无法读取，请重新登录。登录成功后，原有凭据会先备份再替换，不会被直接删除。",
   "settings.modelProvider.native.viewPlans": "查看订阅套餐",
   "settings.usage.nativeAuthorization.active": "授权有效",
   "settings.usage.nativeAuthorization.exhausted": "额度已耗尽",
@@ -47,10 +51,6 @@ const zhCN: Record<string, string> = {
   "settings.usage.native.planLimits": "套餐限额",
   "settings.usage.native.remaining": "剩余 {percentage}",
   "settings.usage.native.resetsAt": "{time} 重置",
-  "settings.usage.nativeOfficialScope": "官方云 · {family} · {name}（独立计费）",
-  "settings.usage.nativeOfficialConnectDescription":
-    "官方 MCP 额度与私人订阅分开。连接官方账号后读取其真实额度。",
-  "settings.usage.nativeOfficialConnect": "连接 {family}",
   "settings.usage.nativeLoadingDescription": "正在读取 New API 账号的消费记录。",
   "settings.usage.nativeStartDate": "开始日期",
   "settings.usage.nativeEndDate": "结束日期",

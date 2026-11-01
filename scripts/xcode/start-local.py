@@ -22,7 +22,7 @@ SPEC = HOME / ".config/xcode-local/start.json"
 ORIGIN = "http://127.0.0.1:3001"
 LABEL = "com.xwork.local-desktop"
 # XCODE: 仅展示名读取共享 JSON；launchd、配置和状态目录保持兼容身份。
-BRAND = json.loads((ROOT / "packages/shared/src/xwork-brand/brand.json").read_text())
+BRAND = json.loads((ROOT / "packages/shared/src/aiscoo-brand/brand.json").read_text())
 
 
 def run(args, *, check=True, timeout=20, env=None):
@@ -239,7 +239,10 @@ def load_spec():
 
 
 def desktop_environment(spec, path):
-    return {**spec["desktopEnvironment"], "HOME": str(HOME), "PATH": path, "AISCOO_ADMIN_BASE_URL": ORIGIN}
+    # 修复原因：上游开发 Vite 默认注入含 FPS 的 React Scan；仅下游默认关闭，保留显式启用。
+    react_scan = "1" if os.environ.get("ZCODE_REACT_SCAN") == "1" else "0"
+    return {"ZCODE_REACT_SCAN": react_scan, **spec["desktopEnvironment"],
+            "HOME": str(HOME), "PATH": path, "AISCOO_ADMIN_BASE_URL": ORIGIN}
 
 
 def ensure_desktop_job(spec, path):

@@ -17,7 +17,7 @@ import {
   withHostCredentialRefreshLease,
   type HostCredentialStoreDependencies,
 } from "../credential/credentialService.js";
-import { createPrivateCredentialCipherProvider } from "../credential/providers/privateCredentialCipherProvider.js";
+import { createCredentialCipherProvider } from "../credential/providers/credentialCipherProvider.js";
 
 export interface NewApiStoredSession {
   schemaVersion: 1;
@@ -90,7 +90,7 @@ async function commitHostCredentialRecords<T>(
   return withFileLock(file, async () => {
     assertCurrent();
     const records = await hostCredentialStoragePort.read(file);
-    const cipher = dependencies.cipherProvider ?? createPrivateCredentialCipherProvider();
+    const cipher = dependencies.cipherProvider ?? createCredentialCipherProvider();
     assertCurrent();
     const { changes, result, recoveryRequired } = resolve((key) => {
       hostCredentialStoragePort.assertKey(key);
@@ -130,10 +130,6 @@ export class NewApiSessionRepo {
     this.#store = dependencies;
   }
 
-  assertStorageAvailable(): void {
-    if (!this.#store.cipherProvider) createPrivateCredentialCipherProvider();
-  }
-
   async loadActive(): Promise<NewApiStoredSession | null> {
     return readHostCredentialRecords((load) => {
       const active = load(this.#activeKey);
@@ -159,7 +155,10 @@ export class NewApiSessionRepo {
           [key, JSON.stringify(next)],
           [
             this.#activeKey,
-            JSON.stringify({ userId: next.bundle.user.id, sid: next.bundle.session_id }),
+            JSON.stringify({
+              userId: next.bundle.user.id,
+              sid: next.bundle.session_id,
+            }),
           ],
         ]),
         result: undefined,
@@ -249,7 +248,10 @@ export class NewApiSessionRepo {
         if (!current || !this.#matchesCredential(this.#parseSession(current), expected)) {
           return { changes: new Map<string, string | null>(), result: false };
         }
-        return { changes: new Map([[key, JSON.stringify(next)]]), result: true };
+        return {
+          changes: new Map([[key, JSON.stringify(next)]]),
+          result: true,
+        };
       },
       this.#store,
     );
@@ -337,7 +339,10 @@ export class NewApiSessionRepo {
       (records) => {
         const current = records.get(key);
         if (!current || !this.#matchesCredential(this.#parseSession(current), committed)) {
-          return { changes: new Map<string, string | null>(), result: undefined };
+          return {
+            changes: new Map<string, string | null>(),
+            result: undefined,
+          };
         }
         // 同用户同 SID 重新授权时新旧记录共用一个键：补偿必须恢复旧内容，不能删除后让 active 指向空记录。
         const sameKey = previous !== null && previousKey === key;
@@ -351,7 +356,10 @@ export class NewApiSessionRepo {
           changes.set(
             this.#activeKey,
             prior && previous
-              ? JSON.stringify({ userId: previous.bundle.user.id, sid: previous.bundle.session_id })
+              ? JSON.stringify({
+                  userId: previous.bundle.user.id,
+                  sid: previous.bundle.session_id,
+                })
               : null,
           );
         }

@@ -38,6 +38,8 @@ export interface ProviderProvisioningTargetOptions {
   readonly personalConfigFilePath: string;
   readonly stateFilePath: string;
   readonly listProvisioningCredentialKeys?: () => Promise<readonly string[]>;
+  /** XCODE: 可选凭据 allowlist 由组合层约束，缺省保持上游 OAuth 分发行为。 */
+  readonly oauthCredentialKeys?: readonly string[];
 }
 
 interface ProvisioningStateRecord {
@@ -87,6 +89,23 @@ export function createProviderProvisioningTarget(
           } satisfies ProviderProvisioningResult;
         }
 
+        // XCODE: 产品不接受的账号凭据在任何持久化前明确拒绝，空 allowlist 不清理历史记录。
+        if (
+          options.oauthCredentialKeys &&
+          envelope.credentials.some(
+            (entry) =>
+              entry.scope === "oauth-session" && !options.oauthCredentialKeys!.includes(entry.key),
+          )
+        ) {
+          return {
+            syncId: envelope.syncId,
+            status: "unsupported",
+            personalProviderCount: 0,
+            credentialCount: 0,
+            errorMessage: "Account credential provisioning is unavailable",
+            rolledBack: false,
+          };
+        }
         validateCredentialEntries(envelope);
         // schema v1 接受旧 Source 的账号 Key 字段，但新 Host 不再读取或应用它。
         // 旧/手工 Key 留在原 Store，避免升级同步误删其它客户端共享的凭据。
@@ -224,13 +243,15 @@ async function captureBeforeState(
     options.settingService.get(),
   ]);
   const credentials = new Map<string, string | null>();
+  // XCODE: 入口提供空账号 allowlist 时不读取、恢复或删除旧官方凭据。
+  const oauthCredentialKeys = new Set(options.oauthCredentialKeys ?? OAUTH_CREDENTIAL_KEYS);
   const credentialKeys = new Set<string>([
-    ...OAUTH_CREDENTIAL_KEYS,
+    ...oauthCredentialKeys,
     ...((await options.listProvisioningCredentialKeys?.()) ?? []),
     ...envelope.credentials.map((entry) => entry.key),
   ]);
   for (const key of credentialKeys) {
-    if (!OAUTH_CREDENTIAL_KEYS.has(key)) {
+    if (!oauthCredentialKeys.has(key)) {
       continue;
     }
     credentials.set(key, await options.credentialService.load(key));

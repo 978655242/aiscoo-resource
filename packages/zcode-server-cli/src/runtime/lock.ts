@@ -1,5 +1,5 @@
 // XCODE: 自有静态文案只插入共享产品名，内部协议和存储身份保留。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdir, open, readFile, rename, rm } from "node:fs/promises";

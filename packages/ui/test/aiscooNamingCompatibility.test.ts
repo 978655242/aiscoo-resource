@@ -1,20 +1,17 @@
 import { readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
-import * as legacyBrand from "@zcode/ui/xwork-brand";
 import * as currentBrand from "@zcode/ui/aiscoo-brand";
 import * as implementationBrand from "../src/aiscoo/brand/index.js";
-import * as legacySharedBrand from "@zcode/shared/xwork-brand";
 import * as currentSharedBrand from "@zcode/shared/aiscoo-brand";
-import * as legacyStartup from "@zcode/ui/xwork-startup-context";
 import * as currentStartup from "@zcode/ui/aiscoo-startup-context";
-import * as legacyPluginView from "../src/xwork/plugin-guides/index.js";
 import * as currentPluginView from "../src/aiscoo/plugin-guides/index.js";
-import * as legacyGuides from "@zcode/shared/xwork-plugin-guides";
 import * as currentGuides from "@zcode/shared/aiscoo-plugin-guides";
-import { IPluginGuideService as legacyService } from "@zcode/services/xwork-plugin-guides";
 import { IPluginGuideService as currentService } from "@zcode/services/aiscoo-plugin-guides";
 import { zcodeProtocolMethods, zcodeProtocolNotifications } from "@zcode/shared";
 import type { ProductBrand } from "@zcode/shared/aiscoo-brand";
+
+const requireFromUi = createRequire(new URL("../package.json", import.meta.url));
 
 // 老消费者可以继续构造不包含新法律字段的完整类型。
 const oldBrand: ProductBrand = {
@@ -34,28 +31,61 @@ const oldBrand: ProductBrand = {
 };
 
 describe("Aiscoo naming compatibility", () => {
-  it("retains exact published brand targets and one shared implementation", async () => {
-    const shared = JSON.parse(
-      await readFile(new URL("../../shared/package.json", import.meta.url), "utf8"),
-    );
-    const ui = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
-    expect(shared.exports["./xwork-brand"]).toBe("./src/xwork-brand/runtime.js");
-    expect(shared.exports["./aiscoo-brand"]).toBe("./src/xwork-brand/runtime.js");
-    expect(ui.exports["./xwork-brand"]).toBe("./src/xwork/brand/index.ts");
-    expect(ui.exports["./aiscoo-brand"]).toBe("./src/xwork/brand/index.ts");
-    expect(currentSharedBrand.PRODUCT_BRAND).toBe(legacySharedBrand.PRODUCT_BRAND);
-    expect(currentBrand.AiscooMark).toBe(legacyBrand.AiscooMark);
+  it("publishes one Aiscoo entry per package and no retired xwork subpath", async () => {
+    const manifests = {
+      "@zcode/shared": "../../shared/package.json",
+      "@zcode/ui": "../package.json",
+      "@zcode/services": "../../services/package.json",
+    } as const;
+    const expected = {
+      "@zcode/shared": {
+        "./aiscoo-brand": "./src/aiscoo-brand/runtime.js",
+        "./aiscoo-plugin-guides": "./src/aiscoo-plugin-guides/index.ts",
+      },
+      "@zcode/ui": {
+        "./aiscoo-brand": "./src/aiscoo/brand/index.ts",
+        "./aiscoo-account-avatar": "./src/aiscoo/account-avatar/index.ts",
+        "./aiscoo-startup-context": "./src/aiscoo/startup-context/index.ts",
+      },
+      "@zcode/services": { "./aiscoo-plugin-guides": "./src/aiscoo-plugin-guides/index.ts" },
+    } as const;
+    for (const [packageName, file] of Object.entries(manifests)) {
+      const pkg = JSON.parse(await readFile(new URL(file, import.meta.url), "utf8")) as {
+        exports: Record<string, string>;
+      };
+      expect(Object.keys(pkg.exports).filter((key) => key.startsWith("./xwork"))).toEqual([]);
+      for (const [subpath, target] of Object.entries(
+        expected[packageName as keyof typeof expected],
+      )) {
+        expect(pkg.exports[subpath]).toBe(target);
+        expect(requireFromUi.resolve(`${packageName}/${subpath.slice(2)}`)).toBeTruthy();
+      }
+    }
+    for (const retired of [
+      "@zcode/shared/xwork-brand",
+      "@zcode/shared/xwork-plugin-guides",
+      "@zcode/ui/xwork-brand",
+      "@zcode/ui/xwork-startup-context",
+      "@zcode/ui/xwork-account-avatar",
+      "@zcode/services/xwork-plugin-guides",
+    ]) {
+      expect(() => requireFromUi.resolve(retired), retired).toThrow();
+    }
+  });
+
+  it("keeps one brand implementation and the optional-legal-field type", () => {
     expect(currentBrand.AiscooMark).toBe(implementationBrand.AiscooMark);
+    expect(currentBrand.AiscooIntlProvider).toBe(implementationBrand.AiscooIntlProvider);
+    expect(currentSharedBrand.PRODUCT_BRAND.productName).toBe("Aiscoo");
     expect(oldBrand.productName).toBe("Aiscoo");
   });
 
-  it("retains guide schema and service identity across both public names", () => {
-    expect(currentGuides.pluginGuideTargetSchema).toBe(legacyGuides.pluginGuideTargetSchema);
-    expect(currentStartup.createAiscooRoot).toBe(legacyStartup.createXWorkRoot);
-    expect(currentPluginView.AiscooPluginStoreDetailView).toBe(
-      legacyPluginView.XWorkPluginStoreDetailView,
-    );
-    expect(currentService).toBe(legacyService);
+  it("keeps guide schema, service channel and startup entry on the Aiscoo names", () => {
+    expect(currentGuides.pluginGuideTargetSchema).toBeDefined();
+    expect(typeof currentStartup.createAiscooRoot).toBe("function");
+    expect(typeof currentStartup.restoreDraftContext).toBe("function");
+    expect(currentPluginView.AiscooPluginStoreDetailView).toBeDefined();
+    // 持久化的 RPC 通道名不属于兼容残留，改名会让已安装的 Host 与 Renderer 失联。
     expect(currentService.channelName).toBe("xwork-plugin-guides");
   });
 

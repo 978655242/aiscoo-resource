@@ -14,6 +14,8 @@ Aiscoo 正式版、开发版、Preview 和上游 ZCode 必须能够共存。Aisc
 
 唯一身份配置位于 @zcode/shared/aiscoo-desktop-identity，构建工具和运行时复用。Desktop 构建显式固化渠道；未注入 Aiscoo 渠道的通用运行时保持上游默认值。系统应用 ID、Windows executable/AUMID、Linux executable/package/desktop MIME、macOS开发副本与正式协议声明均须与该配置一致。
 
+合并最新 release 时，Main、Host、scheduler 的共享服务依赖图必须继续可构建。旧本机 Web 适配器删除后，Desktop 依赖图不再引入原生钥匙串，`@napi-rs/keyring` 不再列入 Desktop 外置依赖；Zen CLI 的钥匙串仍由 CLI 构建自行外置。打包闭包检查仍须证明运行时依赖完整。历史本机 Web 快照不因身份合并恢复为现行产品入口，现行 Web 规范仍为 [browser-new-api.md](browser-new-api.md)。
+
 macOS 的 `node-pty` `spawn-helper` 经 asar 解包再重打包后会丢失执行权限：应用能构建成功，但终端启动时 `posix_spawnp` 失败。修复位于 `electron-builder.config.js` 的 `afterPack`，由 `ensurePackagedNodePtyHelperExecutable` 在原生资源策略校验之后、`assertPackagedNodePtyPrebuild` 之前恢复执行位，仅对 macOS 目标生效。
 
 位置必须在最后一次重打包之后：`injectHoistedRuntimeModulesIntoAsar` 与 `stripPackagedSourcemapReferences` 都会解包并重打包 `app.asar`，helper 位于 `app.asar.unpacked` 中，此后再增加任何重打包步骤都会让执行位再次丢失，因此新的 `afterPack` 步骤不得放在它之前，若新增了会重打包的步骤，需同步更新工程回归中的顺序断言。修复直接放在配置内，不依赖入口脚本选择哪个配置文件，`bundle.mjs` 与直接运行 `electron-builder --config electron-builder.config.js` 均有效。现有 `assertPackagedNodePtyPrebuild` 只检查 helper 存在，不检查执行位；执行位与上述顺序由工程回归守护。
@@ -51,7 +53,7 @@ sequenceDiagram
 
 desktop-continuous 与手机 web-remote-replayable 语义不变；手机继续复用已有 Host attachment。本变更不增加登录、会话或队列 owner。
 
-官方云 BigModel/Z.ai 依赖提供方与官网中转的独立 redirect 配置，不能因本地 Native 回调支持就声称官方云回跳已兼容。Aiscoo 不通过抢注 zcode 或放宽校验补偿其服务端未登记；该能力在其服务端配合后单独验收。
+2026-10-31 起 [唯一登录规格](aiscoo-only-login.md) 退役 Aiscoo 产品中的 BigModel/Z.ai 登录。Aiscoo 渠道不登记或派发官方主账号/独立连接回调；不通过抢注 zcode、放宽校验或官网中转重建登录。通用上游实现未注入产品策略时仍保留原协议边界。
 
 ## 深链覆盖
 
@@ -63,12 +65,12 @@ Electron userData/sessionData 使用各渠道独立目录。业务数据根、Ho
 
 新安装使用 Aiscoo 独立业务数据根。既有用户数据不得按 ZCode 目录名称自动认领，也不得从正在写入的数据库复制。历史迁移必须由用户选定旧 Aiscoo 来源、停止旧写入者、创建一致备份、暂存导入、验证密钥后原子启用。此次不对真实数据自动执行迁移。
 
-macOS 历史钥匙串名 XWork / XWork Dev / XWork Preview 与密文版本保留。新 bundle/签名访问旧钥匙串须实机验证，失败保留旧密文并明确恢复或重新登录，不用新 key 覆盖。CLI 目录派生账户、AAD与refresh锁单独验收；禁止两数据根同时刷新同一凭据。回滚保留原数据与安装，token 已轮换时允许要求重登，不承诺旧 token 可用。
+macOS 历史钥匙串名 XWork / XWork Dev / XWork Preview 与密文版本保留。**2026-11-01 起 New API 登录凭据不再使用该钥匙串**（见 [客户端集成规格 §4.2](new-api-integration.md#42-安全持久化与恢复)），下面关于“新 bundle/签名访问旧钥匙串”的实机验证只适用于仍使用它的 CLI Zen 存储与此前已写入的条目。新 bundle/签名访问旧钥匙串须实机验证，失败保留旧密文并明确恢复或重新登录，不用新 key 覆盖。CLI 目录派生账户、AAD与refresh锁单独验收；禁止两数据根同时刷新同一凭据。回滚保留原数据与安装，token 已轮换时允许要求重登，不承诺旧 token 可用。
 
 ## 验收
 
 1. 身份工程回归：三个渠道 appId/scheme/dataName 成对唯一，打包和运行时一致，通用未注入配置仍使用上游值。
 2. Native 授权回归：authorize 与 token exchange 参数一致；正确渠道成功，跨渠道、重复参数、未知 state、过期/取消和重复回调拒绝。
 3. 系统共存：ZCode、Aiscoo正式/Dev/Preview 冷/热启动回跳各自实例，不随安装启动顺序互相接管；Windows/Linux在对应系统执行后才记通过。
-4. 真实 macOS：新app身份启动，原钥匙串名称不变；新建测试凭据跨重启恢复，旧版合成密文迁移验证；真实用户迁移另行授权执行。
+4. 真实 macOS：新app身份启动，原钥匙串名称不变；新建测试凭据跨重启恢复，旧版合成密文迁移验证；真实用户迁移另行授权执行。（2026-11-01 起登录凭据不经钥匙串，本条中的“测试凭据”指仍使用钥匙串的存储。）
 5. 后端精确白名单与客户端完整 Native E2E；登录成功、模型目录和实际推理分别记录。执行 typecheck、lint、架构及相关回归，未执行的平台或官方服务端部分如实记录。

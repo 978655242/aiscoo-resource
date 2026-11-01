@@ -4,8 +4,8 @@ import { createFeedbackDiagnosticArchive } from "../src/feedback/feedbackLogArch
 import { ConversationShareHttpClient } from "../src/conversation-share/conversationShareHttpClient.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { buildPluginGuideMessages } from "../src/xwork-plugin-guides/domain/prompt.js";
-import { source, target } from "../src/xwork-plugin-guides/test-fixtures.js";
+import { buildPluginGuideMessages } from "../src/aiscoo-plugin-guides/domain/prompt.js";
+import { source, target } from "../src/aiscoo-plugin-guides/test-fixtures.js";
 import { BigModelCodingPlanSubscriptionProvider } from "../src/coding-plan-subscription/bigmodelCodingPlanSubscriptionProvider.js";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";

@@ -1,7 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { isAuxiliarySessionKind } from "@zcode/shared";
 // XCODE: 只投影本地错误模板，不替换 session、用户内容或模型输出。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 import { createBotTopicAdmission } from "#src/zcode-agent/botTopicAdmission.js";
 import {
   readBotGroupRuntimeSnapshot,

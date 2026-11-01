@@ -7,7 +7,7 @@ import {
   pluginGuideSourceSchema,
   pluginGuideStreamTextParamsSchema,
   pluginGuideTextDeltaSchema,
-} from "@zcode/shared/xwork-plugin-guides";
+} from "@zcode/shared/aiscoo-plugin-guides";
 import { getCliStorageRoot, getPluginStorageRoot } from "../app/paths.js";
 import { withPluginStorageLock } from "../lib/plugin-storage-lock.js";
 import {

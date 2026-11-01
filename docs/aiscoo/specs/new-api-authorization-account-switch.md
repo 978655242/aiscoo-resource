@@ -2,7 +2,7 @@
 
 状态：2026-10-18 S01–S03 已实现并完成独立静态评审；S04 已完成隔离真实浏览器与 macOS OS keystore / 原始 Host PKCE 身份验收，具体范围及限制见 §7。最终评审发现的迟到退出 Set-Cookie 竞争已按 §4 完成固定 SID transport / 撤销证明修正；新增测试先 RED 后 GREEN，最终全 Web 180 文件 / 2355 测试通过，真实完整 headers 的失败前/成功后及浏览器 B 冷刷新证据见 final-fix-report.md。最终定向复审已通过，无未关闭的 Critical / Important / Minor。不代表业务 3001 已部署、完整 OS scheme 分发或模型/资金验收。
 
-本规格规定 New API 浏览器授权页的交互增量；HTTP、认证、会话和 PKCE 仍以 [New API canonical spec](../../../../new-api/docs/specs/xcode-integration.md) 为唯一来源。客户端主身份边界见 [客户端集成规格](new-api-integration.md#4-主账号登录适配)。
+本规格规定 New API 浏览器授权页的交互增量；HTTP、认证、会话和 PKCE 仍以 [New API canonical spec](../../../../aiscoo-admin/docs/specs/xcode-integration.md) 为唯一来源。客户端主身份边界见 [客户端集成规格](new-api-integration.md#4-主账号登录适配)。
 
 ## 1. 已确认方向与范围
 
@@ -20,16 +20,22 @@
 
 页面沿用 New API 的 AuthLayout、Button、ConfirmDialog、LoadingState、ErrorState、主题和语言体系。只调整授权页内容容器，不改变普通登录/注册页的共享布局。
 
-| 区域     | 内容与要求                                                                                                                                   |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| 标题     | “授权 aiscoo”；说明“使用你的 aiscoo 账户连接桌面应用”；默认品牌下页头显示完整 aiscoo 字标                                                    |
-| 账户     | 标题“当前账户”；头像或名称首字符；真实 `display_name` 与 `username`；展示名为空时使用用户名，不虚构邮件或管理员标识                          |
-| 换号入口 | “使用其他账户”，位于账户区域，首屏可见、可键盘聚焦，不隐藏在头像菜单                                                                         |
-| 权限     | 读取个人资料；查看套餐与用量；使用分配给该账户的 aiscoo 套餐调用模型                                                                         |
-| 限制     | 明确不授予支付、API Key 管理或账户安全权限；授权不代表自动获得套餐                                                                           |
-| 有效期   | 使用服务端请求期限，显示完整本地日期和时间，并注明为本次请求；不新增倒计时轮询                                                               |
-| 设备说明 | 授权创建独立桌面设备会话；正常授权后浏览器保持登录。保留现有设备期限说明及在 Login Sessions 撤销的指引，不能把默认 30 天写成所有部署固定期限 |
-| 操作     | 次按钮“取消”；主按钮“授权并打开 aiscoo”；应用标识使用服务端 `client_id`，作为次要信息                                                        |
+| 区域     | 内容与要求                                                                                                          |
+| -------- | ------------------------------------------------------------------------------------------------------------------- |
+| 标题     | “授权 aiscoo”；说明“使用你的 aiscoo 账户连接桌面应用”；默认品牌下页头显示完整 aiscoo 字标                           |
+| 账户     | 标题“当前账户”；头像或名称首字符；真实 `display_name` 与 `username`；展示名为空时使用用户名，不虚构邮件或管理员标识 |
+| 换号入口 | “使用其他账户”，位于账户区域，首屏可见、可键盘聚焦，不隐藏在头像菜单                                                |
+| 权限     | 读取个人资料；查看套餐与用量；使用分配给该账户的 aiscoo 套餐调用模型                                                |
+| 有效期   | 使用服务端请求期限，显示完整本地日期和时间，并注明为本次请求；不新增倒计时轮询                                      |
+| 操作     | 次按钮“取消”；主按钮“授权并打开 aiscoo”；不展示“应用”标签及 `xcode-desktop` 等内部客户端标识                        |
+
+界面精简不改变权限与会话边界：不授予支付、API Key 管理或账户安全权限，授权不自动获得套餐；桌面授权仍创建独立设备会话，正常授权后浏览器保持登录。服务端 `client_id`、回调校验、实际设备期限和 Login Sessions 撤销能力保持原有语义，不把默认 30 天当作所有部署固定期限。
+
+以下两段是 `e2721fd6` 保存的 2026-10-29 本机后端专项记录，保留当时构建与部署事实；不是本次 release 合并后的测试、重建或部署结果，也不覆盖客户端本机 Web 的 logout 失败。
+
+2026-10-29 界面精简：移除权限列表下方整块灰色说明卡片，不再展示支付/API Key/账户安全限制、授权不自动获得套餐、独立设备会话及默认 30 天有效期四段说明。权限三项、应用标识、请求到期时间及授权/取消操作保留；服务端权限与会话语义不变。七语言失败回归先 RED 后 GREEN，授权与品牌 78/78、typecheck、build:check、涉及文件 lint/格式及 XCode typecheck/lint/架构检查通过；真实隔离浏览器 390px 深色页面确认说明卡片消失。后端源码与上次部署相同，仅重建内嵌前端；3001 已部署 binary `c0031e7f49d8b6a785c1c9755bd8fb67a2025e001001e96f4995688a4a2a4f77`，实际授权 chunk `/static/js/async/95246.f622e921f0.js` 与构建逐字节一致。原业务行摘要保留、仅实例心跳变化，启动器哈希同步；回退与数据库备份在 `~/.local/share/new-api-native/backups/xwork-auth-compact-20261029T132209/`。
+
+2026-10-29 应用标识精简：按追加要求移除“应用 / xcode-desktop”一行，服务端 `client_id` 和回调校验不变。七语言回归先 RED 后 GREEN；授权与品牌 78/78、类型检查、构建、涉及文件 lint/格式和架构检查通过。3001 已部署 binary `19e1d14169f8540e27e6d5a34019f21ed241511964f2d94795e2b253beb90628`，实际授权 chunk `/static/js/async/95246.f12c7369ad.js` 与构建逐字节匹配；原业务行摘要保留，启动器哈希同步。最新回退备份在 `~/.local/share/new-api-native/backups/xwork-auth-label-20261029T141718/`。
 
 换号确认框：
 
@@ -103,7 +109,9 @@ sequenceDiagram
 | A10  | 取消授权：没有 complete/logout/deep link；终态不再可提交，浏览器登录保留                                                                                                                                                 |
 | A11  | 中文/英文、浅深色、360/393px、200%缩放、长用户名和键盘操作：账户、换号、权限、错误和操作均可读可达，无横向溢出                                                                                                           |
 | A12  | 新的独立浏览器上下文走真实 New API 登录/授权，真实 Host 收到回调并以 B 为主身份；不得用 mock 身份替代此门槛，不需要模型请求                                                                                              |
-| A13  | 七种既有语言下，默认品牌授权页和换号弹窗使用小写 aiscoo；完整字标支持浅深主题及减少动态效果。                                                                                                                            |
+| A13  | 七种既有语言下，默认品牌授权页和换号弹窗使用小写 aiscoo；完整字标支持浅深主题及减少动态效果；New API / QuantumNous 的第三方署名保留。                                                                                    |
+
+2026-10-29 A13 历史验证（`e2721fd6` 记录，未在本轮合并重跑）：相邻后端工作区已含 aiscoo 授权文案及完整动效字标，本次去掉授权回归中硬编码 New API 的品牌 hook mock，改用真实配置 store，并追加七语言整页/换号框品牌断言。授权、字标及旧配置归一化三文件 97/97 通过；后端 Web typecheck、build:check 和本次测试文件 lint/受保护正文格式检查通过；全 Web lint 仍有 155 个范围外错误。独立随机端口、SQLite 和合成账号的真实浏览器验证了中文授权、换号框、浅深主题和 390px 手机布局。初轮检查时 3001 原生服务仍嵌入旧前端（binary `fb3b5ef456b36b050530c4aaef5327b9166e68f78f4f1c32cee31345e09662e3`）。随后用户明确选择“升级本机后端”，已备份原程序/配置/启动清单和 PostgreSQL 一致快照；三数据库迁移矩阵、后端认证回归、Go vet 与独立模块构建通过，并在业务库副本上两次启动验证仅新增 3 列、无删除/类型更改、原有业务行与权限语义保留。实际 3001 已切换到候选 binary `29d044b2466dc718b7f84d3b081eb601c44f806581ba7753e15f8c1db0e955a0`，启动器仅更新 binary 哈希；原 `.env` / 密钥 / plist / 数据库地址保留。切换后实际 HTML 与四份动静态浅深字标逐字节匹配新构建，status 为 aiscoo、匿名 Me 401、启动错误 0，原列行摘要仅 `system_instances` 心跳变化。实际浏览器无 flow 错误页已显示 aiscoo 字标和文案；有效 flow 的登录/授权及换号验收在隔离合成账户完成，未在业务库新建账户或代用户授权。私密备份和验证报告：`~/.local/share/new-api-native/backups/xwork-auth-20261029T125827/`。
 
 ## 6. 现有实现依据与交付边界
 
@@ -121,7 +129,7 @@ sequenceDiagram
 - A08：同一真实浏览器 context 的双标签加载生产根路由；标签二普通后台退出时没有授权 redirect，标签一保留原安全 flow；标签二原生登录 B 后标签一展示 B，无循环 reload。没有假 root route。
 - A11：中英、浅深色、1280×900、360×800、393×852、真实 20 字符用户名 / 展示名、键盘 Enter/Tab/Escape 与弹窗焦点恢复通过。复核曾确认真实200%下 masthead/title 重叠；授权页限定 `sm:pt-16` 修复并重新 Web/Go embed 后，实际 content1280×818 / CSS640×409 / DPR4 / zoomFactor2 的 masthead bottom64 / title top96 不相交，标准1280×900和393×852亦无相交或水平文本裁切，按钮滚动可达。最终证据使用顶端/操作区独立 native 与 Playwright viewport 截图，不使用 full-page 拼接判稳态可读、不声称首屏全部可见；失败到修复的记录保留于报告§10。
 - 换号框最终截图已补为真正稳态：英文/中文分别等待相关真实动画 finished Promise，再核对 opacity/effectiveOpacity1、scale/transform none、标题/按钮有效opacity1以及焦点恢复；原两张过渡态截图被 `A02-settled-dialog-{en,zhCN}.png` 替代，未通过关闭动画或注入样式伪造截图。
-- A12：真实 Main 产生 OS safeStorage 保护的密钥文件（0600）；原 Host 产生 PKCE/state，新的真实浏览器登录 B 并主动确认，原样 callback 进入该隔离 Main 的真实 `open-url` handler 和既有路由，随后 Host `oauth.restoreSession()` 真实 Me 为 `new-api / id 2 / s04accountb`。只替换浏览器打开及目标进程投递的测试运输，不替换身份、凭据、verifier 或 Host；**未验 OS 全局 `zcode://` 分发**。Main/Host/Worker 已同源新构建；没有为无套餐的合成 B 配置模型，Worker 未运行，不以构建成功冒充模型执行。
+- A12：（2026-11-01 起桌面端已不再使用 `safeStorage` 保护登录凭据，也不再读取这里提到的钥匙串条目，原因与现行规则见 [客户端集成规格 §4.2](new-api-integration.md#42-安全持久化与恢复)；下文保留当时的事实。）真实 Main 产生 OS safeStorage 保护的密钥文件（0600）；原 Host 产生 PKCE/state，新的真实浏览器登录 B 并主动确认，原样 callback 进入该隔离 Main 的真实 `open-url` handler 和既有路由，随后 Host `oauth.restoreSession()` 真实 Me 为 `new-api / id 2 / s04accountb`。只替换浏览器打开及目标进程投递的测试运输，不替换身份、凭据、verifier 或 Host；**未验 OS 全局 `zcode://` 分发**。Main/Host/Worker 已同源新构建；没有为无套餐的合成 B 配置模型，Worker 未运行，不以构建成功冒充模型执行。
 - 首次桌面尝试发现 `index.ts` 的启动工作区恢复直接读取系统 HOME 下 settings，与正确隔离的设置服务不同，导致真实工作区路径进入预热名单；当即停止。第二次通过既有 `--open-workspace=<私有目录>` 避开该唯一读取点，并显式提供私有配置 / 业务根和真实 bundled release，成功完成身份验收；没有暗改生产实现。后续隔离运行不能只设置 Electron userData 就假定启动恢复已隔离。
 - S01–S03 初始 TDD RED 未执行（当时上级规则要求实现结束后统一检查），不能倒填。最终 Cookie 修正单独执行了真实旧实现：API 回归 5 FAIL / 11 PASS；修正后聚焦 79/79、最终全包 2355/2355、build:check/typecheck、五文件 lint、三文件受保护正文格式通过。此前全包 lint / copyright / format 的范围外失败仍保留，不声称全绿。
 - 最终 Cookie 修正：仅现有 `logout(expectedSID)` 选择 fetch credentials omit 并核对既有 `data.revoked_sid`，无 Go/后端协议更改。独立 43017 后端与 43018 loopback 原样 HTTP proxy 在服务端完成后、浏览器接收 headers 前挂起 A 响应。旧实现真实两条 Set-Cookie 在 B 原生登录后交付，B Cookie 消失、真实 refresh401；新实现无请求 Cookie，Bearer+SID 真撤销 A（protected401）、B 保留（protected200），迟到响应后 B Cookie 不变、冷文档与真实 refresh200 为 B。另用仅篡改 outgoing Bearer 的故障注入触发真实匿名 success + 两条清 Cookie，浏览器确实忽略 Set-Cookie 且页面失败关闭，A 未被伪称退出。完整原生密码表单 A→B、原 flow、无自动 complete、冷 reload 为 B，以及普通菜单 logout 真清 Cookie/撤销 B 均复验。报告与脱敏证据见 [最终修正报告](../../../.superpowers/sdd/2026-10-17-new-api-authorization-account-switch/final-fix-report.md)；本轮没有再启动桌面，不把浏览器冷刷新冒充 Host 冷恢复，原 A12 和其他未验边界保持原有限定。

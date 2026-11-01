@@ -6,7 +6,7 @@
  */
 import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
 // XCODE: 初始对话展示独立完整动态字标，避免背景水印被问候语遮挡。
-import { AiscooEmptyStateLogo as ZCodeEmptyStateLogo } from "@/xwork/brand/index.js";
+import { AiscooEmptyStateLogo as ZCodeEmptyStateLogo } from "@/aiscoo/brand/index.js";
 import { cn } from "@/components/lib/utils.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useIsOfficeMode } from "@/hooks/useInterfaceMode.js";

@@ -1,7 +1,7 @@
 // XCODE: 仅统一产品展示名称，保留内部标识与用户内容。
 import { SidebarTooltipProvider } from "@/ControlHintTooltip.js";
 // XCODE: 可访问名称使用同源产品名，图标点击和拖拽边界沿用上游。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import type { IPlatformService, UpdateStatePayload } from "@zcode/shared";
 import { cn } from "@/components/lib/utils.js";
 import {

@@ -9,7 +9,7 @@ import {
   type OAuthUserProfile,
 } from "@zcode/shared";
 // XCODE: 仅本地错误模板投影品牌，BigModel 响应、供应商名与 OAuth 协议原样保留。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 import { readApiJson } from "../../providers/api/apiJson.js";
 import { createServiceLogger } from "../../logger/serviceLogger.js";
 import { parseOAuthLoginAttribution } from "../callbackAttribution.js";

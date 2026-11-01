@@ -76,12 +76,58 @@ async function loadChannelRoutes(channel: "production" | "development" | "previe
     typeof import("../src/main/desktopOAuthDeepLink.js")
   >;
 }
+async function loadChannelScheduler(channel: "production" | "development" | "preview") {
+  const outfile = join(compiledRoot, `${channel}-scheduler.mjs`);
+  await build({
+    entryPoints: [
+      fileURLToPath(new URL("../src/scheduler/offPeakOwnerAdmission.ts", import.meta.url)),
+    ],
+    outfile,
+    bundle: true,
+    platform: "node",
+    format: "esm",
+    target: "node24",
+    define: { __AISCOO_DESKTOP_CHANNEL__: JSON.stringify(channel) },
+    logLevel: "silent",
+  });
+  return import(pathToFileURL(outfile).href) as Promise<
+    typeof import("../src/scheduler/offPeakOwnerAdmission.js")
+  >;
+}
 for (const channel of ["production", "development", "preview"] as const) {
   test(`${channel} accepts only its native callback and preserves route ownership`, async () => {
     reset();
     registeredSchemes.length = 0;
     const profile = getAiscooDesktopIdentity(channel);
     const routes = await loadChannelRoutes(channel);
+    // XCODE: 配置缺失也保持空 owner，旧 Main 消息不能恢复官方闲时执行资格。
+    const scheduler = await loadChannelScheduler(channel);
+    assert.equal(scheduler.requiresOffPeakOwnerAdmission(), true);
+    assert.deepEqual(scheduler.captureOffPeakOwnerFence().ownerKeys, []);
+    scheduler.updateOffPeakOwnerAdmission(["historical-official-owner"]);
+    assert.deepEqual(scheduler.captureOffPeakOwnerFence().ownerKeys, []);
+    assert.throws(() =>
+      scheduler.captureOffPeakOwnerFence("historical-official-owner").assertCurrentSync?.(),
+    );
+    for (const provider of ["zai", "bigmodel"] as const) {
+      for (const purpose of ["primary-account", "official-cloud"] as const) {
+        const registration = { state: `old-${provider}-${purpose}`, provider, purpose };
+        // 路由表只经 IPC parser 登记；parser 拒绝后 Main 不会调用 registerOAuthState。
+        const parsed = routes.parseOAuthStateRegistration(registration);
+        assert.equal(parsed, null);
+        if (parsed) routes.registerOAuthState(1, parsed);
+        assert.equal(
+          routes.handleDeepLink(
+            `${profile.oauthRedirectUri}?provider=${provider}&purpose=${purpose}&state=${registration.state}&code=old`,
+            logger,
+          ),
+          false,
+        );
+      }
+    }
+    routes.deliverPendingDeepLink(windows[0]!.webContents as never);
+    assert.deepEqual(delivered, []);
+    routes.clearOAuthRoutesForWindow(1);
     routes.registerDeepLinkProtocol(logger);
     assert.deepEqual(registeredSchemes, [profile.scheme]);
     const ownCallback = (state: string, provider = "new-api") =>

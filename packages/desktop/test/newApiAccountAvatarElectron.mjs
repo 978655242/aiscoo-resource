@@ -94,7 +94,7 @@ import React, { useLayoutEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { WorkspaceSidebarFooter } from "./packages/ui/src/WorkspaceSidebarFooter.tsx";
-import { createAiscooAccountAvatarRoot } from "./packages/ui/src/xwork/account-avatar/index.ts";
+import { createAiscooAccountAvatarRoot } from "./packages/ui/src/aiscoo/account-avatar/index.ts";
 import { ServiceProvider } from "./packages/ui/src/hooks/useServices.tsx";
 import { PlatformProvider } from "./packages/ui/src/hooks/usePlatform.tsx";
 import { StoreProvider, useZCodeStore } from "./packages/ui/src/store/StoreProvider.tsx";

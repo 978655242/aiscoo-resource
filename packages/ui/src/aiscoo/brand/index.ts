@@ -1,8 +1,8 @@
 import { createElement, type ReactElement } from "react";
 import { useDraftComposerCentering } from "./useDraftComposerCentering.js";
-import "../../xwork/brand/brand.css";
+import "./brand.css";
 import { NEW_API_PROVIDER_ID } from "@zcode/shared";
-import { brandMessageCatalog, PRODUCT_NAME, PRODUCT_WORDMARK } from "@zcode/shared/xwork-brand";
+import { brandMessageCatalog, PRODUCT_NAME, PRODUCT_WORDMARK } from "@zcode/shared/aiscoo-brand";
 import { useZCodeIntl, ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import type {
   AiscooBrandProps,
@@ -10,18 +10,18 @@ import type {
   AiscooStartupBadgeProps,
   AiscooStartupLogoProps,
 } from "./contract.js";
-import markLightUrl from "../../xwork/brand/assets/mark-light.svg";
-import markDarkUrl from "../../xwork/brand/assets/mark-dark.svg";
-import wordmarkLightUrl from "../../xwork/brand/assets/wordmark-light.svg";
-import wordmarkDarkUrl from "../../xwork/brand/assets/wordmark-dark.svg";
-import wordmarkAnimatedLightUrl from "../../xwork/brand/assets/wordmark-animated-light.svg";
-import wordmarkAnimatedDarkUrl from "../../xwork/brand/assets/wordmark-animated-dark.svg";
-import appLightUrl from "../../xwork/brand/assets/app-light.svg";
-import appDarkUrl from "../../xwork/brand/assets/app-dark.svg";
-import startupLightUrl from "../../xwork/brand/assets/startup-light.svg";
-import startupDarkUrl from "../../xwork/brand/assets/startup-dark.svg";
-import markLightSvg from "../../xwork/brand/assets/mark-light.svg?raw";
-import markDarkSvg from "../../xwork/brand/assets/mark-dark.svg?raw";
+import markLightUrl from "./assets/mark-light.svg";
+import markDarkUrl from "./assets/mark-dark.svg";
+import wordmarkLightUrl from "./assets/wordmark-light.svg";
+import wordmarkDarkUrl from "./assets/wordmark-dark.svg";
+import wordmarkAnimatedLightUrl from "./assets/wordmark-animated-light.svg";
+import wordmarkAnimatedDarkUrl from "./assets/wordmark-animated-dark.svg";
+import appLightUrl from "./assets/app-light.svg";
+import appDarkUrl from "./assets/app-dark.svg";
+import startupLightUrl from "./assets/startup-light.svg";
+import startupDarkUrl from "./assets/startup-dark.svg";
+import markLightSvg from "./assets/mark-light.svg?raw";
+import markDarkSvg from "./assets/mark-dark.svg?raw";
 
 export type * from "./contract.js";
 
@@ -254,6 +254,10 @@ function aiscooMessageCatalog(messages: Record<string, string>): Record<string, 
   } else if (messages["login.oauth.button.native"] === "Sign in to New API") {
     catalog["login.oauth.button.native"] = "Sign in";
   }
+  // 产品只有 Aiscoo 账号：服务包装过滤后没有可用渠道即表示账号服务未配置，
+  // 在产品词典里替换通用“无提供方”文案，上游登录页不需要感知产品策略。
+  const unavailable = messages["aiscoo.login.configUnavailable"];
+  if (unavailable) catalog["login.oauth.noProviders"] = unavailable;
   return catalog;
 }
 

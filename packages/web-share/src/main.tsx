@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client";
 // XCODE: 分享入口标题来自同源品牌模板，正文和分享代码保持原值。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 import "../../share-ui/src/styles.css";
 import { applyTheme, type Theme } from "../../ui/src/useTheme.js";
 import {
