@@ -46,8 +46,8 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { usePlatform } from "@/hooks/usePlatform.js";
-// XCODE: 可选头像插槽由产品入口注入，未装配时保留原来的首字回退。
-import { useProfileAvatarFallback } from "@/profile-avatar/index.js";
+// XCODE: 可选头像与账户菜单策略由产品入口注入，未装配时保留上游默认行为。
+import { useAccountMenuRewardsVisible, useProfileAvatarFallback } from "@/profile-avatar/index.js";
 import { useOpenRewards } from "@/rewards/RewardsProvider.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useShortcutCommandLabel } from "@/shortcuts/useShortcutBindings.js";
@@ -138,6 +138,8 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
   const { intl } = useZCodeIntl();
   const platform = usePlatform();
   const openRewards = useOpenRewards();
+  // XCODE: 使用只读展示策略，不复制登录或奖励状态。
+  const showRewards = useAccountMenuRewardsVisible();
   const interfaceMode = useZCodeStore((state) => state.interfaceMode);
   const setInterfaceMode = useZCodeStore((state) => state.setInterfaceMode);
   const zoomInShortcutLabel = useShortcutCommandLabel("zoomIn");
@@ -441,7 +443,8 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
               onUsageClick={usageButtonClick}
               onUpgradeClick={onUpgradeClick}
             />
-            {user ? (
+            {/* XCODE: 产品可暂时隐藏账户菜单入口，不改变奖励页和营销导航。 */}
+            {user && showRewards ? (
               <DropdownMenuItem onSelect={() => openRewards?.()} data-testid="rewards-menu-item">
                 <Gift className="size-4" />
                 {intl.formatMessage({ id: "rewards.menuTitle" })}
