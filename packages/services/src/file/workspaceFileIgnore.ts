@@ -85,7 +85,7 @@ const TEMPLATE_HEADER = [
   "# 不影响文件树浏览、上传或 Agent 文件访问。",
   "# 修改 .gitignore 不会自动同步到本文件；可在设置页「从 .gitignore 同步」。",
   "",
-// XCODE: 默认头说明消费品牌，分区标记参与既有文件精确匹配，继续保持原值。
+  // XCODE: 默认头说明消费品牌，分区标记参与既有文件精确匹配，继续保持原值。
 ].map(brandProductText);
 
 /**

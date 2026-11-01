@@ -311,7 +311,10 @@ async function runServe(
         const reused = existing.state === "ready" ? existing : await waitForControlReady(layout);
         if (json) stdout(io, reused);
         else
-          stdout(io, `${PRODUCT_NAME} Server ${reused.state} at ${reused.host ?? ""}:${reused.port ?? ""}`);
+          stdout(
+            io,
+            `${PRODUCT_NAME} Server ${reused.state} at ${reused.host ?? ""}:${reused.port ?? ""}`,
+          );
         return 0;
       }
       if (existing.runningTaskCount > 0) {
@@ -422,7 +425,11 @@ async function runServe(
     }
     // 回退原因只属于本次启动结果，不写入 status.json。
     if (json) stdout(io, serviceFallbackReason ? { ...started, serviceFallbackReason } : started);
-    else stdout(io, `${PRODUCT_NAME} Server ${started.state} at ${started.host ?? ""}:${started.port ?? ""}`);
+    else
+      stdout(
+        io,
+        `${PRODUCT_NAME} Server ${started.state} at ${started.host ?? ""}:${started.port ?? ""}`,
+      );
     process.stdin.pause();
     process.stdin.destroy();
     return 0;

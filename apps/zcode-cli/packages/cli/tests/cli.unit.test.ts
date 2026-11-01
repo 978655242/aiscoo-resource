@@ -743,7 +743,8 @@ test("honors configured locale before app creation when login is required", asyn
           abortSignal: new AbortController().signal,
         });
 
-        assert.equal(pickerResult.response, "选择 Coding Plan 提供商的配置方式。");
+        // XCODE: run() 的 TUI 处理器由下游接入 Aiscoo 命令中心，/login 展示产品账号入口与自有 API Key 选项。
+        assert.equal(pickerResult.response, "登录 Aiscoo，或配置自有 API Key。");
         assert.equal(pickerResult.selection?.title, "配置 Coding Plan");
         assert.equal(pickerResult.selection?.prompt, "选择登录或 API key 配置方式。");
         return 0;
