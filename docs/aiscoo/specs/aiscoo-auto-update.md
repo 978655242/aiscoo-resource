@@ -60,7 +60,7 @@ GET {AISCOO_ADMIN_BASE_URL}/api/v1/releases/electron/manifest
 
 ## 4. 管理接口契约
 
-均为 `AdminAuth` + 审计 + `no-store`，返回现有 `{success,message,data}` 包装。
+均为 `RootAuth` + 审计 + `no-store`，仅 root 可调用；PAT 还须具备 `ops:read`（列表）或 `ops:write`（登记与修改），返回现有 `{success,message,data}` 包装。
 
 | 方法与路径                         | 作用                                        |
 | ---------------------------------- | ------------------------------------------- |
@@ -74,7 +74,8 @@ GET {AISCOO_ADMIN_BASE_URL}/api/v1/releases/electron/manifest
 
 1. `notarize-macos.sh` 原地对 `.app` 做 Developer ID 签名、生成并公证 DMG。DMG 用于官网首次下载。
 2. `scripts/aiscoo/build-macos-update-feed.sh` 对同一个已签名的 `.app` staple 公证票据，`ditto -c -k --keepParent` 打 zip，计算 base64 sha512 与字节数，生成 `latest-mac.yml`。重签前 electron-builder 生成的 zip 与 yml 一律作废。
-3. `scripts/aiscoo/publish-macos-update.mjs` 默认 dry-run，打印将上传的对象与登记载荷；`--execute` 才上传 OSS 并调用管理接口。OSS 路径沿用 `releases/aiscoo/<版本>/macos/arm64/<构建标识>/`，已存在的对象拒绝覆盖。管理凭据只从环境变量读取，不写入日志。
+3. `scripts/aiscoo/publish-macos-update.mjs` 默认 dry-run，只流式校验本地产物并打印对象与登记载荷，不联网、不启动云 CLI、不读取管理 token；`--execute` 才按“本地 sha512/size 校验 → OSS 原子上传 → 公开 HTTPS GET 完整流式 sha512/size 校验 → 管理接口登记”的顺序执行。OSS 路径沿用 `releases/aiscoo/<版本>/macos/arm64/<构建标识>/`；feed 的 `files[0].url` 与可选 `path` 必须是同一个 zip basename，拒绝目录、编码路径、查询或片段，版本必须是合法语义化版本。
+   发布配置为 `AISCOO_RELEASE_OSS_BUCKET`（桶）、`AISCOO_RELEASE_OSS_HOST`（公开下载 host，可含端口，始终 HTTPS）、`AISCOO_RELEASE_OSS_REGION`（默认 `cn-hangzhou`）、`AISCOO_RELEASE_OSS_ENDPOINT`（服务 endpoint，默认 `oss-cn-hangzhou.aliyuncs.com`，与下载 host 分开）、可选 `AISCOO_RELEASE_OSS_PROFILE`（显式透传，否则沿用当前 profile）及 `AISCOO_ADMIN_BASE_URL`。上传复用 `aliyun --auto-plugin-install false ossutil api put-object`，使用 ossutil 2.3.0 支持的 `--cache-control`、`--object-acl public-read` 与服务端 `--forbid-overwrite=true`；`public-read` 仅用于本次上传的公开发布对象，不修改桶 ACL，避免对象继承 private 桶权限后无法公开下载；不以 `stat` 预检代替原子拒绝覆盖，不把权限、网络或其他上传失败当作不存在。任何上传或公开下载校验失败均停止登记；下载不跟随重定向。管理认证复用现有 root PAT `ops:write`，只在 execute 时从 `AISCOO_ADMIN_ACCESS_TOKEN` 读取，以 Bearer 头发送到管理 origin，不写入日志。
 
 ## 6. 验收场景
 

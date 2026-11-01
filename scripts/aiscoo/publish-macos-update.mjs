@@ -11,16 +11,18 @@
 //        [--rollout <0-100>] [--allow-device <device_mid>]... [--withdrawn] [--execute]
 // 环境变量：
 //   AISCOO_RELEASE_OSS_BUCKET   OSS 桶名，例如 aiscoo-releases（必填）
-//   AISCOO_RELEASE_OSS_HOST     下载域名，例如 aiscoo-releases.oss-cn-hangzhou.aliyuncs.com（必填）
-//   AISCOO_RELEASE_OSS_PROFILE  ossutil 配置文件里的 profile，可选
+//   AISCOO_RELEASE_OSS_HOST     HTTPS 下载 host，可含端口（必填）
+//   AISCOO_RELEASE_OSS_REGION   OSS region，默认 cn-hangzhou
+//   AISCOO_RELEASE_OSS_ENDPOINT OSS 服务 endpoint，默认 oss-cn-hangzhou.aliyuncs.com
+//   AISCOO_RELEASE_OSS_PROFILE  显式传给 ossutil 的 profile，可选；不设置则沿用当前配置
 //   AISCOO_ADMIN_BASE_URL       aiscoo-admin origin（必填，与桌面包编译的账号源一致）
 //   AISCOO_ADMIN_ACCESS_TOKEN   root 的个人访问令牌（--execute 时必填，需 ops:write，不写入日志）
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
+import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { promisify } from "node:util";
-import { parseArgs } from "node:util";
+import { parseArgs, promisify } from "node:util";
 import { parse as parseYaml } from "yaml";
 
 const run = promisify(execFile);
@@ -28,6 +30,36 @@ const run = promisify(execFile);
 function fail(message) {
   console.error(`[aiscoo-publish] ERROR: ${message}`);
   process.exit(1);
+}
+
+function validHost(host) {
+  if (!host || !/^[a-z0-9.-]+(?::[0-9]+)?$/.test(host)) return false;
+  try {
+    return new URL(`https://${host}`).host === host;
+  } catch {
+    return false;
+  }
+}
+
+function validZipBasename(value) {
+  // feed 文件名既用于本地路径也用于 OSS URL：仅允许无转义的 basename，防止目录穿越。
+  return (
+    typeof value === "string" &&
+    value.endsWith(".zip") &&
+    /^[0-9A-Za-z][0-9A-Za-z._-]*\.zip$/.test(value)
+  );
+}
+
+async function hashStream(stream, expectedSize) {
+  const hash = createHash("sha512");
+  let size = 0;
+  // zip 可能超过 1 GB，本地与 HTTPS 下载复用逐块哈希，避免把整个安装包读进内存。
+  for await (const chunk of stream) {
+    size += chunk.length;
+    if (size > expectedSize) throw new Error("size exceeds manifest");
+    hash.update(chunk);
+  }
+  return { sha512: hash.digest("base64"), size };
 }
 
 const { values, positionals } = parseArgs({
@@ -54,11 +86,14 @@ if (!Number.isInteger(rolloutPercentage) || rolloutPercentage < 0 || rolloutPerc
 
 const bucket = process.env.AISCOO_RELEASE_OSS_BUCKET?.trim();
 const downloadHost = process.env.AISCOO_RELEASE_OSS_HOST?.trim().toLowerCase();
+const region = process.env.AISCOO_RELEASE_OSS_REGION?.trim() || "cn-hangzhou";
+const endpoint = process.env.AISCOO_RELEASE_OSS_ENDPOINT?.trim() || "oss-cn-hangzhou.aliyuncs.com";
 const adminOrigin = process.env.AISCOO_ADMIN_BASE_URL?.trim();
 if (!bucket || !/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(bucket))
   fail("AISCOO_RELEASE_OSS_BUCKET 缺失或非法");
-if (!downloadHost || !/^[a-z0-9.-]+$/.test(downloadHost))
-  fail("AISCOO_RELEASE_OSS_HOST 缺失或非法");
+if (!validHost(downloadHost)) fail("AISCOO_RELEASE_OSS_HOST 缺失或非法");
+if (!/^[a-z0-9-]+$/.test(region)) fail("AISCOO_RELEASE_OSS_REGION 非法");
+if (!validHost(endpoint)) fail("AISCOO_RELEASE_OSS_ENDPOINT 必须是 OSS 服务 host");
 let adminUrl;
 try {
   adminUrl = new URL("/api/v1/admin/releases", adminOrigin);
@@ -78,13 +113,36 @@ const feed = parseYaml(await readFile(join(artifactDir, "latest-mac.yml"), "utf8
 if (typeof feed?.version !== "string" || !Array.isArray(feed.files) || feed.files.length !== 1) {
   fail("latest-mac.yml 格式不符：需要 version 与恰好一个 files 条目");
 }
+const versionPattern =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+if (!versionPattern.test(feed.version) || /\s/.test(feed.version)) {
+  fail("latest-mac.yml version 必须是合法语义化版本");
+}
 const [file] = feed.files;
+if (!validZipBasename(file?.url)) fail("files[0].url 必须是安全的 zip basename");
+if (feed.path !== undefined && (!validZipBasename(feed.path) || feed.path !== file.url)) {
+  fail("latest-mac.yml path 必须与 files[0].url 的 zip basename 一致");
+}
+if (
+  typeof file.sha512 !== "string" ||
+  !/^[A-Za-z0-9+/]{86}==$/.test(file.sha512) ||
+  Buffer.from(file.sha512, "base64").toString("base64") !== file.sha512 ||
+  !Number.isSafeInteger(file.size) ||
+  file.size <= 0
+) {
+  fail("latest-mac.yml 的 sha512 或 size 非法");
+}
 const zipPath = join(artifactDir, file.url);
-const zipStat = await stat(zipPath).catch(() => fail(`找不到 zip：${zipPath}`));
-const sha512 = createHash("sha512")
-  .update(await readFile(zipPath))
-  .digest("base64");
-if (sha512 !== file.sha512 || zipStat.size !== file.size) {
+let localFile;
+try {
+  const zipStat = await stat(zipPath);
+  if (!zipStat.isFile() || zipStat.size !== file.size) throw new Error("size mismatch");
+  localFile = await hashStream(createReadStream(zipPath), file.size);
+} catch {
+  fail("zip 读取失败或 size 不符；请检查本地产物与 latest-mac.yml");
+}
+const { sha512, size } = localFile;
+if (sha512 !== file.sha512 || size !== file.size) {
   fail("zip 的 sha512 或大小与 latest-mac.yml 不一致；请重新运行 build-macos-update-feed.sh");
 }
 
@@ -100,7 +158,7 @@ const payload = {
   minimum_system_version: feed.minimumSystemVersion ?? "",
   release_date: Math.floor(Date.parse(feed.releaseDate) / 1000) || 0,
   release_notes_by_locale: feed.releaseNotesByLocale ?? {},
-  files: [{ url: downloadUrl, sha512, size: zipStat.size }],
+  files: [{ url: downloadUrl, sha512, size }],
 };
 
 console.log(`[aiscoo-publish] 上传：${zipPath} -> oss://${bucket}/${objectKey}`);
@@ -122,36 +180,77 @@ const profileArgs = process.env.AISCOO_RELEASE_OSS_PROFILE?.trim()
   : [];
 const ossTarget = `oss://${bucket}/${objectKey}`;
 
-// 已存在即停止：同一版本同一构建标识的对象不能被替换，换包必须换构建标识或版本。
-const existing = await run("ossutil", ["stat", ossTarget, ...profileArgs]).then(
-  () => true,
-  () => false,
-);
-if (existing) fail(`OSS 上已存在 ${ossTarget}，拒绝覆盖`);
-await run("ossutil", [
-  "cp",
-  zipPath,
-  ossTarget,
-  ...profileArgs,
-  "--meta",
-  "Cache-Control:public, max-age=31536000, immutable",
-]);
+// stat 预检存在竞争且会把权限/网络错误误判为不存在；交给 OSS 原子拒绝覆盖，任何失败都停止。
+try {
+  await run("aliyun", [
+    "--auto-plugin-install",
+    "false",
+    "ossutil",
+    "api",
+    "put-object",
+    "--bucket",
+    bucket,
+    "--key",
+    objectKey,
+    "--body",
+    `file://${zipPath}`,
+    "--region",
+    region,
+    "--endpoint",
+    endpoint,
+    "--forbid-overwrite=true",
+    // 发布对象需公开下载；显式对象 ACL 避免继承 private 桶权限，不修改桶 ACL。
+    "--object-acl",
+    "public-read",
+    "--cache-control",
+    "public, max-age=31536000, immutable",
+    ...profileArgs,
+  ]);
+} catch {
+  // 不回显云 CLI 的原始错误，以免外部工具输出凭据；服务端冲突、403 与网络失败一律不登记。
+  fail(`OSS 上传失败：${ossTarget}；拒绝覆盖或权限/网络异常，请检查 CLI 配置后重试`);
+}
 console.log("[aiscoo-publish] 已上传，开始校验公开下载");
-const head = await fetch(downloadUrl, { method: "HEAD" });
-if (!head.ok || Number(head.headers.get("content-length")) !== zipStat.size) {
-  fail(
-    `公开下载校验失败：HTTP ${head.status}，content-length ${head.headers.get("content-length")}`,
-  );
+try {
+  // HEAD 只能证明长度；逐字节 GET 校验后才允许登记，且拒绝重定向到另一下载源。
+  const download = await fetch(downloadUrl, {
+    method: "GET",
+    redirect: "error",
+    signal: AbortSignal.timeout(10 * 60 * 1000),
+  });
+  if (download.status !== 200 || !download.body) {
+    await download.body?.cancel();
+    throw new Error("download failed");
+  }
+  const contentLength = download.headers.get("content-length");
+  if (contentLength !== null && Number(contentLength) !== size) {
+    await download.body.cancel();
+    throw new Error("content-length mismatch");
+  }
+  const downloaded = await hashStream(download.body, size);
+  if (downloaded.sha512 !== sha512 || downloaded.size !== size) {
+    throw new Error("sha512 or size mismatch");
+  }
+} catch {
+  fail("公开下载校验失败：HTTPS GET 未完成或 sha512/size 不符，未登记版本");
 }
 
-const response = await fetch(adminUrl, {
-  method: "POST",
-  headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-  body: JSON.stringify(payload),
-});
+let response;
+try {
+  response = await fetch(adminUrl, {
+    method: "POST",
+    redirect: "error",
+    signal: AbortSignal.timeout(30000),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(payload),
+  });
+} catch {
+  fail("登记失败：管理接口网络异常或重定向，请检查后重试");
+}
 const body = await response.json().catch(() => ({}));
-if (!response.ok || body.success !== true) {
-  fail(`登记失败：HTTP ${response.status} ${body.message ?? ""}`.trim());
+if (!response.ok || body?.success !== true) {
+  // 管理端错误正文可能反射请求头，不写入日志，保留 HTTP 状态用于诊断。
+  fail(`登记失败：HTTP ${response.status}`);
 }
 console.log(
   `[aiscoo-publish] 已登记 id=${body.data?.id} status=${body.data?.status} rollout=${body.data?.rollout_percentage}%`,
