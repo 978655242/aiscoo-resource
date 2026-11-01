@@ -258,6 +258,9 @@ function aiscooMessageCatalog(messages: Record<string, string>): Record<string, 
   // 在产品词典里替换通用“无提供方”文案，上游登录页不需要感知产品策略。
   const unavailable = messages["aiscoo.login.configUnavailable"];
   if (unavailable) catalog["login.oauth.noProviders"] = unavailable;
+  // 缺模型时不应向用户暴露 New API 后端术语；只替换 Aiscoo 产品词典中的展示文案。
+  const noNativeModel = messages["aiscoo.chat.error.noNativeModel"];
+  if (noNativeModel) catalog["chat.error.noNativeModel"] = noNativeModel;
   return catalog;
 }
 

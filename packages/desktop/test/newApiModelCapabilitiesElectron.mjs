@@ -43,6 +43,8 @@ import {V4ComposerModelControls} from "./packages/ui/src/v4/composer/V4ComposerT
 import {useDraftConfigControl} from "./packages/ui/src/v4/composer/useDraftConfigControl.ts";
 import {createComposerSubmissionConfig} from "./packages/ui/src/v4/composer/composerSubmissionConfig.ts";
 import {ZCodeIntlProvider} from "./packages/ui/src/i18n/IntlProvider.tsx";
+import {AiscooIntlProvider} from "./packages/ui/src/aiscoo/brand/index.ts";
+import {ChatErrorBanner} from "./packages/ui/src/ChatErrorBanner.tsx";
 import {ServiceProvider} from "./packages/ui/src/hooks/useServices.tsx";
 import {PlatformProvider} from "./packages/ui/src/hooks/usePlatform.tsx";
 import {StoreProvider,useZCodeStore} from "./packages/ui/src/store/StoreProvider.tsx";
@@ -91,6 +93,15 @@ function Scene(){
 const renderer=createRoot(document.getElementById("root"));
 window.appearance=(theme,locale)=>{applyTheme(theme);flushSync(()=>renderer.render(<ServiceProvider services={services}><PlatformProvider platform={{}}><StoreProvider broadcastService={broadcast}><TabStoreProvider><ZCodeIntlProvider key={locale} initialLocale={locale}><TooltipProvider><Scene/></TooltipProvider></ZCodeIntlProvider></TabStoreProvider></StoreProvider></PlatformProvider></ServiceProvider>))};
 window.appearance("light","zh-CN");
+// 隔离构造缺模型横幅，使用真实组件和国际化 Provider；套餐入口仅注入测试清单。
+window.bannerEvents=[];
+window.recordBannerEvent=event=>{window.bannerEvents.push(event);document.body.dataset.bannerEvent=event};
+window.bannerAppearance=(theme,locale,product,native)=>{
+  applyTheme(theme);
+  const IntlProvider=product?AiscooIntlProvider:ZCodeIntlProvider;
+  window.fixtureNative=native;
+  flushSync(()=>renderer.render(<IntlProvider key={locale} initialLocale={locale}><ChatErrorBanner error={{code:"model_config_missing",message:"fixture"}} onOpenUpgrade={()=>window.recordBannerEvent("plans")} onOpenModelSettings={()=>window.recordBannerEvent("settings")} onDismiss={()=>window.recordBannerEvent("dismiss")}/></IntlProvider>));
+};
 `,
       },
       bundle: true,
@@ -110,7 +121,7 @@ window.appearance("light","zh-CN");
           setup(builder) {
             builder.onLoad({ filter: /CodingPlanUpgradeDialogProvider\.tsx$/ }, () => ({
               contents:
-                'export const useCodingPlanUpgradeDialog=()=>({openCodingPlanUpgrade(){throw new Error("Unexpected purchase action")}});export const useOptionalCodingPlanUpgradeDialog=()=>null;',
+                'export const useCodingPlanUpgradeDialog=()=>({openCodingPlanUpgrade(){throw new Error("Unexpected purchase action")}});export const useOptionalCodingPlanUpgradeDialog=()=>window.fixtureNative===undefined?null:{inventory:{status:"ready",native:window.fixtureNative}};',
               loader: "js",
             }));
           },
@@ -461,8 +472,67 @@ window.appearance("light","zh-CN");
         (await win.webContents.capturePage()).toPNG(),
       );
     }
+    stage = "Aiscoo missing-model banner copy and actions";
+    for (const [theme, locale, width, message, planLabel, settingsLabel] of [
+      ["light", "zh-CN", 1000, "未订阅 Aiscoo Zen 套餐或者自定义模型", "查看订阅套餐", "配置"],
+      [
+        "dark",
+        "en-US",
+        1000,
+        "No Aiscoo Zen subscription or custom model",
+        "View subscription",
+        "Set",
+      ],
+      [
+        "light",
+        "en-US",
+        360,
+        "No Aiscoo Zen subscription or custom model",
+        "View subscription",
+        "Set",
+      ],
+      ["dark", "zh-CN", 360, "未订阅 Aiscoo Zen 套餐或者自定义模型", "查看订阅套餐", "配置"],
+    ]) {
+      win.setContentSize(width, 440);
+      await observe(
+        `window.bannerAppearance(${JSON.stringify(theme)},${JSON.stringify(locale)},true,true)`,
+      );
+      const content = await observe(
+        'document.querySelector("[data-testid=chat-error-banner]").textContent',
+      );
+      assert.ok(content.includes(message), `${locale}: ${content}`);
+      assert.ok(!content.includes("New API"), `${locale}: ${content}`);
+      for (const [label, event] of [
+        [planLabel, "plans"],
+        [settingsLabel, "settings"],
+      ]) {
+        const selector = `document.querySelector('[data-testid=chat-error-banner] button[aria-label="${label}"]')`;
+        assert.equal(await observe(`${selector}!==null && !${selector}.disabled`), true);
+        await click(selector);
+        // Electron 的输入事件会异步抵达 Renderer，等待实际 callback 再验证。
+        await waitFor(`document.body.dataset.bannerEvent===${JSON.stringify(event)}`);
+        assert.equal((await observe("window.bannerEvents")).at(-1), event);
+      }
+      assert.equal(
+        await observe("document.documentElement.scrollWidth <= window.innerWidth"),
+        true,
+      );
+    }
+    stage = "non-native and upstream banner copy";
+    await observe('window.bannerAppearance("light","zh-CN",true,false)');
+    assert.ok(
+      (
+        await observe('document.querySelector("[data-testid=chat-error-banner]").textContent')
+      ).includes("当前没有可用模型"),
+    );
+    await observe('window.bannerAppearance("light","zh-CN",false,true)');
+    assert.ok(
+      (
+        await observe('document.querySelector("[data-testid=chat-error-banner]").textContent')
+      ).includes("当前没有可用的 New API 模型"),
+    );
     console.log(
-      "Original Composer capability controls, refresh, history gates, custom isolation and styled viewport scenarios passed",
+      "Original Composer capability controls and Aiscoo missing-model banner scenarios passed",
     );
   } catch (error) {
     exitCode = 1;

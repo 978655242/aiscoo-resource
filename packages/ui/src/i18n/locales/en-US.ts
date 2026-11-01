@@ -8567,6 +8567,8 @@ const enUS: Record<string, string> = {
   "aiscoo.legal.title": "Legal Information",
   "aiscoo.legal.userAgreement": "User Agreement",
   "aiscoo.legal.privacyPolicy": "Privacy Policy",
+  // XCODE: Aiscoo's missing-model banner leaves the generic catalog unchanged.
+  "aiscoo.chat.error.noNativeModel": "No Aiscoo Zen subscription or custom model",
 };
 
 export default enUS;
