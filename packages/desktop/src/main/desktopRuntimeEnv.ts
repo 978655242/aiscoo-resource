@@ -27,7 +27,7 @@ import {
   type ZCodeRuntimeEnv,
 } from "@zcode/shared";
 // XCODE: 展示名由共享品牌配置提供，历史 Electron 数据名继续独立维护。
-import { PRODUCT_BRAND, PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_BRAND, PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 // XCODE: 应用与数据身份由独立下游配置提供，历史钥匙串名称另行保留。
 import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
 import { buildAiscooDesktopStorageEnv } from "../aiscoo-desktop-identity/index.js";

@@ -17,13 +17,13 @@ import {
   setReactErrorArmsReporter,
 } from "@zcode/ui";
 // XCODE: 独立公开子路径组合归属水合，保留原 UI 根导出边界。
-import { createXWorkRoot } from "@zcode/ui/xwork-startup-context";
+import { createAiscooRoot } from "@zcode/ui/aiscoo-startup-context";
 // XCODE: 默认头像通过产品包装注入，不改变原有认证资料。
-import { createAiscooAccountAvatarRoot } from "@zcode/ui/xwork-account-avatar";
+import { createAiscooAccountAvatarRoot } from "@zcode/ui/aiscoo-account-avatar";
 // XCODE: 产品账号策略在入口固定装配，共享 Root 保留未注入时的默认行为。
 import { createAiscooAccountLoginRoot } from "@zcode/ui/aiscoo-account-login-root";
 // XCODE: 应用装配点使用下游品牌词典；上游 Provider 默认资源不改写。
-import { AiscooIntlProvider as ZCodeIntlProvider } from "@zcode/ui/xwork-brand";
+import { AiscooIntlProvider as ZCodeIntlProvider } from "@zcode/ui/aiscoo-brand";
 import "@zcode/ui/styles.css";
 import { connectViaMessagePort, createMessagePortServiceConnection } from "@zcode/client";
 import {
@@ -51,7 +51,7 @@ import {
 // XCODE: 入口注入上游组件，冷启动只水合归属，不制造 New Task 意图。
 // XCODE: 与已有启动包装组合，保持 Root 的 props 和所有者不变。
 const Root: typeof UpstreamRoot = createAiscooAccountLoginRoot(
-  createAiscooAccountAvatarRoot(createXWorkRoot(UpstreamRoot)),
+  createAiscooAccountAvatarRoot(createAiscooRoot(UpstreamRoot)),
 );
 
 type DesktopRendererImportMetaEnv = {

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+// XCODE: steer 提示文案消费品牌常量，断言需与源码使用同一事实来源。
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import type { ModelInputMessage, RuntimeMessageEntry } from "../src/agent/message-history.js";
 import {
   realUserRuntimeMetadata,
@@ -920,8 +922,9 @@ describe("buildProviderRequestMessages", () => {
       message: user(content),
       metadata: { source: "real_user", inputPresentation: "user_steer" },
     });
+    // XCODE: 源码文案经品牌常量投影，测试同样引用该常量而不是写死上游产品名。
     const steerText = (body: string) =>
-      `The user sent a new message while you were working:\n${body}\n\nThis is how ZCode surfaces messages the user sends mid-turn — within the running turn, often alongside the next tool result, rather than as a separate conversation turn. Address the message above as you continue this turn.`;
+      `The user sent a new message while you were working:\n${body}\n\nThis is how ${PRODUCT_NAME} surfaces messages the user sends mid-turn — within the running turn, often alongside the next tool result, rather than as a separate conversation turn. Address the message above as you continue this turn.`;
 
     // guide 是轮内中途消息：MCS 下与其他中途消息一样并入 run 的 system，不带外层标签。
     it("puts a text steer into the run system message, user-side reminders still fold", () => {

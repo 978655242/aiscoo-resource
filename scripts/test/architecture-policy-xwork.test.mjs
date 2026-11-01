@@ -83,9 +83,9 @@ modules:
     requires: []
 `;
   const extension = `aliases:
-  aiscoo-brand: xwork-brand
+  aiscoo-brand: legacy-brand
 modules:
-  - id: xwork-brand
+  - id: legacy-brand
     roots: [packages/brand/src]
     managed: true
     owner: product
@@ -118,17 +118,17 @@ modules:
     const result = await checkArchitecture({ cwd });
     assert.deepEqual(result.violations, []);
     assert.equal(
-      await generateContext({ cwd, moduleId: "xwork-brand" }),
+      await generateContext({ cwd, moduleId: "legacy-brand" }),
       await generateContext({ cwd, moduleId: "aiscoo-brand" }),
     );
     assert.match(await generateContext({ cwd, moduleId: "aiscoo-brand" }), /owner: product/);
     await writeFile(
       join(cwd, "architecture-policy.yaml"),
-      policyYaml.replace("requires: [aiscoo-brand]", "requires: [xwork-brand]"),
+      policyYaml.replace("requires: [aiscoo-brand]", "requires: [legacy-brand]"),
     );
     await writeFile(
       join(cwd, "packages/consumer/src/module.ts"),
-      'export const module = { requires: ["xwork-brand"] };\n',
+      'export const module = { requires: ["legacy-brand"] };\n',
     );
     assert.deepEqual((await checkArchitecture({ cwd })).violations, []);
     await writeFile(join(cwd, "architecture-policy.yaml"), policyYaml);
@@ -147,7 +147,7 @@ modules:
     assert.equal(failures.violations.filter((item) => item.rule === "deep-import").length, 1);
     await writeFile(
       join(cwd, "packages/consumer/src/module.ts"),
-      'export const module = { requires: ["xwork-brand"] };\n',
+      'export const module = { requires: ["legacy-brand"] };\n',
     );
     const mismatch = await checkArchitecture({
       cwd,

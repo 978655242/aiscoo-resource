@@ -2,7 +2,7 @@
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
 // XCODE: 关闭提示投影共享品牌，服务比较端同步兼容新旧提示。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 import { Emitter } from "@zcode/rpc";
 import type { ZCodeProtocolMessage } from "@zcode/shared";
 import { zcodeProtocolMessageSchema } from "@zcode/shared";

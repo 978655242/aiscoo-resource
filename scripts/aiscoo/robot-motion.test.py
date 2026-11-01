@@ -11,8 +11,8 @@ import unittest
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
-# 原因：release 保留 xwork 发布路径；校验实际消费资源，不另建 aiscoo 副本。
-ASSETS = ROOT / "packages/ui/src/xwork/brand/assets"
+# 原因：校验实际被 UI 与打包消费的资源目录，不另建副本。
+ASSETS = ROOT / "packages/ui/src/aiscoo/brand/assets"
 NS = "{http://www.w3.org/2000/svg}"
 # 原因：只允许优化机器人；固定其外部的字母、画布、底板、遮挡和布局。
 SURROUNDING_GEOMETRY = {

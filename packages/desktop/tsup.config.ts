@@ -220,7 +220,7 @@ function createMainDefines() {
     // XCODE: About 独立窗口在启动阶段也必须使用原稿 mark；资源构建时内嵌，不依赖 docs。
     __XWORK_ABOUT_MARK_DATA_URL__: JSON.stringify(
       `data:image/svg+xml;base64,${readFileSync(
-        resolve(import.meta.dirname, "../ui/src/xwork/brand/assets/mark-dark.svg"),
+        resolve(import.meta.dirname, "../ui/src/aiscoo/brand/assets/mark-dark.svg"),
       ).toString("base64")}`,
     ),
     ...createSharedDefines(),

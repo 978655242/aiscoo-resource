@@ -1,6 +1,6 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 // XCODE: 静态帮助装配时使用共享品牌投影。
-import { brandProductText } from "./xwork-brand/runtime.js";
+import { brandProductText } from "./aiscoo-brand/runtime.js";
 
 export type BuiltinZCodeSlashCommandHelpEntry = {
   aliases?: readonly string[];

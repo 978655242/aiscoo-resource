@@ -2,7 +2,7 @@
 import type { PluginScope, PluginsOverviewResult } from "@zcode/shared";
 import type { IPluginsService } from "./plugins.js";
 // XCODE: 退役能力的产品提示消费共享品牌，不改插件管理协议。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 
 interface PluginsServiceOptions {
   isDesktopRuntime?: boolean;

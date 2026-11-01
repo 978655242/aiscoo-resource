@@ -1,5 +1,5 @@
 // XCODE: About 使用构建期内嵌的原稿 mark，独立窗口不读取 docs 或外部资源。
-import { PRODUCT_WORDMARK } from "@zcode/shared/xwork-brand";
+import { PRODUCT_WORDMARK } from "@zcode/shared/aiscoo-brand";
 declare const __XWORK_ABOUT_MARK_DATA_URL__: string | undefined;
 
 interface CustomAboutDialogHtmlInput {

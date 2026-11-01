@@ -7,7 +7,7 @@ import {
   type PluginGuideChange,
   type PluginGuideSnapshot,
   type PluginGuideTarget,
-} from "@zcode/shared/xwork-plugin-guides";
+} from "@zcode/shared/aiscoo-plugin-guides";
 import type { PluginGuideProjection } from "./contract.js";
 
 function targetRoute(target: PluginGuideTarget | null): string {

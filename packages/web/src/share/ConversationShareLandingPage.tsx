@@ -18,8 +18,8 @@ import {
 } from "@zcode/shared/aiscoo-desktop-identity";
 import type { ConversationSharePreview } from "@zcode/shared";
 // XCODE: 只装配自有分享模板；分享正文、标题和导入 URL 保持原值。
-import { brandProductText, PRODUCT_NAME } from "@zcode/shared/xwork-brand";
-import { AiscooWordmark } from "@zcode/ui/xwork-brand";
+import { brandProductText, PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
+import { AiscooWordmark } from "@zcode/ui/aiscoo-brand";
 import { ConversationShareReadonlyTimeline } from "@zcode/ui/conversation-share-readonly";
 import { renderOAuthProviderIcon } from "@zcode/ui/oauth-provider-icon";
 import { applyTheme, resolveTheme, type Theme } from "@zcode/ui/useTheme";

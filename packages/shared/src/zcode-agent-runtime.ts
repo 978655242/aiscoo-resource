@@ -1,6 +1,6 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 // XCODE: 产品提示消费共享品牌，不调整 runtime 描述符的兼容标识。
-import { brandProductText } from "./xwork-brand/runtime.js";
+import { brandProductText } from "./aiscoo-brand/runtime.js";
 
 export type ZCodeAgentBinaryKind = "native-binary";
 

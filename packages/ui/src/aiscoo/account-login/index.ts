@@ -72,10 +72,6 @@ function createAccountOAuthService(owner: IOAuthService): IOAuthService {
   };
   return {
     onDidChangeSession: owner.onDidChangeSession ?? (() => ({ dispose() {} })),
-    onDidFailAuthorization: owner.onDidFailAuthorization,
-    getLocalWebAuthorizationCapabilities: owner.getLocalWebAuthorizationCapabilities
-      ? () => owner.getLocalWebAuthorizationCapabilities!()
-      : undefined,
     getProviders,
     getActiveProvider: active,
     restoreCachedSessionState,

@@ -1,6 +1,6 @@
 import { WebRemoteControlBrand } from "#src/web-remote-control/ui/webRemoteControlBrand.js";
 // XCODE: 连接前页面显式装配产品品牌，通用页头保留上游默认。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 
 export function WebRemoteControlScanPage({ locale }: { locale: "zh-CN" | "en-US" }) {
   const zh = locale === "zh-CN";

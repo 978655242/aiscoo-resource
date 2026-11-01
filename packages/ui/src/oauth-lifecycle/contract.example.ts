@@ -1,9 +1,9 @@
-import type { OAuthLifecycleExtension, OAuthLifecyclePlatform } from "./contract.js";
+import type { OAuthAccountPolicy, OAuthLifecyclePlatform } from "./contract.js";
 
 /** 产品装配时显式注入；缺省不干预现有行为。 */
-export function withOAuthLifecycle(
+export function withOAuthAccountPolicy(
   platform: OAuthLifecyclePlatform,
-  lifecycle: OAuthLifecycleExtension,
+  policy: OAuthAccountPolicy,
 ): OAuthLifecyclePlatform {
-  return Object.assign(platform, { oauthLifecycle: lifecycle });
+  return Object.assign(platform, { oauthAccountPolicy: policy });
 }

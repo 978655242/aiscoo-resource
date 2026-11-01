@@ -8,7 +8,7 @@ import {
 import { ZCodeStorageStartupGate } from "#src/zcode-agent/zcodeStorageStartupGate.js";
 import { Emitter } from "@zcode/rpc";
 // XCODE: 只投影自有诊断模板，协议方法和外部错误在其后插入。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 import type { IDisposable } from "@zcode/rpc";
 import type {
   ZCodeProtocolMethod,

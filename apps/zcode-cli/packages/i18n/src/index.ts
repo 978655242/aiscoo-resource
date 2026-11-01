@@ -11,8 +11,8 @@ import {
 } from "./locale.js";
 import type { ZCodeCopy } from "./types.js";
 // XCODE: 下游装配投影自有模板，原始 locale 词典和动态用户值保持原样。
-import { brandCliCopy } from "./xwork-brand/index.js";
-export { PRODUCT_NAME, PRODUCT_WORDMARK, brandProductText } from "./xwork-brand/index.js";
+import { brandCliCopy } from "./aiscoo-brand/index.js";
+export { PRODUCT_NAME, PRODUCT_WORDMARK, brandProductText } from "./aiscoo-brand/index.js";
 
 export {
   DEFAULT_LOCALE,

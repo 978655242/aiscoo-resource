@@ -1,7 +1,7 @@
 import { normalize } from "node:path";
 
 // XCODE: 新 Dev bundle 展示名来自品牌配置，同时继续识别历史生成副本。
-import { PRODUCT_BRAND } from "@zcode/shared/xwork-brand";
+import { PRODUCT_BRAND } from "@zcode/shared/aiscoo-brand";
 
 const LOCAL_DEV_BUNDLE_PATH = "/.zcode-runtime/desktop-dev/";
 const LOCAL_DEV_BUNDLE_EXECUTABLE_SUFFIX = `/${PRODUCT_BRAND.developmentName}.app/Contents/MacOS/Electron`;

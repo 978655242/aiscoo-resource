@@ -8,7 +8,7 @@ import { HELPER_APP_NAME } from "@zcode/zcode-cua/broker/helperConstants";
 import { runCommand, runCommandAndReadStdout } from "../../scripts/spawn-command.mjs";
 // XCODE: 打包脚本读取唯一品牌 JSON；可执行名等兼容身份由 product identity 单独维护。
 const productBrand = JSON.parse(
-  await readFile(new URL("../shared/src/xwork-brand/brand.json", import.meta.url), "utf8"),
+  await readFile(new URL("../shared/src/aiscoo-brand/brand.json", import.meta.url), "utf8"),
 );
 import { loadBuiltinProviderConfig } from "../../scripts/builtin-provider-config.mjs";
 import { noticesFileName, stageElectronNotices } from "../../scripts/third-party-notices.mjs";

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Loader2, RefreshCw, Save } from "lucide-react";
 import type { IPluginGuideService, PluginGuideModelHost } from "./contract.js";
-import { PLUGIN_GUIDE_SECTIONS, type PluginGuideTarget } from "@zcode/shared/xwork-plugin-guides";
+import { PLUGIN_GUIDE_SECTIONS, type PluginGuideTarget } from "@zcode/shared/aiscoo-plugin-guides";
 import { Button } from "@/components/ui/button.js";
 import { MessageResponse } from "@/components/ai-elements/message.js";
 import {

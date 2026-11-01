@@ -3,4 +3,4 @@ export {
   pluginGuideSourceSchema,
   pluginGuideStreamTextParamsSchema,
   pluginGuideTextDeltaSchema,
-} from "@zcode/shared/xwork-plugin-guides";
+} from "@zcode/shared/aiscoo-plugin-guides";

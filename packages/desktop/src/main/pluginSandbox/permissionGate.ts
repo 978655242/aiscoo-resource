@@ -1,5 +1,5 @@
 // XCODE: 仅默认产品文案读取品牌，第三方 serverName 不替换。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import type { McpAppsResourcePermission } from "@zcode/shared/mcp-apps";
 import type { PluginSandboxRecord, PluginSandboxRegistryPort } from "./contract.js";
 import {

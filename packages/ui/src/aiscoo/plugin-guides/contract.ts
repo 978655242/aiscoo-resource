@@ -1,14 +1,14 @@
 import type { ComponentProps } from "react";
-import type { IPluginGuideService } from "@zcode/services/xwork-plugin-guides";
+import type { IPluginGuideService } from "@zcode/services/aiscoo-plugin-guides";
 import type { IModelSelectionService } from "@zcode/services";
-import type { PluginGuideSnapshot } from "@zcode/shared/xwork-plugin-guides";
+import type { PluginGuideSnapshot } from "@zcode/shared/aiscoo-plugin-guides";
 import type { ModelSelection } from "@zcode/shared";
 import type { PluginStoreDetailView } from "@/settings/PluginStoreDetailView.js";
 
 export type { IPluginGuideService };
 export type { ModelSelectionView } from "@zcode/services";
 
-export type XWorkPluginStoreDetailViewProps = ComponentProps<typeof PluginStoreDetailView> & {
+export type AiscooPluginStoreDetailViewProps = ComponentProps<typeof PluginStoreDetailView> & {
   workspacePath?: string | null;
   workspaceIdentity?: string;
   remoteSessionId?: string | null;

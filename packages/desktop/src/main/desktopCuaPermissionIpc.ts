@@ -5,7 +5,7 @@ import { promisify } from "node:util";
 import { app, BrowserWindow, ipcMain, nativeImage, screen } from "electron";
 import { PlatformChannels, type CuaPermissionKind, type Locale } from "@zcode/shared";
 // XCODE: 仅替换权限引导的自有提示；系统设置 bundle ID 与事件判定保持原样。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import {
   cuaHelperBundleFingerprintUnchanged,
   openCuaPermissionOnboarding,

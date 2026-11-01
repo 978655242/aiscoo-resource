@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 // XCODE: 新 desktop 展示读取品牌配置；旧 marker 继续参与归属验证。
-import { PRODUCT_BRAND, PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_BRAND, PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import { installLinuxAppImageDesktopIconBestEffort } from "./desktopLinuxAppImageIcon.js";
 import {
   runXdgCommand,

@@ -79,7 +79,7 @@ import {flushSync} from "react-dom";
 import {ServiceProvider} from "./packages/ui/src/hooks/useServices.tsx";
 import {PlatformProvider} from "./packages/ui/src/hooks/usePlatform.tsx";
 import {StoreProvider} from "./packages/ui/src/store/StoreProvider.tsx";
-import {AiscooIntlProvider, AiscooLoginHeader} from "./packages/ui/src/xwork/brand/index.ts";
+import {AiscooIntlProvider, AiscooLoginHeader} from "./packages/ui/src/aiscoo/brand/index.ts";
 import {AiscooLegalLinks, AiscooLegalSettings} from "./packages/ui/src/aiscoo/legal/index.ts";
 import {TooltipProvider} from "./packages/ui/src/components/ui/tooltip.tsx";
 import {WelcomeScreen} from "./packages/ui/src/WelcomeScreen.tsx";
@@ -135,7 +135,7 @@ createRoot(document.getElementById("root")).render(<ServiceProvider services={se
     await writeFile(join(temporary, "renderer.js"), renderer.outputFiles[0].text);
     await writeFile(
       join(temporary, "index.html"),
-      `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/@fs${root}/packages/ui/src/styles.css"><link rel="stylesheet" href="/@fs${root}/packages/ui/src/xwork/brand/brand.css"></head><body><div id="root"></div><script type="module" src="/renderer.js"></script></body></html>`,
+      `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/@fs${root}/packages/ui/src/styles.css"><link rel="stylesheet" href="/@fs${root}/packages/ui/src/aiscoo/brand/brand.css"></head><body><div id="root"></div><script type="module" src="/renderer.js"></script></body></html>`,
     );
     stage = "start isolated Vite";
     const { createServer } = await import(requireDesktop.resolve("vite"));

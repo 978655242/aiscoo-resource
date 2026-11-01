@@ -1,6 +1,6 @@
 import type { McpServerConfig, ZCodeMcpServer } from "@zcode/shared";
 // XCODE: 只替换自有展示标签，MCP 配置 section 与存储标识保持原值。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 
 export const MCP_SECTIONS = ["zcodeagentmcp"] as const;
 

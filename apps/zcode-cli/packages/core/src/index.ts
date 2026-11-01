@@ -216,5 +216,5 @@ export type {
 export { LogLevel, SessionEventType } from "@zcode/contracts";
 
 // XCODE: independent workspace text streams reuse Core model/auth/admission and usage accounting.
-export { streamWorkspaceModelText } from "./xwork-plugin-guides/index.js";
+export { streamWorkspaceModelText } from "./aiscoo-plugin-guides/index.js";
 export { normalizeGenUiInput } from "./agent/message-history.js";

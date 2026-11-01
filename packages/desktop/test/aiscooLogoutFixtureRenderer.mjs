@@ -86,7 +86,7 @@ import { createRoot } from "react-dom/client";
 import { ServiceProvider } from "./packages/ui/src/hooks/useServices.tsx";
 import { PlatformProvider } from "./packages/ui/src/hooks/usePlatform.tsx";
 import { StoreProvider, useZCodeStore } from "./packages/ui/src/store/StoreProvider.tsx";
-import { AiscooIntlProvider } from "./packages/ui/src/xwork/brand/index.ts";
+import { AiscooIntlProvider } from "./packages/ui/src/aiscoo/brand/index.ts";
 import { ZCodeIntlProvider } from "./packages/ui/src/i18n/IntlProvider.tsx";
 import { WelcomeScreen } from "./packages/ui/src/WelcomeScreen.tsx";
 import { createAiscooAccountLoginRoot } from "@zcode/ui/aiscoo-account-login-root";
@@ -170,7 +170,7 @@ import { ServiceProvider, useServices } from "./packages/ui/src/hooks/useService
 import { PlatformProvider, usePlatform } from "./packages/ui/src/hooks/usePlatform.tsx";
 import { StoreProvider, useZCodeStore } from "./packages/ui/src/store/StoreProvider.tsx";
 import { createTabStore } from "./packages/ui/src/store/tabStore.ts";
-import { AiscooIntlProvider } from "./packages/ui/src/xwork/brand/index.ts";
+import { AiscooIntlProvider } from "./packages/ui/src/aiscoo/brand/index.ts";
 import { ZCodeIntlProvider, useZCodeIntl } from "./packages/ui/src/i18n/IntlProvider.tsx";
 import { WelcomeScreen } from "./packages/ui/src/WelcomeScreen.tsx";
 import { ConfirmDialogHost } from "./packages/ui/src/ConfirmDialog.tsx";

@@ -38,6 +38,6 @@ export { TabStoreProvider } from "./store/TabStoreProvider.js";
 export { DiffsWorkerPoolProvider } from "./root/DiffsWorkerPoolProvider.js";
 export { useZCodeIntl } from "./i18n/IntlProvider.js";
 // XCODE: 回放作为产品入口使用静态品牌投影，正文不转换。
-export { AiscooIntlProvider as ZCodeIntlProvider } from "./xwork/brand/index.js";
+export { AiscooIntlProvider as ZCodeIntlProvider } from "./aiscoo/brand/index.js";
 export { Button } from "./components/ui/button.js";
 export { cn } from "./components/lib/utils.js";

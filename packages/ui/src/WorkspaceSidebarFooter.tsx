@@ -3,7 +3,7 @@ import { SidebarNativeTooltip, ControlHintTooltip } from "@/ControlHintTooltip.j
 /* oxlint-disable eslint(max-lines) -- footer 聚合账户、主题、模式和快捷键菜单。 */
 import type { Locale, UserInfo } from "@zcode/shared";
 // XCODE: 无资料账号的品牌回退来自同源名称，真实显示名与用户名不转换。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import { memo, useCallback, useEffect, useState, type ReactNode } from "react";
 import { DesktopCommandIds } from "@zcode/shared";
 import {

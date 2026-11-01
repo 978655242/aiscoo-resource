@@ -1,12 +1,12 @@
 // XCODE: TUI 与模型 Registry 共享同一 Zen runtime；业务全部在此，上游 tui-prompt-handler 只做装配。
 import { PRODUCT_NAME } from "@zcode/i18n";
-import type { XworkZenCommandDeps } from "./contract.js";
+import type { AiscooZenCommandDeps } from "./contract.js";
 import type { createTuiProcessRuntimeState } from "../tui-prompt-handler-runtime.js";
 
 type TuiProcessRuntimeState = ReturnType<typeof createTuiProcessRuntimeState>;
 
 // env（含 .env）在 runtime 启动时才确定，故不在装配时判断；未配置 AISCOO_ADMIN_BASE_URL 时 zenAccount 为 undefined。
-export function createTuiZenCommandDeps(processRuntime: TuiProcessRuntimeState): XworkZenCommandDeps {
+export function createTuiZenCommandDeps(processRuntime: TuiProcessRuntimeState): AiscooZenCommandDeps {
   const zenRuntime = async () => {
     const runtime = await processRuntime.providerRegistryRuntimePromise;
     if (!runtime?.zenAccount) throw new Error(`Configure AISCOO_ADMIN_BASE_URL to use ${PRODUCT_NAME} Zen Plan.`);

@@ -1,5 +1,5 @@
 // XCODE: 自有 daemon 提示只插入共享展示名，更新身份与启动命令不变。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
 import { createServiceLogger } from "@zcode/services/node";

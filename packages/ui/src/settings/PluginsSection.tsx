@@ -33,7 +33,7 @@ import {
 import { PluginConfigControls } from "@/settings/PluginConfigControls.js";
 import { PluginStoreAdvancedSection } from "@/settings/PluginStoreDetailView.js";
 // XCODE: 管理页沿当前 Scope 的 Host 组合相同说明阅读页。
-import { XWorkPluginStoreDetailView } from "@/xwork/plugin-guides/index.js";
+import { AiscooPluginStoreDetailView } from "@/aiscoo/plugin-guides/index.js";
 import {
   PluginStoreCard,
   PluginUpdateAllButton,
@@ -677,7 +677,7 @@ function PluginList({
             onSectionSelect={showMarketplaceBreadcrumb ? onOpenPluginStore : closeDetail}
           />
         ) : null}
-        <XWorkPluginStoreDetailView
+        <AiscooPluginStoreDetailView
           workspacePath={target?.workspacePath}
           workspaceIdentity={target?.workspaceIdentity}
           remoteSessionId={target?.remoteSessionId}

@@ -1,7 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { DEFAULT_LOCALE, type Locale } from "./protocol.js";
 // XCODE: 菜单静态词典消费唯一品牌配置，原消息键与调用方插值保持兼容。
-import { brandMessageCatalog } from "./xwork-brand/runtime.js";
+import { brandMessageCatalog } from "./aiscoo-brand/runtime.js";
 
 export const desktopMenuMessageIds = {
   file: "titleBar.menu.file",

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { normalizeNewApiOrigin } from "@zcode/shared";
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import { ConversationShareLandingLoader as UpstreamShareLoader } from "#src/share/ConversationShareLandingPage.js";
 import type {
   AiscooPublicShareProps,

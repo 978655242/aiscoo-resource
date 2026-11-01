@@ -3,10 +3,10 @@ import {
   type PluginGuideDocument,
   type PluginGuideSource,
   type PluginGuideTarget,
-} from "@zcode/shared/xwork-plugin-guides";
+} from "@zcode/shared/aiscoo-plugin-guides";
 import type { ZCodeWorkspaceGenerateTextParams } from "@zcode/shared";
 // XCODE: 只投影自有 system 模板，插件材料、历史问答和用户问题保持原值。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 
 export function buildPluginGuideMessages(input: {
   target: PluginGuideTarget;

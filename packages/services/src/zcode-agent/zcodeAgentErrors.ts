@@ -1,6 +1,6 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 // XCODE: 仅能力缺失提示消费品牌，稳定错误码继续决定跨 RPC 分类。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 
 // 原始 -32602 文案来自旧 Agent schema，跨 RPC 后 UI 不能靠易变字符串识别能力缺失。
 // ChannelClient 会保留 error.code，因此用稳定 code 驱动设置页停止 status-only 轮询。

@@ -16,7 +16,7 @@ const root = resolve(import.meta.dirname, "..");
 const defaultOutDir = resolve(root, "dist", "zcode");
 const defaultBaseUrl = (await loadEndpointEnv()).ZCODE_DIST_BASE_URL?.trim() || "";
 const productBrand = JSON.parse(
-  await readFile(resolve(root, "packages/shared/src/xwork-brand/brand.json"), "utf8"),
+  await readFile(resolve(root, "packages/shared/src/aiscoo-brand/brand.json"), "utf8"),
 );
 const packageDirName = "zcode";
 const usage = `Usage:

@@ -17,7 +17,7 @@ import { parseSlashCommand } from "../command-center/slash-commands.js";
 // 撤销请求本身有 15 秒 HTTP 期限；给补偿留出完成时间，超时仍退出不挂起终端。
 const ZEN_LOGIN_SHUTDOWN_TIMEOUT_MS = 16_000;
 
-export interface XworkRunDependencies extends RunDependencies {
+export interface AiscooRunDependencies extends RunDependencies {
   loginZenCli?: BootstrapModule["loginZenCli"];
   logoutZenCli?: BootstrapModule["logoutZenCli"];
 }
@@ -64,7 +64,7 @@ function withHelpAppended(ctx: RunContext, text: string): RunContext {
   return { ...ctx, stdout };
 }
 
-export async function runXwork(ctx: RunContext, deps: XworkRunDependencies = {}): Promise<number> {
+export async function runAiscoo(ctx: RunContext, deps: AiscooRunDependencies = {}): Promise<number> {
   // Zen 安全存储在 SEA 中从内嵌资源加载原生钥匙串绑定；普通 bundle 仍走 node_modules。
   // 放在所有命令前：TUI、--prompt 与 login/logout zen 都可能读取 Zen 凭据。
   setZenKeyringModuleLoader(() => loadCliKeyringModule());

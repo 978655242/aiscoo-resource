@@ -329,8 +329,9 @@ test("browser failure keeps authorization URL available and polling completes", 
   assert.equal(result.browser?.opened, false);
 });
 
+// XCODE: Aiscoo 产品入口拒绝官方 Z.ai/BigModel 登录，TUI 内的授权链接展示与授权后刷新改由 Zen 账号路径覆盖。
 test(
-  "TUI renders the login URL in the current session and refreshes models after authorization",
+  "TUI renders the Zen login URL in the current session and refreshes the account catalog after authorization",
   { timeout: 5000 },
   async (t) => {
     const f = await fixture(t);
@@ -345,9 +346,25 @@ test(
     const authorizationShown = new Promise<void>((resolve) => {
       urlShown = resolve;
     });
-    f.poll = async () => {
-      await authorization;
-      return response(ready("bigmodel"));
+    const refreshReasons: string[] = [];
+    // XCODE: 产品 TUI 经 Zen 账号 owner 登录；这里只替换账号与目录刷新端口，Registry 与 TUI 渲染保持真实。
+    const zenRuntime = {
+      ...runtime,
+      zenAccount: {
+        async login(zenOptions: { onAuthorizeUrl?: (url: string) => Promise<void> }) {
+          await zenOptions.onAuthorizeUrl?.(authorizeUrl);
+          urlShown();
+          await authorization;
+          return { user: { display_name: "Test User", username: "test-account" } };
+        },
+      },
+      async refreshStandaloneAccount(reason: string) {
+        refreshReasons.push(reason);
+        await runtime.runtime.registryService.refresh(reason);
+      },
+      async readZenModelStatus() {
+        return { available: true, reason: null };
+      },
     };
     const app = {
       sessionId: "login-session",
@@ -364,16 +381,7 @@ test(
         skipUserConfig: true,
         loadDotenv: () => ({ keys: [], loaded: false, path: "" }),
         createZCodeApp: async () => app,
-        startProcessProviderRegistryRuntime: async () => runtime,
-        loginBigmodelCodingPlan: (options: Parameters<typeof loginBigmodelCodingPlan>[0]) =>
-          loginBigmodelCodingPlan({
-            ...f.options,
-            ...options,
-            onAuthorizeUrl: async (data) => {
-              await options?.onAuthorizeUrl?.(data);
-              urlShown();
-            },
-          }),
+        startProcessProviderRegistryRuntime: async () => zenRuntime,
       } as unknown as RunDependencies,
       createCliModeState(),
       "test",
@@ -443,7 +451,7 @@ test(
           }),
         ),
       );
-      await action(() => terminal.mockInput.typeText("/login bigmodel-coding-plan"));
+      await action(() => terminal.mockInput.typeText("/login zen"));
       await action(async () => {
         terminal.mockInput.pressEnter();
         await authorizationShown;
@@ -451,15 +459,14 @@ test(
       assert.equal(seenEvents.length, 1);
       assert.equal(seenEvents[0]!.sessionId, app.sessionId);
       assert.match(terminal.captureCharFrame(), /login\.example\.test\/authorize/);
-      assert.doesNotMatch(terminal.captureCharFrame(), /test-private-poll-token/);
-      // Waiting for the actual command completion also waits for credential and Registry barriers.
+      assert.deepEqual(refreshReasons, []);
+      // Waiting for the actual command completion also waits for the account refresh barrier.
       await action(async () => {
         authorize();
         await loginCompletion;
       });
-      await action(() => terminal.mockInput.typeText("/model"));
-      assert.match(terminal.captureCharFrame(), /GLM-/);
-      assert.doesNotMatch(terminal.captureCharFrame(), /No available models/);
+      assert.deepEqual(refreshReasons, ["zen-login"]);
+      assert.match(terminal.captureCharFrame(), /Signed in to Aiscoo Zen Plan as Test User/);
     } finally {
       await action(async () => {
         authorize();

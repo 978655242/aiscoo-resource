@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 // XCODE: 发布安装提示读取共享品牌；命令、包名与目录继续兼容。
 const productBrand = JSON.parse(
   await readFile(
-    new URL("../../packages/shared/src/xwork-brand/brand.json", import.meta.url),
+    new URL("../../packages/shared/src/aiscoo-brand/brand.json", import.meta.url),
     "utf8",
   ),
 );

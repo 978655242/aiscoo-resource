@@ -11,7 +11,7 @@ import {
   type ZCodeAccountAccess,
 } from "@zcode/shared";
 // XCODE: 仅缺失产品登录态提示投影品牌，凭据 key 与分类保持兼容。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 import { isOffPeakMockEnabled, startOffPeakMockGateway } from "./offPeakMockGateway.js";
 import type { ServiceLogger } from "../logger/serviceLogger.js";
 import { AccountRequestCredentialUnavailableError } from "../model-provider/accountProviderRequestAuthService.js";

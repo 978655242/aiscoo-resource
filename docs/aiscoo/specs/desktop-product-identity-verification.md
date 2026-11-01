@@ -114,33 +114,33 @@ Windows/Linux 实机安装及协议共存、Dev/Preview 的实机 handler、安�
 
 原工作目录曾记录 `git merge-tree --write-tree <preview> upstream/main` 为 exit 0，tree 为 `35ec080a220915492231f21f290bd254febf3237`；该历史对象不代表当前 `cd4af779` 发布工作目录的预演。本轮不会更新原工作目录的 index 或 refs；最终整合负责人须对实际 PR tree 重新执行上游合并预演并在 PR 描述记录结果。
 
-| 上游文件                                                                       | 最小改动理由                                     |
-| ------------------------------------------------------------------------------ | ------------------------------------------------ |
-| packages/desktop/electron-builder.config.js                                    | 打包装配接入 profile，平台协议与 appId 一致      |
-| packages/desktop/scripts/desktop-product-identity.mjs                          | 原导出点叠加 profile，保留环境/CUA/钥匙串契约    |
-| packages/desktop/scripts/desktop-product-identity.d.mts                        | 既有声明同步 profile 字段                        |
-| packages/desktop/scripts/devElectronAppBundle.mjs                              | 开发副本身份配置与缓存指纹，移除旧协议残留       |
-| packages/desktop/src/host/index.ts                                             | 服务工厂增加可选 Native redirect 参数            |
-| packages/desktop/src/main/desktopChromiumHardwareAccelerationBootstrap.ts      | 只增加可选设置文件参数，默认保持                 |
-| packages/desktop/src/main/desktopEarlyChromiumHardwareAccelerationBootstrap.ts | 装配选定设置文件                                 |
-| packages/desktop/src/main/desktopDataBaseDirBootstrap.ts                       | 只增加可选设置文件参数，原恢复 owner 不变        |
-| packages/desktop/src/main/desktopEarlyDataBaseDirBootstrap.ts                  | 调用独立下游 bootstrap 包装                      |
-| packages/desktop/src/main/desktopDeepLinkUrl.ts                                | scheme 常量从可选 profile 读取，未注入保持 zcode |
-| packages/desktop/src/main/desktopOAuthDeepLink.ts                              | 注册和 Native canonical 校验读取同一 profile     |
-| packages/desktop/src/main/desktopFinderOpenFolderWorkflow.ts                   | 配置级名称、协议、归属列表，防止清理其他产品     |
-| packages/desktop/src/main/desktopLinuxAppImageIcon.ts                          | 可选 iconName，默认路径不变                      |
-| packages/desktop/src/main/desktopLinuxDeepLinkRegistration.ts                  | 渠道 desktop/MIME/icon/归属列表配置              |
-| packages/desktop/src/main/desktopRuntimeEnv.ts                                 | 数据名与已有 CLI storage/db/log 环境覆盖键接线   |
+| 上游文件                                                                       | 最小改动理由                                       |
+| ------------------------------------------------------------------------------ | -------------------------------------------------- |
+| packages/desktop/electron-builder.config.js                                    | 打包装配接入 profile，平台协议与 appId 一致        |
+| packages/desktop/scripts/desktop-product-identity.mjs                          | 原导出点叠加 profile，保留环境/CUA/钥匙串契约      |
+| packages/desktop/scripts/desktop-product-identity.d.mts                        | 既有声明同步 profile 字段                          |
+| packages/desktop/scripts/devElectronAppBundle.mjs                              | 开发副本身份配置与缓存指纹，移除旧协议残留         |
+| packages/desktop/src/host/index.ts                                             | 服务工厂增加可选 Native redirect 参数              |
+| packages/desktop/src/main/desktopChromiumHardwareAccelerationBootstrap.ts      | 只增加可选设置文件参数，默认保持                   |
+| packages/desktop/src/main/desktopEarlyChromiumHardwareAccelerationBootstrap.ts | 装配选定设置文件                                   |
+| packages/desktop/src/main/desktopDataBaseDirBootstrap.ts                       | 只增加可选设置文件参数，原恢复 owner 不变          |
+| packages/desktop/src/main/desktopEarlyDataBaseDirBootstrap.ts                  | 调用独立下游 bootstrap 包装                        |
+| packages/desktop/src/main/desktopDeepLinkUrl.ts                                | scheme 常量从可选 profile 读取，未注入保持 zcode   |
+| packages/desktop/src/main/desktopOAuthDeepLink.ts                              | 注册和 Native canonical 校验读取同一 profile       |
+| packages/desktop/src/main/desktopFinderOpenFolderWorkflow.ts                   | 配置级名称、协议、归属列表，防止清理其他产品       |
+| packages/desktop/src/main/desktopLinuxAppImageIcon.ts                          | 可选 iconName，默认路径不变                        |
+| packages/desktop/src/main/desktopLinuxDeepLinkRegistration.ts                  | 渠道 desktop/MIME/icon/归属列表配置                |
+| packages/desktop/src/main/desktopRuntimeEnv.ts                                 | 数据名与已有 CLI storage/db/log 环境覆盖键接线     |
 | packages/desktop/src/main/index.ts                                             | Windows AUMID 读取 profile；冷启动复用已选设置路径 |
-| packages/desktop/test/desktopProductIdentity.test.ts                           | 既有工程断言反映确认后的身份                     |
-| packages/desktop/test/devElectronAppBundle.test.ts                             | 既有工程断言反映独立开发副本                     |
-| packages/desktop/tsconfig.main.json                                            | 编译清单只追加独立适配模块；严格 JSON 不能写注释 |
-| packages/desktop/tsup.config.ts                                                | 构建期追加渠道 define                            |
-| packages/desktop/vite.config.ts                                                | Renderer 追加同源渠道 define                     |
-| packages/services/src/node.ts                                                  | 服务工厂可选 redirect 注入                       |
-| packages/services/src/setting/settingService.ts                                | 可选精确设置路径，实例创建时固定                 |
-| packages/shared/package.json                                                   | exports 只追加身份子路径；严格 JSON 不能写注释   |
-| packages/web/src/share/conversationSharePreviewClient.ts                       | 可选 scheme 参数，默认 zcode 保持                |
-| packages/web/src/share/ConversationShareLandingPage.tsx                        | 下游 Aiscoo CTA 装配精确 scheme                  |
+| packages/desktop/test/desktopProductIdentity.test.ts                           | 既有工程断言反映确认后的身份                       |
+| packages/desktop/test/devElectronAppBundle.test.ts                             | 既有工程断言反映独立开发副本                       |
+| packages/desktop/tsconfig.main.json                                            | 编译清单只追加独立适配模块；严格 JSON 不能写注释   |
+| packages/desktop/tsup.config.ts                                                | 构建期追加渠道 define                              |
+| packages/desktop/vite.config.ts                                                | Renderer 追加同源渠道 define                       |
+| packages/services/src/node.ts                                                  | 服务工厂可选 redirect 注入                         |
+| packages/services/src/setting/settingService.ts                                | 可选精确设置路径，实例创建时固定                   |
+| packages/shared/package.json                                                   | exports 只追加身份子路径；严格 JSON 不能写注释     |
+| packages/web/src/share/conversationSharePreviewClient.ts                       | 可选 scheme 参数，默认 zcode 保持                  |
+| packages/web/src/share/ConversationShareLandingPage.tsx                        | 下游 Aiscoo CTA 装配精确 scheme                    |
 
 代码接线处使用 XCODE 中文原因注释。上述原身份阶段接线理由供整合审查使用，不代表本轮远端合并、部署或发布。

@@ -3,7 +3,7 @@ import { MessageResponse } from "@/components/ai-elements/message.js";
 import { Button } from "@/components/ui/button.js";
 import { cn } from "@/components/lib/utils.js";
 // XCODE: 产品更新提示使用 Aiscoo 原稿，不借用供应商图标。
-import { AiscooMark } from "@/xwork/brand/index.js";
+import { AiscooMark } from "@/aiscoo/brand/index.js";
 import {
   Dialog,
   DialogContent,

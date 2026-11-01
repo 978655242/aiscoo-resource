@@ -1,5 +1,5 @@
 // XCODE: 自有静态展示模板读取共享品牌；用户内容与稳定标识保持原样。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import type {
   ZCodeProtocolError,
@@ -20,7 +20,7 @@ import type { Logger } from "@zcode/contracts";
 // XCODE: 插件指南的只读/辅助流独立并发，不阻塞普通会话请求。
 // 修复原因：经 index.js 导入会连带加载 handlers 与 @zcode/core 模型运行时，使 transport 冷启动
 // 从约 150ms 增至约 1s，CI 上 newApiAppliedAdmission 的 worker 因此超时；传输层只需纯判定函数。
-import { isPluginGuideConcurrentMethod } from "../xwork-plugin-guides/dispatch-policy.js";
+import { isPluginGuideConcurrentMethod } from "../aiscoo-plugin-guides/dispatch-policy.js";
 
 type ZCodeProtocolOutgoingMessage =
   | ZCodeProtocolError

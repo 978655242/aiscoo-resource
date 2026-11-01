@@ -10,5 +10,5 @@
     "allowJs": true
   },
   // XCODE: 品牌配置同时供 Node 构建工具与共享代码消费，显式纳入 JSON 编译输入。
-  "include": ["src", "src/xwork-brand/brand.json"]
+  "include": ["src", "src/aiscoo-brand/brand.json"]
 }

@@ -891,12 +891,6 @@ export interface IPlatformService {
   /** 打开外部 URL（用于 OAuth 跳转浏览器） */
   openExternal(url: string): void;
 
-  // XCODE: 本机 Web 的授权窗口需在用户手势中预开，并由本轮登录负责释放。
-  prepareLocalWebOAuthWindow?(): {
-    navigate(url: string): boolean;
-    close(): void;
-  } | null;
-
   /** 按系统应用标识读取真实 App 图标；非 Desktop 平台可不实现。 */
   getApplicationIcon?(
     request: string | ApplicationIconRequest,

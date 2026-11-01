@@ -2,4 +2,4 @@
 export {
   AiscooMark as ZCodeAboutLogo,
   AiscooWordmark as ZCodeWordmarkLogo,
-} from "@/xwork/brand/index.js";
+} from "@/aiscoo/brand/index.js";

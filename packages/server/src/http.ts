@@ -46,12 +46,6 @@ import {
   type SourceServerWorkspaceIdentityMapper,
 } from "@zcode/services/node";
 import { createHostCapabilityStore } from "./hostCapability.js";
-// XCODE: 本机 Web 的 HTTP/WS 安全边界由下游独立中间件提供，关闭时保留上游行为。
-import {
-  createAiscooLocalWebMiddleware,
-  LOCAL_WEB_PROTOCOL,
-  type LocalWebOptions,
-} from "./aiscoo-local-web/index.js";
 
 function wrapWebSocket(ws: WebSocket): ISocket {
   const onData = new Emitter<VSBuffer>();
@@ -184,8 +178,6 @@ export interface HttpServerOptions {
   // XCODE: 可选入口策略与反向 RPC 装配，未提供时保留原 HTTP/WS 行为。
   acceptRequest?: (request: Request) => boolean;
   attachBrowserPeer?: (client: IChannelClient) => IDisposable & { ready?: Promise<void> };
-  // XCODE: 保留未接线的旧本机 Web 中间件端口，产品入口继续使用浏览器凭据权威。
-  localWeb?: LocalWebOptions;
 }
 
 function readTrimmedEnv(name: string): string | undefined {
@@ -380,7 +372,7 @@ export function createHttpServer(
   options: HttpServerOptions = {},
 ) {
   const app = new Hono();
-  const { injectWebSocket, upgradeWebSocket, wss } = createNodeWebSocket({ app });
+  const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
   const hostCapabilities = createHostCapabilityStore();
 
   // XCODE: 入口提供的请求边界在所有 API、upgrade 和静态路由之前执行。
@@ -389,17 +381,6 @@ export function createHttpServer(
       if (!options.acceptRequest!(c.req.raw)) return c.json({ error: "Forbidden" }, 403);
       await next();
     });
-  }
-  // XCODE: 本机安全中间件同时拥有会话和已建立 WebSocket 的失效边界。
-  const localWeb = options.localWeb
-    ? createAiscooLocalWebMiddleware(options.localWeb, options.host, options.authToken)
-    : undefined;
-  if (localWeb) {
-    app.use("*", localWeb.middleware);
-    // 修复原因：默认实现会回显第一个子协议；只允许选择公开协议，令牌不得进入响应头。
-    wss.options.handleProtocols = (protocols) =>
-      protocols.has(LOCAL_WEB_PROTOCOL) ? LOCAL_WEB_PROTOCOL : false;
-    wss.on("connection", (socket, incoming) => localWeb.attachSocket(incoming, socket));
   }
 
   const authToken = options.authToken?.trim();
@@ -424,8 +405,6 @@ export function createHttpServer(
     "/ws",
     upgradeWebSocket(() => ({
       onOpen(_event, ws) {
-        // XCODE: 升级后会话可能已失效，只有中间件确认附着的连接才能初始化 RPC。
-        if (localWeb && !localWeb.isSocketAuthorized(ws.raw as WebSocket)) return;
         setupChannelServer(
           ws.raw as WebSocket,
           services,
@@ -440,8 +419,6 @@ export function createHttpServer(
 
   const upgradeTrustedHostWebSocket = upgradeWebSocket(() => ({
     onOpen(_event, ws) {
-      // XCODE: 同一会话准入规则也适用于 trusted host 的 WebSocket。
-      if (localWeb && !localWeb.isSocketAuthorized(ws.raw as WebSocket)) return;
       setupChannelServer(
         ws.raw as WebSocket,
         services,

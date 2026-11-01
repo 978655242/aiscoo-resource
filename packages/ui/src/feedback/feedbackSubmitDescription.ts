@@ -1,7 +1,7 @@
 // XCODE: 仅统一产品展示名称，保留内部标识与用户内容。
 import { redactFeedbackText } from "@zcode/shared";
 // XCODE: 只投影自有反馈标题标签，原始用户反馈继续原样提交。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 import type { FeedbackAgentModelContext } from "@/feedback/feedbackSubmitModelContext.js";
 import type {
   FeedbackTicketModule,

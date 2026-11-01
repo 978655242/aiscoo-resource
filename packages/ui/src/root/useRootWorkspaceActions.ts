@@ -100,7 +100,6 @@ export function useRootWorkspaceActions({
   updateAppSettings,
   setOAuthError,
   setUser,
-  logoutOverride,
   onLogoutConfirmed,
   onProviderFamilyDomainClearedAfterLogout,
   userId,
@@ -125,7 +124,6 @@ export function useRootWorkspaceActions({
   updateAppSettings: (patch: Partial<AppSettings>) => Promise<void>;
   setOAuthError: (error: string | null) => void;
   setUser: (user: UserInfo | null) => void;
-  logoutOverride?: () => Promise<void>;
   // XCODE: 只通知展示层已确认，不接管退出副作用或改变未注入时的顺序。
   onLogoutConfirmed?: () => void;
   onProviderFamilyDomainClearedAfterLogout?: () => void;
@@ -470,8 +468,6 @@ export function useRootWorkspaceActions({
   });
 
   const handleLogout = useCallback(async () => {
-    // XCODE: 可选退出扩展由平台装配，未注入时保留原始退出流程。
-    if (logoutOverride) return logoutOverride();
     let runningAgentSessionCount: number | null = null;
     try {
       const sessionActivity = await platform.getDesktopSessionActivity?.();
@@ -539,7 +535,6 @@ export function useRootWorkspaceActions({
   }, [
     intl,
     requestConfirmation,
-    logoutOverride,
     onLogoutConfirmed,
     refreshProviderState,
     onProviderFamilyDomainClearedAfterLogout,

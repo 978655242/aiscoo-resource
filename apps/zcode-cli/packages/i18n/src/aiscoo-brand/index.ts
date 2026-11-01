@@ -1,4 +1,4 @@
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 import type { BrandCliCopy } from "./contract.js";
 
 export { PRODUCT_NAME, PRODUCT_WORDMARK, brandProductText } from "./contract.js";

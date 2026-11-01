@@ -22,7 +22,7 @@ SPEC = HOME / ".config/xcode-local/start.json"
 ORIGIN = "http://127.0.0.1:3001"
 LABEL = "com.xwork.local-desktop"
 # XCODE: 仅展示名读取共享 JSON；launchd、配置和状态目录保持兼容身份。
-BRAND = json.loads((ROOT / "packages/shared/src/xwork-brand/brand.json").read_text())
+BRAND = json.loads((ROOT / "packages/shared/src/aiscoo-brand/brand.json").read_text())
 
 
 def run(args, *, check=True, timeout=20, env=None):

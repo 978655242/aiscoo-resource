@@ -91,12 +91,12 @@ class AiscooAssetTests(unittest.TestCase):
         self.assertEqual(hashes(SOURCE), self.source_before)
 
     def test_production_assets_are_published_in_existing_packaging_paths(self):
-        # 原因：合并会把分支品牌资源重命名回 xwork；逐项锁定 44 个实际发布路径与字节，
-        # 防止新机器人只落在未消费的 aiscoo 目录，或部分 PNG 仍保留旧版。
+        # 原因：逐项锁定 44 个实际发布路径与字节，
+        # 防止新机器人只落在未消费的目录，或部分 PNG 仍保留旧版。
         expected = set(NON_DESKTOP_OUTPUTS)
         for directory in ("packages/desktop/build/icons", "public/logo/icons"):
             expected.update(f"{directory}/{size}x{size}.png" for size in SIZES)
-        expected.update(f"packages/ui/src/xwork/brand/assets/{kind}-{theme}.svg"
+        expected.update(f"packages/ui/src/aiscoo/brand/assets/{kind}-{theme}.svg"
                         for theme in ("light", "dark")
                         for kind in ("mark", "app", "startup", "wordmark", "wordmark-animated"))
         expected.update(("packages/desktop/build/icon.png", "packages/desktop/build/icon_windows.png",
@@ -127,7 +127,7 @@ class AiscooAssetTests(unittest.TestCase):
                              (self.output / f"packages/desktop/build/icon.{extension}").read_bytes())
 
     def test_desktop_mark_is_twenty_percent_larger_without_resizing_the_tile(self):
-        manifest = json.loads((ROOT / "packages/shared/src/xwork-brand/brand.json").read_text())
+        manifest = json.loads((ROOT / "packages/shared/src/aiscoo-brand/brand.json").read_text())
         self.assertEqual(manifest["desktopIcon"], {"theme": "dark", "markScale": 1.2})
         with Image.open(self.output / "packages/desktop/build/icon.png") as published:
             image = published.convert("RGBA")
@@ -161,7 +161,7 @@ class AiscooAssetTests(unittest.TestCase):
             script = root / "scripts/xcode/generate-icons.py"
             script.parent.mkdir(parents=True)
             script.write_bytes(SCRIPT.read_bytes())
-            manifest_path = root / "packages/shared/src/xwork-brand/brand.json"
+            manifest_path = root / "packages/shared/src/aiscoo-brand/brand.json"
             manifest_path.parent.mkdir(parents=True)
             manifest = json.loads((ROOT / manifest_path.relative_to(root)).read_text())
             source = root / manifest["sourceDirectory"]
@@ -221,9 +221,10 @@ class AiscooAssetTests(unittest.TestCase):
                             self.assertEqual(frame.tobytes(), published.tobytes(), (name, pixels))
 
     def test_ui_svg_assets_retain_original_geometry_theme_and_reduced_motion(self):
-        assets = self.output / "packages/ui/src/xwork/brand/assets"
-        self.assertFalse((self.output / "packages/ui/src/aiscoo/brand/assets").exists())
-        self.assertFalse((ROOT / "packages/ui/src/aiscoo/brand/assets").exists())
+        assets = self.output / "packages/ui/src/aiscoo/brand/assets"
+        # 原因：资源只有 aiscoo/brand/assets 一份；退役的 xwork 路径不得再出现副本。
+        self.assertFalse((self.output / "packages/ui/src/xwork/brand/assets").exists())
+        self.assertFalse((ROOT / "packages/ui/src/xwork/brand/assets").exists())
         self.assertFalse((assets / "app-desktop.svg").exists())
         for theme in ("light", "dark"):
             mappings = {
@@ -276,7 +277,7 @@ class AiscooAssetTests(unittest.TestCase):
                 self.assertEqual(image.size, size)
                 if name.startswith("dmg"):
                     self.assertEqual(image.convert("RGBA").getchannel("A").getextrema(), (255, 255))
-        manifest = json.loads((ROOT / "packages/shared/src/xwork-brand/brand.json").read_text())
+        manifest = json.loads((ROOT / "packages/shared/src/aiscoo-brand/brand.json").read_text())
         self.assertEqual(manifest["productName"], "Aiscoo")
         self.assertEqual(manifest["wordmark"], "aiscoo")
         self.assertEqual(manifest["sourceDirectory"], "docs/brand/aiscoo")

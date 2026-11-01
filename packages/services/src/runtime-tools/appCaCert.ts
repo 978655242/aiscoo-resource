@@ -1,7 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { randomBytes } from "node:crypto";
 // XCODE: 品牌只影响首次生成的证书展示主体，已有证书与文件路径继续复用。
-import { brandProductText, PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { brandProductText, PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import forge from "node-forge";

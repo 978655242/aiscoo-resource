@@ -1,7 +1,7 @@
 import type { IPlatformService, Locale, UpdateStatePayload } from "@zcode/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 // XCODE: 独立更新窗口沿用原语言状态，只在装配处投影产品词典。
-import { AiscooIntlProvider as ZCodeIntlProvider } from "@/xwork/brand/index.js";
+import { AiscooIntlProvider as ZCodeIntlProvider } from "@/aiscoo/brand/index.js";
 import { UpdateStatusDialogController } from "@/UpdateStatusDialogController.js";
 import { ConfirmDialogHost } from "@/ConfirmDialog.js";
 

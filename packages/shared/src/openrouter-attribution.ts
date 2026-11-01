@@ -1,5 +1,5 @@
 // XCODE: 产品展示归因使用统一品牌，保留来源请求头键与协议。
-import { PRODUCT_NAME } from "./xwork-brand/runtime.js";
+import { PRODUCT_NAME } from "./aiscoo-brand/runtime.js";
 
 export const OPENROUTER_ATTRIBUTION_HEADERS = {
   "X-OpenRouter-Title": PRODUCT_NAME,

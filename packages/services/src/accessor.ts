@@ -1,5 +1,5 @@
 // XCODE: 插件说明为独立可选 Host 能力。
-import type { IPluginGuideService } from "./xwork-plugin-guides/contract.js";
+import type { IPluginGuideService } from "./aiscoo-plugin-guides/contract.js";
 import type { IRemoteProjectService } from "#src/remote-projects/contract.js";
 import type { ITaskGroupService } from "#src/task-groups/contract.js";
 import type { WindowProjectDirectoryServices } from "#src/window-project-directory/contract.js";

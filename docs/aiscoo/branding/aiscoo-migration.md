@@ -2,6 +2,15 @@
 
 原品牌显示迁移已通过 PR 合入 `release`。下文“项目代码与目录命名迁移”为独立后续工作，当前尚待全部验证与集成；其分支和验证结果不继承原品牌 PR 的完成状态。原品牌迁移基线：`84e1e3dd`；分支：`feature/aiscoo-branding`。未发布安装包；提交与合并结果以对应 PR 为准。
 
+## 兼容入口清理（2026-11-01，取代下文兼容描述）
+
+下文“项目代码与目录命名迁移”阶段为保证平滑过渡而保留的 `xwork-*` 兼容入口已按 [aiscoo-only-login.md §12](../specs/aiscoo-only-login.md) 清理，现行结构如下；下文凡把旧路径、旧导出键、旧架构别名描述为“保留”“转发”“保持兼容”的条目，均是当时事实，不再是现行要求：
+
+- 品牌事实唯一所有者为 `packages/shared/src/aiscoo-brand/brand.json`，唯一公开入口为 `@zcode/shared/aiscoo-brand`；UI 品牌组件与资源位于 `packages/ui/src/aiscoo/brand/`（资源为 `assets/`），入口为 `@zcode/ui/aiscoo-brand`。`@zcode/shared`、`@zcode/ui`、`@zcode/services` 的 `./xwork-*` 子路径和 `xwork-*` 转发目录已删除，字节内容随 `git mv` 保持不变。
+- 架构模块 ID 统一为 `aiscoo-*`（`cli-aiscoo`、`cli-aiscoo-brand`、`aiscoo-brand`、`aiscoo-brand-ui`、`aiscoo-startup-context`、`aiscoo-plugin-guides-{protocol,cli,service,ui}`、`aiscoo-account-avatar`），`architecture-policy.xwork.yaml` 不再包含 `aliases`。该文件名因同步脚本沿用而保留。
+- CLI 测试脚本只剩 `test:aiscoo`，`posttest` 指向它；`test:xwork` 已删除。`scripts/xcode/start-local.py`、`scripts/xcode/启动 XCode.command` 等历史启动脚本不在本次清理范围，仍可用。
+- 仍然保留且不属于兼容残留的持久化与协议身份：RPC 通道 `xwork-plugin-guides`、`xwork/plugins/*` 与 `xwork/workspace/*` 线路方法名及 `zcodeProtocolMethods` 中 `xwork*`/`aiscoo*` 同值对照、macOS 钥匙串名、CLI Zen 钥匙串 service 与 AAD、`client_id`。
+
 ## 当前品牌与历史验证边界（2026-10-31）
 
 现行图形以 [图标与显示名规范](icon-spec.md) 和 [设计包](../../brand/aiscoo/README.md) 为准：常态竖胶囊眼、闭合填充的厚圆拱笑眼及整头弹跳，统一使用 10 秒循环；减少动态效果时使用中性眼、圆形头部的收起静态姿态。下文 8 秒动效、38 个设计文件及早期像素哈希保留为各阶段历史事实，不作为当前资源要求。
@@ -86,7 +95,7 @@ flowchart LR
 
 浏览器启动壳居中显示完整 `aiscoo` 字标，使用随应用已保存主题切换的动态原稿；启用减少动态效果时使用对应主题的完整静态原稿。桌面视口字标宽 320px，窄屏最大宽度为视口宽度减 48px，保持原稿比例且不裁切。沿用既有主题 bootstrap 及无主题时的深色默认值；只在应用 JavaScript bundle 执行前展示，不新增状态所有者。
 
-开发和生产 HTML 均在生成时内联 `packages/ui/src/xwork/brand/assets` 中的四张 SVG，浏览器不依赖额外网络请求或脚本为图片设置地址。部署若设置 Content Security Policy，须允许现有首屏内联脚本和样式，且 `img-src`（或其回退的 `default-src`）须包含 `data:`；该改动不放宽任何部署策略。验收覆盖浅／深主题、系统主题、减少动态效果、320px 与 390px 窄屏、开发及生产四张原稿解码，以及允许 `data:` 的 CSP。
+开发和生产 HTML 均在生成时内联 `packages/ui/src/aiscoo/brand/assets` 中的四张 SVG，浏览器不依赖额外网络请求或脚本为图片设置地址。部署若设置 Content Security Policy，须允许现有首屏内联脚本和样式，且 `img-src`（或其回退的 `default-src`）须包含 `data:`；该改动不放宽任何部署策略。验收覆盖浅／深主题、系统主题、减少动态效果、320px 与 390px 窄屏、开发及生产四张原稿解码，以及允许 `data:` 的 CSP。
 
 ## 验收场景
 

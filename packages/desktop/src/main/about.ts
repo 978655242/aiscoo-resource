@@ -11,7 +11,7 @@ import {
   ZCODE_VERSION,
 } from "@zcode/shared";
 // XCODE: About 展示读取共享品牌；LICENSE / NOTICE 保留真实上游归属。
-import { PRODUCT_BRAND, PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_BRAND, PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import { createCustomAboutDialogHtml } from "./aboutWindow.js";
 
 interface DesktopBuildMetadata {

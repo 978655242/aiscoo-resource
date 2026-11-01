@@ -1,5 +1,5 @@
 // XCODE: 插件说明使用独立流式扩展，不改变原 generateWorkspaceText。
-import { createPluginGuideAgentExtension } from "../xwork-plugin-guides/node.js";
+import { createPluginGuideAgentExtension } from "../aiscoo-plugin-guides/node.js";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { sessionLifecycleSnapshotSchema, type SessionLifecycleSnapshot } from "@zcode/shared";
 import {
@@ -18,7 +18,7 @@ import {
 import { resolveWorkspaceTelemetryDetail } from "@zcode/shared";
 import { isAuxiliarySessionKind } from "@zcode/shared";
 // XCODE: 自有错误模板消费共享品牌，识别端兼容旧文案以维持重试和超时分类。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 import {
   pluginUiToolResultNotificationSchema,
   type PluginUiToolResultNotification,

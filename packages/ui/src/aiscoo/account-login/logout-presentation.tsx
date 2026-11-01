@@ -14,7 +14,7 @@ import { flushSync } from "react-dom";
 import { LucideProvider } from "lucide-react";
 import { PlatformProvider } from "@/hooks/usePlatform.js";
 import type { RootProps, RootWelcomeScreenPresentation } from "@/root/types.js";
-import { AiscooLoginHeader, resolveAiscooOAuthWaitingDisplayNames } from "@/xwork/brand/index.js";
+import { AiscooLoginHeader, resolveAiscooOAuthWaitingDisplayNames } from "@/aiscoo/brand/index.js";
 import { AiscooLegalLinks } from "@/aiscoo/legal/index.js";
 import { createAiscooAccountLoginPlatform, createAiscooAccountLoginServices } from "./index.js";
 import { DesktopOverlayWindowControls } from "@/DesktopOverlayWindowControls.js";

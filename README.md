@@ -80,7 +80,7 @@ ZCODE_DATA_BASE_DIR="$HOME/.zcode-dev-home" pnpm dev:desktop:test
 
 Aiscoo 产品只保留 Aiscoo 账号登录。浏览器版沿用 `pnpm dev:web`，显式配置 `AISCOO_BROWSER_NEW_API=1` 与 `AISCOO_ADMIN_BASE_URL`，通过现有同源代理和严格回环 PKCE 回调登录；使用带明确端口的 `http://127.0.0.1` 页面。缺少有效配置时显示不可用，不恢复 Z.ai／BigModel 登录。详细规则见 [浏览器账号规格](docs/aiscoo/specs/browser-new-api.md) 与 [唯一登录规格](docs/aiscoo/specs/aiscoo-only-login.md)。
 
-旧 `pnpm dev:aiscoo:web` 的 Host 持凭据方案仅保留历史快照，不作为现行账号入口；退役配置键 `NEW_API_BASE_URL` 不再读取。
+旧 `pnpm dev:aiscoo:web` 的 Host 持凭据方案及其实现已于 2026-11-01 删除，仅 `docs/aiscoo/specs/local-web-new-api.md` 保留设计记录；退役配置键 `NEW_API_BASE_URL` 不再读取。
 
 修改 Web 或后端源码时，使用开发模式：
 

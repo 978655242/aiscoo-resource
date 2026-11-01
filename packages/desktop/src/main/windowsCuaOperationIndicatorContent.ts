@@ -1,5 +1,5 @@
 import type { Locale } from "@zcode/shared";
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 
 /**
  * Windows CUA 操作提示条的呈现层：文案、尺寸与 HTML。

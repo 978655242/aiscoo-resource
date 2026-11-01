@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Square } from "lucide-react";
 import { ZCODE_AGENT_PROVIDER } from "@zcode/shared";
-import type { PluginGuideSnapshot, PluginGuideTarget } from "@zcode/shared/xwork-plugin-guides";
+import type { PluginGuideSnapshot, PluginGuideTarget } from "@zcode/shared/aiscoo-plugin-guides";
 import { Button } from "@/components/ui/button.js";
 import { ChatPromptEditor } from "@/prompt-editor/ChatPromptEditor.js";
 import type { LexicalChatInputHandle } from "@/LexicalChatInput.js";

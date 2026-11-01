@@ -1,6 +1,6 @@
 import type { WebRemoteControlFailure, WebRemoteControlFailureReason } from "@zcode/shared";
 // XCODE: 只投影静态恢复提示，服务端失败原因不做品牌替换。
-import { brandProductText } from "@zcode/shared/xwork-brand";
+import { brandProductText } from "@zcode/shared/aiscoo-brand";
 
 export type WebRemoteControlScreenLocale = "zh-CN" | "en-US";
 
