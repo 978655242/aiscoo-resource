@@ -229,7 +229,13 @@ export function NativePlanQuotaCard({
   compact?: boolean;
 }) {
   const { intl, locale } = useZCodeIntl();
-  const label = intl.formatMessage({ id: `settings.usage.nativeRemaining.${quota.period}` });
+  // XCODE: 不重置订阅已有外层“剩余额度”，两处设置页不再重复显示“订阅剩余”。
+  const hasPeriodTitle = quota.period !== "never";
+  const label = intl.formatMessage({
+    id: hasPeriodTitle
+      ? `settings.usage.nativeRemaining.${quota.period}`
+      : "settings.usage.quotaTitle",
+  });
   const limit = {
     type: "NATIVE_QUOTA",
     percentage: quota.usedPercentage ?? undefined,
@@ -246,14 +252,18 @@ export function NativePlanQuotaCard({
       aria-label={label}
       className={`min-w-0 flex-1 ${compact ? "rounded-lg bg-surface p-3" : "rounded-xl bg-surface/70 p-4"}`}
     >
-      <div className={`flex ${compact ? "min-h-6" : "min-h-5"} min-w-0 items-center`}>
-        <span
-          className={`min-w-0 truncate text-ui-base text-foreground ${compact ? "font-medium" : ""}`}
-        >
-          {label}
-        </span>
-      </div>
-      <div className={`${compact ? "mt-2" : "mt-1"} flex min-w-0 items-baseline gap-1.5`}>
+      {hasPeriodTitle ? (
+        <div className={`flex ${compact ? "min-h-6" : "min-h-5"} min-w-0 items-center`}>
+          <span
+            className={`min-w-0 truncate text-ui-base text-foreground ${compact ? "font-medium" : ""}`}
+          >
+            {label}
+          </span>
+        </div>
+      ) : null}
+      <div
+        className={`${hasPeriodTitle ? (compact ? "mt-2" : "mt-1") : ""} flex min-w-0 items-baseline gap-1.5`}
+      >
         <span
           className={`${compact ? "text-ui-lg leading-none" : "text-ui-xl"} font-semibold text-foreground`}
         >
