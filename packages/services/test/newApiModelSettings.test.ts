@@ -23,29 +23,22 @@ const plan: Plan = {
   enabled: true,
 };
 
-test("reference prices exclude disabled templates and never compare different currencies or periods", () => {
+test("reference offers show only the first enabled template in catalog order", () => {
   const plans = [
+    { ...plan, id: "disabled", priceAmount: "0.01", enabled: false },
     plan,
-    { ...plan, id: "2", priceAmount: "98.00" },
-    { ...plan, id: "3", priceAmount: "0.01", enabled: false },
-    { ...plan, id: "4", priceAmount: "18.00", currency: "USD" },
-    { ...plan, id: "5", priceAmount: "258.00", durationValue: "3" },
+    { ...plan, id: "2", priceAmount: "98.00", subtitle: "Another personal plan" },
+    { ...plan, id: "3", priceAmount: "18.00", currency: "USD" },
+    { ...plan, id: "4", priceAmount: "258.00", durationValue: "3" },
+    { ...plan, id: "5", durationUnit: "day" as const, durationValue: "31" },
   ];
-  assert.deepEqual(
-    getNativePlanReferenceOffers(plans).map((item) => item.id),
-    ["2", "4", "5"],
-  );
-  assert.deepEqual(getNativePlanReferenceOffers([]), []);
+  assert.deepEqual(getNativePlanReferenceOffers(plans), [plan]);
+  assert.deepEqual(getNativePlanReferenceOffers([...plans].reverse()), [plans.at(-1)]);
 });
 
-test("reference prices preserve decimal precision beyond binary floats", () => {
-  assert.equal(
-    getNativePlanReferenceOffers([
-      { ...plan, id: "higher", priceAmount: "9007199254740992.02" },
-      { ...plan, id: "lower", priceAmount: "9007199254740992.01" },
-    ])[0]?.id,
-    "lower",
-  );
+test("reference offers stay empty when no template is enabled", () => {
+  assert.deepEqual(getNativePlanReferenceOffers([]), []);
+  assert.deepEqual(getNativePlanReferenceOffers([{ ...plan, enabled: false }]), []);
 });
 
 test("displaying Native reference prices preserves exact decimals and unknown currency labels", () => {

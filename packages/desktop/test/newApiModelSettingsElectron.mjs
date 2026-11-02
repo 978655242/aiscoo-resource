@@ -38,9 +38,17 @@ const snapshot = (status, title = "Fixture Plan A", used = "40") => ({
   purchaseMode: "manual_admin",
   scope: "private-user",
   plans: [
+    { ...plan, id: "disabled", priceAmount: "0.01", enabled: false },
     plan,
-    { ...plan, id: "2", priceAmount: "98.00" },
-    { ...plan, id: "3", priceAmount: "0.01", enabled: false },
+    { ...plan, id: "2", priceAmount: "98.00", subtitle: "Fixture cheaper personal plan" },
+    {
+      ...plan,
+      id: "3",
+      priceAmount: "258.00",
+      durationValue: "3",
+      subtitle: "Fixture quarterly plan",
+    },
+    { ...plan, id: "4", priceAmount: "18.00", currency: "USD", subtitle: "Fixture USD plan" },
   ],
   entitlement: {
     ...entitlements,
@@ -242,7 +250,20 @@ mount("zh-CN");
     await waitFor('document.body.innerText.includes("未开通，开通后启用")');
     assert.match(await body(), /Aiscoo Zen/);
     assert.doesNotMatch(await body(), /XWork Zen/);
-    assert.match(await body(), /¥98\.00/);
+    // 首套餐摘要必须保留目录顺序，不能被低价模板替换或拼入其他周期和说明。
+    assert.match(await body(), /¥118\.00/);
+    assert.match(await body(), /Fixture personal plan/);
+    assert.doesNotMatch(
+      await body(),
+      /¥98\.00|¥258\.00|\$18\.00|Fixture cheaper|Fixture quarterly|Fixture USD/,
+    );
+    assert.equal(
+      await win.webContents.executeJavaScript(
+        '[...document.querySelectorAll("button")].find(e=>e.textContent.includes("个人套餐")).querySelectorAll(".text-ui-xl").length',
+      ),
+      1,
+      "The personal plan entry must render exactly one reference price",
+    );
     const teamDisabled = await win.webContents.executeJavaScript(
       '[...document.querySelectorAll("button")].find(e=>e.textContent.includes("团队套餐")).disabled',
     );
@@ -261,10 +282,10 @@ mount("zh-CN");
     }
     await change({ status: "active", userId: "A", connected: true, error: true });
     await waitFor('document.querySelector("[role=alert]")');
-    assert.doesNotMatch(await body(), /未开通，开通后启用|¥98\.00/);
+    assert.doesNotMatch(await body(), /未开通，开通后启用|¥118\.00/);
     await change({ status: "active", userId: "A", connected: true, empty: true });
     await waitFor('document.body.innerText.includes("暂无已启用的套餐")');
-    assert.doesNotMatch(await body(), /¥98\.00/);
+    assert.doesNotMatch(await body(), /¥118\.00/);
     await change({ status: "active", userId: "A", connected: true });
     await waitFor('document.body.innerText.includes("Fixture Plan A")');
     readStarted = false;
@@ -294,7 +315,7 @@ mount("zh-CN");
     await win.webContents.executeJavaScript("window.refreshPlans()");
     await waitForRemaining(28);
     const firstLogoutFrame = await change({ status: "unassigned", userId: "B", connected: false });
-    assert.doesNotMatch(firstLogoutFrame, /Fixture Plan B|28%|¥98\.00/);
+    assert.doesNotMatch(firstLogoutFrame, /Fixture Plan B|28%|¥118\.00/);
     await waitFor('document.body.innerText.includes("未登录")');
     await change({ status: "active", userId: "B", connected: true });
     await waitFor('document.body.innerText.includes("Fixture Plan B")');

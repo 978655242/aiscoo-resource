@@ -262,7 +262,7 @@ Native Provider 归类为 ordinary model-selection 行为，但 access 仍为 ma
 
 XWork 前端仅开放 `account:new-api-openai-chat-completions`，模型设置与对话模型选择中的提供商展示名称固定为 `XWork Zen`。另两个 anchor 使用现有 `visibility: hidden`，不进入模型设置、聊天模型选择或默认候选；历史 ref 保留但不自动迁移，重新选择可见模型。底层协议契约与管理员模型归属不改，不把其他 transport 的模型移入 Chat Completions。可见入口即使目录为空也保留，按真实权限和配置显示不可用。用户自配 Provider 不受影响；独立官方云连接已由唯一登录规格退役。
 
-模型设置遵循 [原版呈现规格](new-api-model-settings-ui.md)：托管入口复用现有标题、编程套餐状态卡、个人/团队入口，数据只取 Native `/plans` 与 `/entitlements`。参考价只在相同币种/完整周期的启用模板中比较；团队明确不支持。独立官方连接操作及 MCP 连接卡按唯一账号规格移除，不在套餐详情或使用统计另造登录入口。UI 投影按既有 connectionKey、登录 epoch、服务实例与请求序号隔离，换号/退出首帧清空旧数据，查询失败不解释为未开通。
+模型设置遵循 [原版呈现规格](new-api-model-settings-ui.md)：托管入口复用现有标题、编程套餐状态卡、个人/团队入口，数据只取 Native `/plans` 与 `/entitlements`。个人入口按 `/plans` 目录顺序仅展示首个启用模板的价格、完整周期和说明，不追加其他模板摘要；团队明确不支持。独立官方连接操作及 MCP 连接卡按唯一账号规格移除，不在套餐详情或使用统计另造登录入口。UI 投影按既有 connectionKey、登录 epoch、服务实例与请求序号隔离，换号/退出首帧清空旧数据，查询失败不解释为未开通。
 
 ### 5.2 动态能力的真实通道
 
