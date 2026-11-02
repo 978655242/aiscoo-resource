@@ -395,7 +395,10 @@ secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或
 - 设置页「用量统计」不展示额度卡后的「额度仅供读取。重置、续期或更换套餐请联系管理员。」说明，不保留说明占位或间距；桌面与手机 Web、深浅主题、中英文均按此验收。额度读取与重置权限保持现有规则。
 - 仅展示后端实际返回的唯一周期：monthly 为「每月剩余」，weekly 为「每周剩余」，daily 为「每日剩余」，custom 为「当前周期剩余」；两处设置页的 `never` 只保留区标题「剩余额度」，额度分组与进度条的可访问名称同样使用「剩余额度」。不从月额度推算或补出五小时、每周卡片。设置页重置日期显示月日及时间，紧凑浮层显示月日；均按服务端时区与 offset 格式化，不直接展示 IANA 字符串。`never` 继续显示「不自动重置」；未知比例显示占位，无限额度显示「无限制」，二者不绘制有限进度条，耗尽时进度严格为 0。英文同步移除「Subscription remaining」副标题并使用「Quota remaining」可访问名称；对话浮层的周期标题规则不变。
 - 验收：中英文下，模型设置的紧凑卡与用量统计的标准卡在 `never` 场景均不显示「订阅剩余」副标题，保留真实剩余百分比、「不自动重置」和进度条；monthly 等有重置周期的标题和时间、耗尽、无限与未知比例保持原语义。
-- 设置页「用量统计」不展示顶部的「New API 账号用量 — 全部已记录的 Key 与资金来源 · 授权有效」说明行及其动态授权状态文案；统计口径保持不变。
+- 设置页「用量统计」的 Native 剩余额度区复用「模型设置」的套餐状态卡：上方显示真实套餐名称、授权状态和已提供的有效期，右侧复用升级/订阅入口；分隔线下为「剩余额度」、刷新时间与刷新操作，以及相同紧凑样式的单周期额度卡。套餐名称来自当前权益快照的订阅详情，quota level 只作同源名称补充；未提供有效期时不补假日期。加载、查询失败、未开通、耗尽、过期和撤销分别按真实状态展示，不能把未知状态推断为授权有效。
+- 两处页面共用 Native 套餐状态卡的呈现；使用统计直接消费既有 `useUsageEntitlement` 的 `authorizationStatus`、`subscription.details` 与 quota，不新增订阅读取、缓存或状态所有者。刷新继续同时刷新统计与权益，升级/订阅继续进入当前 Provider 的个人套餐入口。非 Native 的用量视图不改变。
+- 设置页「用量统计」不展示顶部独立的「New API 账号用量 — 全部已记录的 Key 与资金来源 · 授权有效」说明行；授权状态只作为套餐卡内部的元信息，统计口径保持不变。
+- 套餐摘要验收：真实 Usage 面板在有效、耗尽、过期、撤销、未开通及读取失败时显示对应状态；中英文、浅深色和 393px 窄屏均可辨认套餐与额度。升级目标为当前 Provider，刷新沿用既有读取；`never` 不重新出现「订阅剩余」。
 - 设置页「用量统计」的 Native 来源标签显示为「XWork Zen」；此展示名不改变账号、Provider ID 或统计口径。
 - raw ID/额度/计数在 HTTP 和 shared 边界使用十进制字符串。显示转换需有限且安全；金额/扣费不参与客户端计算。超过安全整数的精确值不能无标记截断，图表使用显示精度，不用于账务。
 - AccountUsageSnapshot 的 consume_record_count 映射为“消费记录数”，不要填入标为模型调用次数的旧字段。扩展 DTO 的原 modelCallCount 为可空，并提供明确 consumptionRecordCount/source kind；官方来源仍可保留真实 modelCallCount。
@@ -404,6 +407,16 @@ secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或
 - 不从总 Tokens 推算 cache/reasoning，不从请求耗时推算 Agent 工作时长，不拼接本地工具数据装成账号全部客户端统计。
 - today/7d/30d/custom 和原 date controls 保留；custom 最多 30 个自然日，IANA/DST 与服务端 canonical 一致。显示时间与服务端 quota reset 时区分开。自然日桶标签不经客户端时区改日；小时桶完整 UTC offset 保留在图表横轴和 tooltip，DST 回拨的同名小时不能合并成同一显示标签。
 - metadata 和统计里的历史 model_id 可不同集合；历史模型不再授权也可以展示消费，但不能因此恢复为可选模型。
+
+套餐额度摘要沿用既有所有者与操作路径：
+
+```mermaid
+flowchart LR
+    Owner["Host 主账号与订阅 owner"] --> Hook["既有 useUsageEntitlement"]
+    Hook --> Card["使用统计：套餐摘要与剩余额度"]
+    Card -->|"刷新"| Hook
+    Card -->|"升级 / 订阅"| Entry["既有当前 Provider 个人套餐入口"]
+```
 
 Native 主权益的 mcpQuota 必须 null，不能暗示 Aiscoo 套餐附带官方 quota。移除需要 Z.ai/BigModel 登录的官方 MCP 卡及连接/断开操作；相关云能力真实不可用，不读取旧官方凭据或展示其缓存额度。
 
