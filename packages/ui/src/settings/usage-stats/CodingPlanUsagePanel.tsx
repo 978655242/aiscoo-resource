@@ -607,11 +607,7 @@ function CodingPlanQuotaCards({
           );
         })}
       </div>
-      {nativeLimit ? (
-        <p className="text-ui-base text-foreground-subtle">
-          {intl.formatMessage({ id: "settings.usage.nativeAdminReset" })}
-        </p>
-      ) : null}
+      {/* XCODE: 使用统计移除私有额度卡后的管理员说明及其占位。 */}
     </section>
   );
 }
