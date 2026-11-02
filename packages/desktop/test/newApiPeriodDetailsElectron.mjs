@@ -46,8 +46,8 @@ async function run() {
       const accountAccess = { type: "new-api-account", accountType: "new-api", mode: "private-subscription", entitled: true };
       const entitlement = {
         schema_version: 1, server_time: 1800000000000, status: "active", authorization_revision: "42",
-        subscription: { id: "7", plan_id: "3", plan_title: "Private", source: "admin", usage_scope: "xcode", start_time: null, end_time: null },
-        quota: { scope: "xcode-subscription", unit: "quota", unlimited: false, total: "100", used: "25", remaining: "75", used_percentage: 25,
+        subscription: { id: "7", plan_id: "3", plan_title: "Private", source: "admin", usage_scope: "zen", start_time: null, end_time: null },
+        quota: { scope: "zen-subscription", unit: "quota", unlimited: false, total: "100", used: "25", remaining: "75", used_percentage: 25,
           reset_period: "monthly", reset_custom_seconds: "0", last_reset_time: Date.parse("2026-10-01T16:00:00Z"), next_reset_time: Date.parse("2026-11-01T16:00:00Z"), reset_time_zone: "server-local", reset_utc_offset_seconds: 28800 },
         funding_policy: { subscription_only: true, wallet_fallback: false, other_subscription_fallback: false }, self_service_reset: false, purchase_mode: "manual_admin"
       };

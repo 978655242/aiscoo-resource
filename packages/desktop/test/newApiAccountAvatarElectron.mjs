@@ -107,8 +107,8 @@ const providerId = "account:new-api-anthropic-messages";
 const access = { type: "new-api-account", accountType: "new-api", mode: "private-subscription", entitled: true };
 const native = mapNewApiEntitlement({
   schema_version: 1, server_time: 1800000000000, status: "active", authorization_revision: "42",
-  subscription: { id: "7", plan_id: "3", plan_title: "Fixture", source: "admin", usage_scope: "xcode", start_time: null, end_time: null },
-  quota: { scope: "xcode-subscription", unit: "quota", unlimited: false, total: "100", used: "25", remaining: "75", used_percentage: 25,
+  subscription: { id: "7", plan_id: "3", plan_title: "Fixture", source: "admin", usage_scope: "zen", start_time: null, end_time: null },
+  quota: { scope: "zen-subscription", unit: "quota", unlimited: false, total: "100", used: "25", remaining: "75", used_percentage: 25,
     reset_period: "never", reset_custom_seconds: "0", last_reset_time: null, next_reset_time: null, reset_time_zone: "UTC", reset_utc_offset_seconds: 0 },
   funding_policy: { subscription_only: true, wallet_fallback: false, other_subscription_fallback: false }, self_service_reset: false, purchase_mode: "manual_admin"
 }, providerId);

@@ -1,10 +1,10 @@
 # CLI XWork Zen Plan
 
-状态：2026-10-21 已实现并完成隔离浏览器授权与真实 CLI prompt 验收；本机 Node CLI 已更新，正式后端尚未部署 CLI 客户端支持。剩余平台与交互验证见下文。
+状态：2026-10-21 的交付与验收记录保留在下文。当前产品账号入口以 [Aiscoo 唯一账号登录](../../../../../docs/aiscoo/specs/aiscoo-only-login.md) 为准，旧官方登录与退出兼容规则已被取代。
 
 ## 目的与范围
 
-独立 CLI 的 TUI 与单次 prompt 可以通过 XWork Zen Plan 登录、恢复、退出和选择套餐内模型。命令为 `zcode login zen`，TUI `/login` 首项展示 `XWork Zen Plan`。保留现有 Z.AI、BigModel 和自配 Provider。购买、续费与账户管理在浏览器完成，不增加 CLI 支付流程。
+独立 CLI 的 TUI 与单次 prompt 可以通过 Aiscoo Zen Plan 登录、恢复、退出和选择套餐内模型。默认 `zcode login` 与显式 `zcode login zen` / `zcode login aiscoo` 均使用 Aiscoo 账号，TUI `/login` 首项展示 `Aiscoo Zen Plan`。产品入口不再提供 Z.ai/BigModel 官方账号登录，自配模型与 API Key 保留。购买、续费与账户管理在浏览器完成，不增加 CLI 支付流程。
 
 本轮仅覆盖 CLI 与浏览器运行在同一台机器的场景。桌面 Host 的 continuous、手机 replayable、远程 workspace 与桌面深链分发均不改变。`--no-browser` 打印授权 URL，仍需在同一台机器的浏览器完成授权；不能宣称支持 SSH 跨机登录。
 
@@ -18,9 +18,9 @@
 ## 产品规则
 
 1. 显式 `AISCOO_ADMIN_BASE_URL` 配置 Zen origin，复用现有 origin 校验；旧键 `NEW_API_BASE_URL` 不再读取，也不提供 fallback。缺配置时 Zen 入口显示配置提示，不猜域名，不回退官方服务。HTTP 只允许现有明确 loopback 白名单。
-2. `zcode login zen` 发起独立授权。登录成功须完成 SessionBundle 校验、Me 身份确认、安全持久化，以及当前代次检查；只有成功提交后才显示账号信息与可选模型。
-3. TUI 首次登录列表显示 Zen；正在登录时支持取消，取消使迟到回调失效。现有官方登录命令和参数保持兼容。
-4. CLI 使用独立 SID，不认领桌面设备 SID，不读写桌面 active pointer，不导出桌面密钥。CLI 自己退出仅撤销自己的 SID。增加 `zcode logout zen` 和 `/logout zen`；原无参数退出保留官方行为，并在帮助中写清目标。
+2. `zcode login`、`zcode login zen` 和 `zcode login aiscoo` 发起同一套独立授权。登录成功须完成 SessionBundle 校验、Me 身份确认、安全持久化，以及当前代次检查；只有成功提交后才显示账号信息与可选模型。
+3. TUI 首次登录列表显示 Zen；正在登录时支持取消，取消使迟到回调失效。产品入口拒绝旧官方登录目标，不回退或恢复历史官方账号；自配 API Key 入口保留。
+4. CLI 使用独立 SID，不认领桌面设备 SID，不读写桌面 active pointer，不导出桌面密钥。`zcode logout`、`zcode logout zen`、`zcode logout aiscoo` 及对应 TUI/单次 prompt 的 `/logout` 命令均委托当前 Zen owner，仅撤销本设备 SID 并清理本地凭据，保留其他设备和桌面会话。重复退出不恢复凭据，也不撤销其他 SID。
 5. 登录后读取真实 entitlements/catalog；无套餐或无可用模型明确展示原因，不制造可执行模型。保留用户原默认选择，首次成功登录可提示选择 Zen 模型；不得自动将同名官方模型迁移为 Zen。
 6. 仅把非秘密模型选择写入 Personal Config；Account overlay 由当前 Zen owner 派生。control、refresh、relay 不得写入普通配置、命令参数、stdout、日志或 shell 启动脚本。
 7. 冷恢复必须核验有效会话。明确撤销清除可执行授权；网络/503 展示暂不可用，保留可恢复凭据，不伪装退出或无套餐。退出离线时区分本机清理与服务端撤销结果。
@@ -78,7 +78,7 @@ sequenceDiagram
 
 ## 验收场景
 
-1. 帮助、命令 parser、英文/中文 TUI 都提供 Zen；既有官方/API Key 登录回归通过。
+1. 帮助、命令 parser、英文/中文 TUI 都提供 Aiscoo；默认、zen 与 aiscoo 别名的 CLI/单次 prompt/TUI 退出均委托 Zen owner。旧官方登录目标被拒绝，自配 API Key 回归通过。
 2. 本机浏览器真实完成授权，回到发起 CLI；深链不被桌面接管。`--no-browser` 同机可完成；跨机限制提示清楚。
 3. 缺 origin、安全存储不可用、端口监听失败时不发起授权；无密码或 token 泄露。
 4. 错误/重复 state、错误 path、重复 callback、过期 code、取消、超时、并发两次登录和迟到兑换均不激活错误 owner；资源被释放。
@@ -86,7 +86,7 @@ sequenceDiagram
 6. 冷启动从平台安全存储恢复，正常 refresh 单飞并安全替换；撤销阻断请求，503 保留恢复能力。
 7. 无套餐、空目录、禁用模型、目录/授权 revision 不一致均不产生可执行授权。
 8. 选择真实 Zen 模型后 TUI 与 `--prompt` 使用现有模型 runtime，请求指向配置 origin；退出/换号后旧账号请求与缓存失效。
-9. CLI 与桌面同时登录、各自退出互不删除对方会话；不同 origin 的同名账号隔离。
+9. 无参数与 zen/aiscoo 别名退出均验证精确 CLI SID 撤销、本地凭据清理及其他 SID 原样保留；重复退出无额外撤销或凭据恢复。CLI 与桌面同时登录、各自退出互不删除对方会话；不同 origin 的同名账号隔离。
 10. macOS 真实 Keychain/浏览器/TUI 验收；Windows/Linux adapter 与协议自动化验证，未实跑的平台明确标记。真实模型调用和正式服务部署需单独明确执行范围。
 
 ## 交付检查

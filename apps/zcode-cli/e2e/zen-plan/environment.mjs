@@ -207,7 +207,7 @@ export function assignPlan(backend, username) {
   try {
     const userId = db.prepare("SELECT id FROM users WHERE username=?").get(username).id;
     const plan = insert(db, "subscription_plans", { title: `Synthetic ${username}`, price_amount: 0, enabled: 1, total_amount: 0, quota_reset_period: "never", duration_unit: "month", duration_value: 1, currency: "USD" });
-    const subscription = insert(db, "user_subscriptions", { user_id: userId, plan_id: plan, amount_total: 0, amount_used: 0, start_time: now, end_time: now + 86_400, status: "active", source: "admin", usage_scope: "xcode", quota_reset_period_snapshot: "never", quota_reset_generation: 1, last_reset_time: now, next_reset_time: 0, created_at: now, updated_at: now });
+    const subscription = insert(db, "user_subscriptions", { user_id: userId, plan_id: plan, amount_total: 0, amount_used: 0, start_time: now, end_time: now + 86_400, status: "active", source: "admin", usage_scope: "zen", quota_reset_period_snapshot: "never", quota_reset_generation: 1, last_reset_time: now, next_reset_time: 0, created_at: now, updated_at: now });
     const existing = db.prepare("SELECT revision FROM x_code_authorizations WHERE user_id=?").get(userId);
     if (existing) db.prepare("UPDATE x_code_authorizations SET subscription_id=?, revision=?, updated_at=? WHERE user_id=?").run(subscription, Number(existing.revision) + 1, now, userId);
     else insert(db, "x_code_authorizations", { user_id: userId, subscription_id: subscription, revision: 1, updated_at: now });

@@ -7,7 +7,7 @@ import { ZCodeIntlProvider } from "../src/i18n/IntlProvider.js";
 import { NativePlanProviderDetail } from "../src/settings/model-provider-section/NativePlanProviderDetail.js";
 
 const quota: NonNullable<NewApiEntitlements["quota"]> = {
-  scope: "xcode-subscription",
+  scope: "zen-subscription",
   unit: "quota",
   unlimited: false,
   total: "100",
@@ -33,7 +33,7 @@ function showQuota(patch: Partial<typeof quota> = {}) {
       plan_id: "1",
       plan_title: "Monthly plan",
       source: "admin",
-      usage_scope: "xcode",
+      usage_scope: "zen",
       start_time: null,
       end_time: null,
     },

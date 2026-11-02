@@ -85,7 +85,7 @@ test("fresh exchange rejects plausible wrong-version, opaque, wrong-purpose and 
   assert.equal(NewApiSessionBundleSchema.parse(cached).refresh_token, "refresh-test-secret");
 });
 
-test("control data preserves arbitrary precision decimals, milliseconds and unlimited null facts", async () => {
+test("control data accepts canonical Zen scopes and preserves arbitrary precision decimals, milliseconds and unlimited null facts", async () => {
   const entitlements = await clientFor({
     schema_version: 1,
     server_time: now,
@@ -96,12 +96,12 @@ test("control data preserves arbitrary precision decimals, milliseconds and unli
       plan_id: "1",
       plan_title: "Manual",
       source: "admin",
-      usage_scope: "xcode",
+      usage_scope: "zen",
       start_time: now,
       end_time: null,
     },
     quota: {
-      scope: "xcode-subscription",
+      scope: "zen-subscription",
       unit: "quota",
       unlimited: true,
       total: null,
@@ -126,6 +126,26 @@ test("control data preserves arbitrary precision decimals, milliseconds and unli
   assert.equal(entitlements.quota?.used, "9007199254740999");
   assert.equal(entitlements.quota?.remaining, null);
   assert.equal(entitlements.subscription?.start_time, now);
+  assert.equal(entitlements.subscription?.usage_scope, "zen");
+  assert.equal(entitlements.quota?.scope, "zen-subscription");
+  // 订阅与额度范围分别严格校验，拒绝旧协议和其他资金范围，不能接受兼容别名。
+  for (const usage_scope of ["xcode", "general", "zen-subscription", ""]) {
+    await assert.rejects(
+      clientFor({
+        ...entitlements,
+        subscription: { ...entitlements.subscription!, usage_scope },
+      }).getEntitlements("control"),
+      protocolError,
+    );
+  }
+  for (const scope of ["xcode-subscription", "account", "zen", ""]) {
+    await assert.rejects(
+      clientFor({ ...entitlements, quota: { ...entitlements.quota!, scope } }).getEntitlements(
+        "control",
+      ),
+      protocolError,
+    );
+  }
   const plans = await clientFor({
     schema_version: 1,
     server_time: now,

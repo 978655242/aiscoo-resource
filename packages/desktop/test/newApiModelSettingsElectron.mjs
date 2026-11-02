@@ -59,7 +59,7 @@ const snapshot = (status, title = "Fixture Plan A", used = "40") => ({
       status === "unassigned"
         ? null
         : {
-            scope: "xcode-subscription",
+            scope: "zen-subscription",
             unit: "quota",
             unlimited: false,
             total: "100",
