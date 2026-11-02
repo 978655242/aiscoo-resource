@@ -155,6 +155,7 @@ export function InlineEditableProviderCard({
   headerVisible = true,
   headerActionsVisible,
   settingsRevision,
+  modelListFooter,
 }: {
   provider: ProviderSettingsFormProvider;
   onSave: (config: ProviderSettingsFormProvider) => void | Promise<void>;
@@ -182,6 +183,8 @@ export function InlineEditableProviderCard({
   headerVisible?: boolean;
   headerActionsVisible?: boolean;
   settingsRevision?: number;
+  // XCODE: 可选列表插槽只传递展示内容，默认编辑、排序与写入路径保持不变。
+  modelListFooter?: ReactNode;
 }) {
   const { intl } = useZCodeIntl();
   const { dismissFeedback, showFeedback } = useProviderDetailFeedback();
@@ -848,6 +851,7 @@ export function InlineEditableProviderCard({
           providerEnabled={provider.enabled}
           providerAccess={provider.config.access}
           models={models}
+          modelListFooter={modelListFooter}
           onTestModel={onTestModel ? handleTestModel : undefined}
           onModelCommit={handleModelCommit}
           onModelEnabledChange={handleModelEnabledChange}

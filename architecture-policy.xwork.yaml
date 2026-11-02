@@ -249,7 +249,8 @@ modules:
     roots: [packages/ui/src/aiscoo/account-login]
     managed: true
     # XCODE: 产品账号菜单装配使用共享的可选展示策略。
-    requires: [ui, shared, services, ui-oauth-lifecycle, aiscoo-brand-ui, aiscoo-legal-ui, profile-avatar]
+    requires:
+      [ui, shared, services, ui-oauth-lifecycle, aiscoo-brand-ui, aiscoo-legal-ui, profile-avatar]
     publicEntrypoints:
       - packages/ui/src/aiscoo/account-login/index.ts
       - packages/ui/src/aiscoo/account-login/contract.ts
