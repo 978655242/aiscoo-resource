@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -85,7 +85,31 @@ async function run() {
     function view() {
       const account = resolveNewApiAccountProviders({
         owner: scene.connected ? { ...owner, userId: scene.userId } : null,
-        catalog,
+        // XCODE: 可见 transport 同时覆盖正常、无 metadata 和完整但 CEL 非法的真实目录投影。
+        catalog: {
+          ...catalog,
+          models: catalog.models
+            .filter((model) => !scene.allIssues || model.model_id !== "real-model")
+            .map((model) => ({
+              ...model,
+              api_type: model.api_type ? "openai-chat-completions" : null,
+              ...(model.model_id === "real-model"
+                ? {
+                    icon: "OpenAI",
+                    model_config: {
+                      ...model.model_config,
+                      properties: {
+                        ...model.model_config.properties,
+                        inputFormat: {
+                          ...model.model_config.properties.inputFormat,
+                          supportsImage: true,
+                        },
+                      },
+                    },
+                  }
+                : {}),
+            })),
+        },
         entitlements: {
           ...entitlements,
           status: scene.status,
@@ -146,7 +170,7 @@ async function run() {
         resolveDir: root,
         loader: "tsx",
         contents: `
-import React,{useLayoutEffect} from "react";
+import React,{useLayoutEffect,useState} from "react";
 import {createRoot} from "react-dom/client";
 import {flushSync} from "react-dom";
 import {ServiceProvider} from "./packages/ui/src/hooks/useServices.tsx";
@@ -156,26 +180,39 @@ import {projectProviderSettingsViewToFormProviders} from "./packages/ui/src/lib/
 import {useNativePlanSettings} from "./packages/ui/src/hooks/useNativePlanSettings.ts";
 import {useProviderSettingsView} from "./packages/ui/src/hooks/useProviderSettingsView.ts";
 import {ZCodeIntlProvider} from "./packages/ui/src/i18n/IntlProvider.tsx";
-import {NativePlanProviderDetail} from "./packages/ui/src/settings/model-provider-section/NativePlanProviderDetail.tsx";
+import {ModelProviderSectionDetail} from "./packages/ui/src/settings/model-provider-section/Detail.tsx";
+import {PlatformProvider} from "./packages/ui/src/hooks/usePlatform.tsx";
+import {TooltipProvider} from "./packages/ui/src/components/ui/tooltip.tsx";
 import {applyTheme} from "./packages/ui/src/useTheme.ts";
 let currentView=await window.nativeSettingsSmoke.view();
 const listeners=new Set();
 const providerSettingsService={getView:async()=>currentView,onDidChange:listener=>{listeners.add(listener);return{dispose:()=>listeners.delete(listener)}}};
-const services={providerSettingsService,codingPlanSubscriptionService:{getStaticProducts:()=>window.nativeSettingsSmoke.read()}};
+const services={providerSettingsService,usageStatsService:{getEntitlementSnapshot:async()=>null},codingPlanSubscriptionService:{getStaticProducts:()=>window.nativeSettingsSmoke.read()}};
 const broadcastService={send:async()=>{},onMessage:()=>()=>{}};
 await connectProviderSettingsSnapshot(providerSettingsService).ready;
 let setUser, initialized=false, fixtureUserId="A";
+window.modelTests=[];
+window.modelWrites=[];
+const unexpectedWrite=(...args)=>{window.modelWrites.push(args);throw new Error("Read-only fixture must not save")};
 function Scene(){
   setUser=useZCodeStore(state=>state.setUser);
+  const [custom,setCustom]=useState(false);
   useLayoutEffect(()=>{if(!initialized){initialized=true;setUser({id:"fixture-A",nickname:"Fixture",provider:"new-api"})}},[]);
   const settings=useProviderSettingsView();
   const provider=settings.state.status==="ready"?projectProviderSettingsViewToFormProviders(settings.state.view).find(item=>item.providerId===${JSON.stringify(id)}):null;
   const read=useNativePlanSettings(${JSON.stringify(id)});
   window.refreshPlans=read.refresh;
-  return provider?<NativePlanProviderDetail provider={provider} read={read} onOpenPlans={()=>{throw new Error("A disabled team card must not open a purchase")}}/>:null;
+  if(!provider)return null;
+  const customProvider={...provider,providerId:"fixture-custom",providerName:"Fixture Custom",models:[],config:{group:"standard-personal",access:{type:"api-key",apiKey:""},api:{type:"openai-chat-completions",baseUrl:"https://fixture.invalid/v1"}}};
+  const selectedNavItem=custom?{key:"custom",type:"custom",label:"Fixture Custom",provider:customProvider,statusActive:true}:{key:"native",type:"nativePlan",label:provider.providerName,provider,statusActive:provider.executable};
+  return <>
+    <button data-testid="fixture-native" onClick={()=>setCustom(false)}>Native</button>
+    <button data-testid="fixture-custom" onClick={()=>setCustom(true)}>Custom</button>
+    <ModelProviderSectionDetail selectedNavItem={selectedNavItem} nativePlanRead={read} providerSettingsView={settings.state.view} presetLoading={false} codingPlanPurchaseTokenAuthenticatedByProviderId={{}} onSave={unexpectedWrite} onAddPersonalModel={unexpectedWrite} onSavePersonalModelDraft={unexpectedWrite} onSetPersonalModelEnabled={unexpectedWrite} onDeletePersonalModel={unexpectedWrite} onDelete={unexpectedWrite} onReorderProviderModels={unexpectedWrite} onTestModel={async(providerId,modelId)=>{window.modelTests.push({providerId,modelId});return{success:true}}} onCodingPlanLogin={unexpectedWrite} onCodingPlanDisconnect={unexpectedWrite} onRetryCodingPlan={unexpectedWrite} onOpenApiKeyUrl={unexpectedWrite} onOpenBigModelRegistration={unexpectedWrite} onCodingPlanPurchaseComplete={unexpectedWrite}/>
+  </>;
 }
 const renderer=createRoot(document.getElementById("root"));
-const mount=locale=>flushSync(()=>renderer.render(<ServiceProvider services={services}><StoreProvider broadcastService={broadcastService}><ZCodeIntlProvider key={locale} initialLocale={locale}><Scene/></ZCodeIntlProvider></StoreProvider></ServiceProvider>));
+const mount=locale=>flushSync(()=>renderer.render(<ServiceProvider services={services}><PlatformProvider platform={{}}><StoreProvider broadcastService={broadcastService}><ZCodeIntlProvider key={locale} initialLocale={locale}><TooltipProvider><Scene/></TooltipProvider></ZCodeIntlProvider></StoreProvider></PlatformProvider></ServiceProvider>));
 window.setScene=async next=>{currentView=await window.nativeSettingsSmoke.scene(next);flushSync(()=>{const nextUserId=next.connected?next.userId:null;if(nextUserId!==fixtureUserId){fixtureUserId=nextUserId;setUser(next.connected?{id:"fixture-"+next.userId,nickname:"Fixture",provider:"new-api"}:null)}for(const listener of listeners)listener(currentView)});return document.body.innerText};
 window.setAppearance=(theme,locale)=>{applyTheme(theme);mount(locale)};
 mount("zh-CN");
@@ -192,13 +229,42 @@ mount("zh-CN");
         react: dirname(requireRoot.resolve("react/package.json")),
         "react-dom": dirname(requireRoot.resolve("react-dom/package.json")),
       },
+      plugins: [
+        {
+          name: "isolated-upgrade-entry",
+          setup(builder) {
+            // XCODE: esbuild 无 Vite glob 转换；只装配 fixture 使用的真实 SVG，LobeIcon 逻辑保持原样。
+            builder.onLoad({ filter: /\/LobeIcon\.tsx$/ }, async ({ path }) => {
+              const iconPath = join(
+                root,
+                "node_modules/@lobehub/icons-static-svg/icons/openai.svg",
+              );
+              const iconUrl = `data:image/svg+xml;base64,${(await readFile(iconPath)).toString("base64")}`;
+              return {
+                contents: (await readFile(path, "utf8")).replace(
+                  /import\.meta\.glob<string>\([\s\S]*?\);/,
+                  `({${JSON.stringify(iconPath)}:()=>Promise.resolve(${JSON.stringify(iconUrl)})});`,
+                ),
+                loader: "tsx",
+                resolveDir: dirname(path),
+              };
+            });
+            builder.onLoad({ filter: /CodingPlanUpgradeDialogProvider\.tsx$/ }, () => ({
+              contents:
+                'export const useCodingPlanUpgradeDialog=()=>({openCodingPlanUpgrade(){throw new Error("A disabled team card must not open a purchase")}});export const useOptionalCodingPlanUpgradeDialog=()=>({inventory:{status:"ready",native:true}});',
+              loader: "js",
+            }));
+          },
+        },
+      ],
       loader: { ".svg": "dataurl", ".png": "dataurl", ".css": "empty" },
       define: { "process.env.NODE_ENV": JSON.stringify("test"), "import.meta.env": "{}" },
     });
     await writeFile(join(temporary, "renderer.js"), renderer.outputFiles[0].text);
+    // XCODE: 源版根节点为 vibrancy 强制透明；隔离窗口须显式承接同一主题背景并允许文档滚动。
     await writeFile(
       join(temporary, "index.html"),
-      `<!doctype html><html><head><link rel="stylesheet" href="/@fs${root}/packages/ui/src/styles.css"></head><body><div id="root" style="max-width:780px;padding:40px"></div><script type="module" src="/renderer.js"></script></body></html>`,
+      `<!doctype html><html><head><link rel="stylesheet" href="/@fs${root}/packages/ui/src/styles.css"><style>html,body,#root{background:var(--color-background)!important}body{color:var(--color-foreground);overflow:auto}#root{height:auto;min-height:100%}</style></head><body><div id="root" style="max-width:780px;padding:40px"></div><script type="module" src="/renderer.js"></script></body></html>`,
     );
     const { createServer } = await import(requireDesktop.resolve("vite"));
     const { default: tailwindcss } = await import(requireDesktop.resolve("@tailwindcss/vite"));
@@ -315,8 +381,145 @@ mount("zh-CN");
       "({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth,overflow:[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>document.documentElement.clientWidth+1).map(e=>({tag:e.tagName,class:e.className,text:e.textContent.slice(0,80),right:e.getBoundingClientRect().right})).slice(0,10)})",
     );
     assert.equal(geometry.scrollWidth <= geometry.clientWidth, true, JSON.stringify(geometry));
+    // XCODE: 真实详情和上游模型行验收同列表诊断；无 metadata 的条目不能获得能力、排序或操作。
+    await win.webContents.executeJavaScript('window.setAppearance("zai-light","zh-CN")');
+    await change({ status: "active", userId: "B", connected: true });
+    await waitFor('document.body.innerText.includes("Missing metadata")');
+    await waitFor(
+      'document.querySelector("[data-testid=model-provider-model-input-0]")?.parentElement.querySelector("[style*=mask-image]")',
+    );
+    const diagnostic = '[data-native-plan-detail] [data-native-catalog-issue="unconfigured"]';
+    const inspectList = () =>
+      win.webContents.executeJavaScript(`(()=>{
+        const issue=document.querySelector(${JSON.stringify(diagnostic)});
+        const list=issue?.parentElement;
+        const valid=document.querySelector('[data-testid="model-provider-model-input-0"]');
+        return {
+          diagnostic:!!issue,
+          singleList:!!list?.contains(valid),
+          topNote:!!document.querySelector('[role="note"]'),
+          diagnosticText:issue?.textContent,
+          fakeCapacity:!!issue?.querySelector('[aria-label*="上下文"],[aria-label*="Context"]'),
+          operations:issue?.querySelectorAll('button,input,[role="switch"]').length,
+          sortable:!!issue?.closest('[data-model-provider-model-id]'),
+          invalidModelReason:[...list?.children??[]].find(row=>row.textContent.includes("Bad CEL"))?.textContent,
+          validModelText:valid?.parentElement?.textContent,
+          validModelIcon:!!valid?.parentElement?.querySelector("[style*=mask-image]"),
+          nativeEdits:!!document.querySelector('[data-native-plan-detail] [data-testid="model-provider-add-model-button"],[data-native-plan-detail] [data-slot="dialog-trigger"],[data-native-plan-detail] [role="switch"]')
+        };
+      })()`);
+    const mixed = await inspectList();
+    assert.equal(
+      mixed.diagnostic,
+      true,
+      "Missing metadata must remain visible in the Native model list",
+    );
+    assert.equal(mixed.singleList, true, JSON.stringify(mixed));
+    assert.equal(mixed.topNote, false);
+    assert.match(mixed.diagnosticText, /XCODE_MODEL_CONFIG_MISSING/);
+    assert.equal(mixed.fakeCapacity, false);
+    assert.equal(mixed.operations, 0);
+    assert.equal(mixed.sortable, false);
+    assert.equal(mixed.nativeEdits, false);
+    assert.match(mixed.invalidModelReason, /XCODE_MODEL_CONFIG_INVALID/);
+    assert.match(mixed.validModelText, /Real.*8\.192K.*视觉/);
+    assert.equal(mixed.validModelIcon, true);
+    await win.webContents.executeJavaScript(
+      'document.querySelector("[data-testid=model-provider-model-input-0]").closest(".space-y-2").querySelector("button").click()',
+    );
+    assert.deepEqual(await win.webContents.executeJavaScript("window.modelTests"), [
+      { providerId: id, modelId: "real-model" },
+    ]);
+    const evidence = join(root, "packages/desktop/.e2e-artifacts/model-provider-upstream-ui");
+    await mkdir(evidence, { recursive: true });
+    await writeFile(
+      join(evidence, "mixed-zh-CN-393.png"),
+      (await win.webContents.capturePage()).toPNG(),
+    );
+    win.setContentSize(1000, 1000);
+    await win.webContents.executeJavaScript(
+      "new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))",
+    );
+    await writeFile(
+      join(evidence, "mixed-zh-CN-1000.png"),
+      (await win.webContents.capturePage()).toPNG(),
+    );
+    await change({ status: "active", userId: "B", connected: true, allIssues: true });
+    await waitFor(
+      'document.body.innerText.includes("Missing metadata") && !document.body.innerText.includes("Real")',
+    );
+    assert.equal((await inspectList()).diagnostic, true);
+    assert.match(await body(), /Bad CEL/);
+    await win.webContents.executeJavaScript(
+      'document.querySelector("[data-testid=fixture-custom]").click()',
+    );
+    await waitFor('document.body.innerText.includes("Fixture Custom")');
+    assert.doesNotMatch(await body(), /Missing metadata|Bad CEL|XCODE_MODEL_CONFIG_MISSING/);
+    assert.equal(
+      await win.webContents.executeJavaScript(
+        '!!document.querySelector("[data-testid=model-provider-add-model-button]")',
+      ),
+      true,
+      "Custom provider must retain model editing controls",
+    );
+    await win.webContents.executeJavaScript(
+      'document.querySelector("[data-testid=fixture-native]").click()',
+    );
+    await waitFor('document.body.innerText.includes("Missing metadata")');
+    for (const [theme, locale] of [
+      ["zai-light", "zh-CN"],
+      ["zai-dark", "zh-CN"],
+      ["zai-light", "en-US"],
+      ["zai-dark", "en-US"],
+    ]) {
+      await win.webContents.executeJavaScript(
+        `window.setAppearance(${JSON.stringify(theme)},${JSON.stringify(locale)})`,
+      );
+      await waitFor('document.querySelector("[data-native-catalog-issue=unconfigured]")');
+      const surface = await win.webContents.executeJavaScript(
+        "({background:getComputedStyle(document.body).backgroundColor,color:getComputedStyle(document.body).color})",
+      );
+      assert.notEqual(
+        surface.background,
+        "rgba(0, 0, 0, 0)",
+        `${theme}: fixture must paint the theme surface`,
+      );
+      assert.notEqual(surface.background, surface.color, `${theme}: text must remain visible`);
+      for (const width of [1000, 393]) {
+        win.setContentSize(width, 1000);
+        await win.webContents.executeJavaScript(
+          "window.scrollTo(0,0);new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))",
+        );
+        const widths = await win.webContents.executeJavaScript(
+          "({scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth})",
+        );
+        assert.ok(widths.scroll <= widths.client, JSON.stringify({ theme, locale, width, widths }));
+        await writeFile(
+          join(evidence, `${theme}-${locale}-${width}.png`),
+          (await win.webContents.capturePage()).toPNG(),
+        );
+        for (const modelId of ["unconfigured", "bad-cel"]) {
+          const visible = await win.webContents.executeJavaScript(`(async()=>{
+            const row=document.querySelector('[data-native-catalog-issue="${modelId}"]');
+            row.scrollIntoView({block:"center"});
+            await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+            const rect=row.getBoundingClientRect();
+            return rect.top>=0 && rect.bottom<=innerHeight;
+          })()`);
+          assert.equal(visible, true, `${theme}/${locale}/${width}: ${modelId} must be scrollable`);
+        }
+        await writeFile(
+          join(evidence, `${theme}-${locale}-${width}-models.png`),
+          (await win.webContents.capturePage()).toPNG(),
+        );
+      }
+    }
+    assert.deepEqual(await win.webContents.executeJavaScript("window.modelWrites"), []);
+    assert.deepEqual(await win.webContents.executeJavaScript("window.modelTests"), [
+      { providerId: id, modelId: "real-model" },
+    ]);
     console.log(
-      "Native model settings: real Electron state/price/error/owner-switch/logout/theme/locale/mobile regressions passed",
+      "Native model settings: real Electron state/price/owner and upstream single-list mixed/all-issue/custom-isolation/zh-en/light-dark/393px regressions passed",
     );
   } catch (error) {
     exitCode = 1;

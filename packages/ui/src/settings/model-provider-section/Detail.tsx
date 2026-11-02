@@ -839,6 +839,7 @@ export function ModelProviderSectionDetail({
       <NativePlanProviderDetail
         provider={selectedNavItem.provider}
         read={nativePlanRead}
+        catalogIssues={providerSettingsView?.catalogIssues}
         onOpenPlans={() =>
           openCodingPlanUpgrade({
             providerId: selectedNavItem.provider.providerId,
@@ -846,16 +847,22 @@ export function ModelProviderSectionDetail({
           })
         }
       >
-        <InlineEditableProviderCard
-          provider={selectedNavItem.provider}
-          onSave={onSave}
-          {...modelEditingProps}
-          onTestModel={onTestModel}
-          headerVisible={false}
-          readOnlyEndpoints
-          nameEditable={false}
-          headerActionsVisible={false}
-        />
+        {/* XCODE: 无执行资格时仅投影诊断列表，不把目录问题伪装成可测试或可保存的候选。 */}
+        {(modelsVisible, modelListFooter) => (
+          <InlineEditableProviderCard
+            provider={
+              modelsVisible ? selectedNavItem.provider : { ...selectedNavItem.provider, models: [] }
+            }
+            modelListFooter={modelListFooter}
+            onSave={onSave}
+            {...modelEditingProps}
+            onTestModel={modelsVisible ? onTestModel : undefined}
+            headerVisible={false}
+            readOnlyEndpoints
+            nameEditable={false}
+            headerActionsVisible={false}
+          />
+        )}
       </NativePlanProviderDetail>
     );
   }

@@ -360,6 +360,7 @@ export function ProviderModelsSection({
   onAddModel,
   onReorderModelIds,
   settingsRevision = 0,
+  modelListFooter,
 }: {
   providerId: string;
   providerName?: string;
@@ -377,6 +378,8 @@ export function ProviderModelsSection({
   onAddModel: (model: ProviderSettingsFormModel) => void | Promise<void>;
   onReorderModelIds?: (modelIds: string[]) => void;
   settingsRevision?: number;
+  // XCODE: 只读诊断追加在同一列表内，不进入候选模型、排序或编辑回调。
+  modelListFooter?: ReactNode;
 }) {
   const { intl } = useZCodeIntl();
   const { providerSettingsService } = useServices();
@@ -488,7 +491,7 @@ export function ProviderModelsSection({
           </Button>
         ) : null}
       </div>
-      {models.length > 0 ? (
+      {models.length > 0 || modelListFooter ? (
         <div className="overflow-hidden rounded-lg border border-input-border bg-input">
           <SortableProviderModelList
             modelIds={models.map((model) => model.modelId)}
@@ -555,6 +558,7 @@ export function ProviderModelsSection({
               );
             }}
           />
+          {modelListFooter}
         </div>
       ) : (
         <div className="mt-1 flex h-12 items-center justify-start gap-2 rounded-lg border border-dashed border-border px-4 text-left text-ui-base text-foreground-subtle">

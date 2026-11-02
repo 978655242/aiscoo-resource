@@ -15,6 +15,32 @@ import { resolveModelLobeIcon } from "@/lib/modelBrandLogo.js";
 import { ModelInputCapabilityBadge } from "@/components/ModelInputCapabilityBadge.js";
 import { shouldShowModelVisionBadge } from "@/lib/modelVisionBadge.js";
 
+// XCODE: 无 metadata 的只读诊断复用原行名称和图标，不构造候选模型或虚假的能力 badge。
+export function ModelRowIdentity({
+  model,
+  inputTestId,
+}: {
+  model: Pick<ProviderSettingsFormModel, "modelId" | "displayName" | "icon">;
+  inputTestId?: string;
+}) {
+  const modelIconName = model.icon ?? resolveModelLobeIcon(model.modelId);
+  return (
+    <>
+      {/* XCODE: 与 composer 同一图标链：后端 icon 优先，自定义模型按模型名映射。 */}
+      {modelIconName && resolveLobeIcon(modelIconName) ? (
+        <LobeIcon name={modelIconName} className="size-4 shrink-0" />
+      ) : null}
+      <span
+        data-testid={inputTestId}
+        className="min-w-0 truncate font-mono text-ui-base text-foreground"
+        title={model.modelId}
+      >
+        {model.displayName || model.modelId}
+      </span>
+    </>
+  );
+}
+
 export function ModelRowInput({
   model,
   providerId,
@@ -243,23 +269,12 @@ export function ModelRowInput({
     { id: "settings.modelProvider.contextWindowBadgeLabel" },
     { value: contextWindowLabel },
   );
-  const modelIconName = model.icon ?? resolveModelLobeIcon(model.modelId);
 
   return (
     <div className="space-y-2 px-3 py-2">
       <div className="flex items-center gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          {/* XCODE: 与 composer 同一图标链：后端 icon 优先，自定义模型按模型名映射。 */}
-          {modelIconName && resolveLobeIcon(modelIconName) ? (
-            <LobeIcon name={modelIconName} className="size-4 shrink-0" />
-          ) : null}
-          <span
-            data-testid={inputTestId}
-            className="min-w-0 truncate font-mono text-ui-base text-foreground"
-            title={model.modelId}
-          >
-            {model.displayName || model.modelId}
-          </span>
+          <ModelRowIdentity model={model} inputTestId={inputTestId} />
           <span
             className="inline-flex h-5 max-w-20 shrink-0 items-center truncate rounded-md border border-border bg-surface px-1.5 font-mono text-ui-sm text-foreground-subtle"
             aria-label={contextWindowAccessibleLabel}
