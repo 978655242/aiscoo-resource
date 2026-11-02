@@ -8114,6 +8114,8 @@ const zhCN: Record<string, string> = {
   "aiscoo.legal.title": "法律信息",
   "aiscoo.legal.userAgreement": "用户协议",
   "aiscoo.legal.privacyPolicy": "隐私政策",
+  // XCODE: 缺模型横幅使用 Aiscoo 产品文案，保留通用词典原有提示。
+  "aiscoo.chat.error.noNativeModel": "未订阅 Aiscoo Zen 套餐或者自定义模型",
 };
 
 export default zhCN;

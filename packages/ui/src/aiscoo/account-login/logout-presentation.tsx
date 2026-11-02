@@ -21,6 +21,8 @@ import { DesktopOverlayWindowControls } from "@/DesktopOverlayWindowControls.js"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { RootStartupLoading } from "@/root/RootStartupLoading.js";
+// XCODE: 产品装配注入只读菜单策略，未装配时共享菜单保留默认行为。
+import { AccountMenuVisibilityProvider } from "@/profile-avatar/index.js";
 import type { AiscooLogoutPresentation } from "./contract.js";
 
 /** 产品入口固定装配；缺配置也保留账号限制，不借共享 Root 的默认路径回退。 */
@@ -46,12 +48,14 @@ export function createAiscooAccountLoginRoot(Root: ComponentType<RootProps>) {
 
     return (
       <PlatformProvider platform={platform}>
-        <Root
-          {...props}
-          platform={platform}
-          welcomeScreenPresentation={welcomeScreenPresentation}
-          logoutPresentation={presentation ?? undefined}
-        />
+        <AccountMenuVisibilityProvider showRewards={false}>
+          <Root
+            {...props}
+            platform={platform}
+            welcomeScreenPresentation={welcomeScreenPresentation}
+            logoutPresentation={presentation ?? undefined}
+          />
+        </AccountMenuVisibilityProvider>
       </PlatformProvider>
     );
   }

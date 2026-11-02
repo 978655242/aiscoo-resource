@@ -14,6 +14,8 @@
 
 `logout-presentation.tsx` 保留既有公开 UI 入口，使用自身 `contract.ts` 的窄展示契约与既有 hooks/共享组件；账号过滤适配器仍位于原 adapters 层。
 
+账户菜单的邀请入口由产品装配注入只读展示策略，Aiscoo 暂时隐藏该项；共享菜单未注入策略时保持登录用户可见的上游默认行为。该策略不持有账号状态，也不影响独立的奖励网页与营销导航。验收见 `docs/aiscoo/specs/account-menu-rewards-visibility.md`。
+
 ```mermaid
 sequenceDiagram
   participant R as Root 产品装配

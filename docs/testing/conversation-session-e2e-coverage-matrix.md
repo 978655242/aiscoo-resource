@@ -6009,3 +6009,17 @@ SSV04：covered / pending-review。复用 switch-stability 候选，增加顶部
 release 基线复验：合入 `release/v3.17.0` 的 `024fde56b5820c1ccdd390650980b4d60cf370b7` 后，重新构建 App 和 Agent。SSV01/02 在 `desktop-e2e-20261029-114546-907` 中 1/1 通过，包含手机 Web 深浅主题；999 个目标会话采样未出现新任务提示、默认模型或 Provider ID 回退。原报告长历史回放 `desktop-e2e-20261029-114754-193` 为 1/1，611 个目标会话采样中 560 帧具有相邻轮次几何，60→724 行补齐及分页的最大重叠均为 0px。共享 Timeline 浏览器回归 12/12 通过，记录保存在 `packages/desktop/.e2e-artifacts/release-refresh-20261029/`。根/CLI/E2E 类型检查、lint、架构检查通过；release 新增流式投影测试 2/2，受影响工程测试 345 passed / 1 skipped。平台与 pending-review 边界不变。
 
 release 推送前复验：继续合入 `225d1b14e1495598757dea872f72e0ac764b09ec`，保留远端插件风险确认与官方命令鉴权更新，重新构建 App/Agent。SSV01/02/04 在 `desktop-e2e-20261029-123135-845` 中 1/1 通过，桌面 1688、手机浅色 11 / 深色 7 个 Header 采样均无默认标题，真实标题恢复，草稿、模型与编辑器断言通过，录屏保留。共享 Timeline 12/12、CLI 官方命令鉴权 17/17 通过；根/CLI/E2E 类型、根/CLI lint 与架构检查通过。平台和 pending-review 边界不变。
+
+## ACDD：Aiscoo 数据目录与固定会话库（2026-11-01）
+
+<!-- XCODE: 下游追加，覆盖 Aiscoo 渠道默认根与固定 CLI 会话库根；上游 CDD 行不变。 -->
+
+| ID     | 状态                     | 证据路径                                                                                             |
+| ------ | ------------------------ | ---------------------------------------------------------------------------------------------------- |
+| ACDD01 | covered / pending-review | `packages/desktop/test/e2e/conversation-session/manual-review/pending/aiscoo-data-directory.test.ts` |
+| ACDD02 | covered / pending-review | 同上，与 ACDD01 串联                                                                                 |
+| ACDD03 | covered / pending-review | 同上，`AISCOO_E2E_STORAGE_MODE=legacy`                                                               |
+
+候选由专用薄配置 `packages/desktop/test/e2e/aiscoo-data-directory.wdio.ts` 提供合成 HOME、渠道根和本地合成账号；
+标准 manual-review 入口选中该文件时跳过。运行证据与复跑命令见
+[desktop-storage-directory-verification](../aiscoo/specs/desktop-storage-directory-verification.md)。未晋升 formal/CI。

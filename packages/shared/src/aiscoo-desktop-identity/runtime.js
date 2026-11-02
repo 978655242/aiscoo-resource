@@ -41,6 +41,9 @@ const identities = Object.freeze({
   }),
 });
 
+/** Main 下发给本地 Host 的渠道默认 App 根，Host 据此解释“恢复默认目录”。 */
+export const AISCOO_DESKTOP_DEFAULT_DATA_BASE_DIR_ENV = "AISCOO_DESKTOP_DEFAULT_DATA_BASE_DIR";
+
 /** @param {import("./contract.js").AiscooDesktopChannel} channel */
 export function getAiscooDesktopIdentity(channel) {
   if (!Object.hasOwn(identities, channel)) {

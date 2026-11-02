@@ -19,6 +19,7 @@ import { promisify } from "node:util";
 const exec = promisify(execFile);
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 const script = join(repoRoot, "scripts/aiscoo/notarize-macos.sh");
+const fixtureRoot = join(repoRoot, ".tmp", "aiscoo-notary-tests");
 const submissionId = "00000000-1111-2222-3333-444444444444";
 const identity = "Developer ID Application: Synthetic Fixture (TESTONLY)";
 const unixOnly = { skip: process.platform === "win32" ? "需要 Bash，Windows 跳过" : false };
@@ -150,8 +151,9 @@ async function toolPath(name) {
 }
 
 async function fixture(t, { app = false } = {}) {
-  // 临时文件也留在当前 worktree，避免其他 checkout 或真实签名目录被写入。
-  const root = await mkdtemp(join(repoRoot, ".aiscoo notary test-"));
+  // 放在已被 .gitignore 忽略的 .tmp/ 下，进程被强杀时不留下未跟踪目录；前缀含空格以覆盖路径转义。
+  await mkdir(fixtureRoot, { recursive: true });
+  const root = await mkdtemp(join(fixtureRoot, "notary test-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const bin = join(root, "bin");
   const home = join(root, "home");
@@ -349,7 +351,7 @@ const invalidRecords = [
   ["相对 path", { path: "Synthetic App-1.2.3-mac-arm64.dmg" }, /path.*绝对/],
 ];
 for (const [name, record, pattern] of invalidRecords) {
-  test(`resume 拒绝${name}，不猜测现有 DMG`, unixOnly, async (t) => {
+  test(`resume 拒绝 ${name}，不猜测现有 DMG`, unixOnly, async (t) => {
     const f = await fixture(t);
     await f.seed(typeof record === "object" ? record : {});
     if (record === undefined) await rm(f.record);
@@ -368,7 +370,7 @@ for (const kind of [
   "父目录穿越",
   "DMG 链接到外部",
 ]) {
-  test(`resume 拒绝${kind}`, unixOnly, async (t) => {
+  test(`resume 拒绝 ${kind}`, unixOnly, async (t) => {
     const f = await fixture(t);
     await f.seed();
     let pattern = /DMG.*输出目录/;
