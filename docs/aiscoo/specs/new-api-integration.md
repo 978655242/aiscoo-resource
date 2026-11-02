@@ -2,7 +2,9 @@
 
 状态：2026-10-09 开始按客户端独立执行计划实施。2026-10-31 用户要求仅保留 Aiscoo 登录；账号入口、未配置行为及官方云连接以 [Aiscoo 唯一登录规格](aiscoo-only-login.md) 为准，下文相关历史规则已退役。代码实现、确定性回归与真实联调分别记录，不以测试或旧服务 status 代替桌面验收。
 
-跨仓库 HTTP、认证、额度、模型 metadata 与错误定义以 [New API canonical spec](../../../../new-api/docs/specs/xcode-integration.md) 为准。本文件规定 XCode 的 Host/RPC/Registry/UI 映射，不维护第二套 HTTP 契约。XCode 为代码目录，该基线产品展示名是 XWork；不再重命名，也不删除 New API / QuantumNous 归属。
+跨仓库 HTTP、认证、额度、模型 metadata 与错误定义以 [New API canonical spec](../../../../aiscoo-admin/docs/specs/zen-integration.md) 为准。本文件规定 XCode 的 Host/RPC/Registry/UI 映射，不维护第二套 HTTP 契约。XCode 为代码目录，该基线产品展示名是 XWork；不再重命名，也不删除 New API / QuantumNous 归属。
+
+2026-11-02 订阅协议切换：`/entitlements` 中非空订阅的 `usage_scope` 固定为 `zen`，非空额度的 `scope` 固定为 `zen-subscription`，客户端严格校验并拒绝旧值及其他范围。后端与已安装 Desktop/CLI 客户端需协调更新；旧客户端的严格 schema 不接受新范围，新客户端也不接受旧范围。`client_purpose=xcode`、OAuth client ID、`XCODE_*` 错误与 JWT audience、API/页面路径及数据库标识符保持现有契约。
 
 ## 1. 基线、范围与非目标
 

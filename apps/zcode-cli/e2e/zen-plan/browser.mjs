@@ -2,7 +2,8 @@
 import { chromium } from "playwright-core";
 import { freshTotp } from "./totp.mjs";
 
-const AUTHORIZE_BUTTON = /^(Authorize and open XWork|授权并打开 XWork)$/;
+// XCODE: 授权页已使用 aiscoo 文案；客户端协议标识仍按既有契约校验。
+const AUTHORIZE_BUTTON = /^(Authorize and open aiscoo|授权并打开 aiscoo)$/;
 const VIRTUAL_AUTHENTICATOR = { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true };
 
 export async function launchBrowser() {

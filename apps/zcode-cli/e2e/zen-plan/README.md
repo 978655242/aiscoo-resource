@@ -26,7 +26,7 @@ node apps/zcode-cli/e2e/zen-plan/run.mjs --backend /tmp/zen-e2e-backend --case=p
 
 | case | 证明 |
 | --- | --- |
-| password-login-and-secure-storage | 原生密码登录→主动授权→回环；授权页标明 XWork CLI；单一 xwork-cli SID；凭据文件 0600 且无明文 |
+| password-login-and-secure-storage | 原生密码登录→主动授权→回环；授权页标明 aiscoo zen（CLI）；单一 xwork-cli SID；凭据文件 0600 且无明文 |
 | cold-restore-prompt-and-tool-call | 新进程冷恢复；`--prompt` 经 Go relay；真实 Bash 工具结果回传模型 |
 | cancel-model-request | 流式请求中 SIGINT 退出且不报成功；账号随后仍可用 |
 | tui-login-model-and-logout | PTY：`/login` 首项 Zen→等待态→浏览器授权→成功提示→`/model` 选择→对话→`/logout zen` 撤销服务端 SID |
@@ -42,7 +42,7 @@ node apps/zcode-cli/e2e/zen-plan/run.mjs --backend /tmp/zen-e2e-backend --case=p
 | server-side-session-revocation | 服务端撤销 SID 后不能继续调用模型 |
 | backend-outage-recovery | 后端停止时请求及时失败、不删除凭据；恢复后可用 |
 | missing-origin | 缺少 `AISCOO_ADMIN_BASE_URL` 时不发起授权并给出提示 |
-| official-logout-keeps-zen | 无参数 `logout` 保持官方语义，不撤销 Zen |
+| logout-default-and-aliases | 无参数 `logout` 及 zen/aiscoo 别名撤销本设备精确 SID、清除本地凭据；其他会话保留；重复退出无额外撤销或凭据恢复 |
 
 ## 不覆盖
 

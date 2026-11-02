@@ -38,7 +38,7 @@ export const entitlements = NewApiEntitlementsSchema.parse({
     plan_id: "2",
     plan_title: "Assigned",
     source: "admin",
-    usage_scope: "xcode",
+    usage_scope: "zen",
     start_time: 1,
     end_time: null,
   },

@@ -215,7 +215,7 @@ export const NewApiEntitlementsSchema = z
         plan_id: positiveId,
         plan_title: z.string(),
         source: z.literal("admin"),
-        usage_scope: z.literal("xcode"),
+        usage_scope: z.literal("zen"),
         start_time: milliseconds.nullable(),
         end_time: milliseconds.nullable(),
       })
@@ -223,7 +223,7 @@ export const NewApiEntitlementsSchema = z
       .nullable(),
     quota: z
       .object({
-        scope: z.literal("xcode-subscription"),
+        scope: z.literal("zen-subscription"),
         unit: z.literal("quota"),
         unlimited: z.boolean(),
         total: integer.nullable(),
