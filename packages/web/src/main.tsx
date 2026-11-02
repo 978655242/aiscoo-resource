@@ -47,11 +47,12 @@ import {
   AiscooPublicShareLoader as ConversationShareLandingLoader,
   anonymousAiscooShareFetch,
   resolveAiscooWebEntry,
+  createAiscooBrowserWebStartup,
 } from "./aiscoo-account-login/index.js";
 // XCODE: 本机 Web 沿用唯一 New API 浏览器账号 owner。
 import {
   createBrowserNewApiAccount,
-  registerBrowserAccountChannel,
+  type BrowserAccountWebConnection,
 } from "./aiscoo-browser-account/index.js";
 import { WEB_ZAI_OAUTH_CONFIG, resolveWebAuthDevReturnTo } from "./auth/webZaiOAuthConfig.js";
 import { parseOAuthState, resolveSafeAppReturnTo } from "./auth/oauthStateCodec.js";
@@ -1902,21 +1903,20 @@ async function bootstrapWebApp() {
     return;
   }
 
+  // XCODE: 普通 Web 的账号准入与关闭由独立扩展持有，防止被拒连接让 Root 永久空白。
+  let browserConnection: BrowserAccountWebConnection | undefined;
   try {
-    let browserChannel: { dispose(): void } | undefined;
-    const services = await connectViaWebSocket(bootstrap.wsUrl, {
-      onClose: () => {
-        browserChannel?.dispose();
-      },
-      // XCODE: 同一连接仅追加固定账号 channel，不暴露整个浏览器对象。
-      ...(account
-        ? {
-            registerChannels: (server) => {
-              browserChannel = registerBrowserAccountChannel(server, account);
-            },
-          }
-        : {}),
-    });
+    if (account) {
+      browserConnection = createAiscooBrowserWebStartup({
+        account,
+        render: (node) => root.render(node),
+        isPageUnloading: () => isPageUnloading,
+      });
+    }
+    const services = await (browserConnection
+      ? browserConnection.connect(bootstrap.wsUrl)
+      : connectViaWebSocket(bootstrap.wsUrl));
+    if (browserConnection?.closed) return;
     const platform = createWebPlatform();
     if (account) {
       // XCODE: 复用原登录按钮与服务；授权同页跳转，不增加弹窗状态机。
@@ -1961,6 +1961,8 @@ async function bootstrapWebApp() {
       </AppErrorBoundary>,
     );
   } catch (error) {
+    // XCODE: 关闭扩展已呈现可恢复终态，迟到失败不能覆盖它或在离页时闪现错误。
+    if (browserConnection?.closed) return;
     renderWebRemoteControlFailure(
       error && typeof error === "object" && "reason" in error
         ? (error as WebRemoteControlFailure)

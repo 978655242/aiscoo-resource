@@ -129,6 +129,11 @@ export function createBrowserNewApiAccount(
     }
   }
   const generation = () => read()?.authGeneration ?? null;
+  function getStorageIdentity(): string | null {
+    const record = read();
+    // 仅比较完整持久 owner，不确认身份或携带 token；同 owner 的刷新轮换保持不变。
+    return record ? JSON.stringify(ownerOf(origin, record)) : null;
+  }
   function project(record: Stored | null): void {
     const changed = !same(current, record);
     const hadOwner = current !== null;
@@ -590,6 +595,7 @@ export function createBrowserNewApiAccount(
       },
     }),
     getOwner,
+    getStorageIdentity,
     invalidateCredential: (expected: NewApiOwner) => {
       if (disposed) return;
       const record = read();

@@ -167,7 +167,32 @@ function fixture() {
   };
 }
 
-afterEach(() => vi.unstubAllGlobals());
+function attachAccount(account: ReturnType<typeof createBrowserNewApiAccount>) {
+  const reload = vi.fn();
+  const page = Object.assign(new EventTarget(), { location: { reload } });
+  vi.stubGlobal("window", page);
+  let channel!: IServerChannel;
+  const attached = registerBrowserAccountChannel(
+    {
+      registerChannel: (_name: string, value: IServerChannel) => {
+        channel = value;
+      },
+    } as IChannelServer,
+    account,
+  );
+  return {
+    channel,
+    reload,
+    notifyStorage: (key: string | null) =>
+      page.dispatchEvent(Object.assign(new Event("storage"), { key })),
+    dispose: () => attached.dispose(),
+  };
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe("browser New API account", () => {
   it("admits only the explicit owner-bound reverse invalidation command", async () => {
@@ -328,6 +353,190 @@ describe("browser New API account", () => {
       "Bearer test-access",
     );
   });
+
+  it("derives an unauthenticated storage stamp without exposing tokens or confirming an owner", async () => {
+    const f = fixture();
+    expect(f.account.getStorageIdentity()).toBeNull();
+    await f.login();
+    const saved = f.stored();
+    const stamp = f.account.getStorageIdentity();
+    expect(stamp).toEqual(expect.any(String));
+    for (const secret of [
+      bundle().access_token,
+      bundle().refresh_token,
+      bundle().relay_credential.token,
+    ])
+      expect(stamp).not.toContain(secret);
+    const restored = f.open({ origin: "https://NEW-API.example.test:443/" });
+    const changes = vi.fn();
+    restored.oauth.onDidChangeSession(changes);
+    const requests = f.fetch.mock.calls.length;
+    expect(restored.getOwner()).toBeNull();
+    expect(restored.getStorageIdentity()).toBe(stamp);
+    expect(restored.getOwner()).toBeNull();
+    expect(changes).not.toHaveBeenCalled();
+    expect(f.fetch).toHaveBeenCalledTimes(requests);
+    expect(f.stored()).toEqual(saved);
+  });
+
+  it.each(["origin", "user", "sid", "generation"] as const)(
+    "distinguishes every persisted owner field in the storage stamp: %s",
+    async (field) => {
+      const f = fixture();
+      await f.login();
+      const before = f.account.getStorageIdentity();
+      const [key, raw] = f.stored()!;
+      const record = JSON.parse(raw);
+      if (field === "origin") {
+        const otherOrigin = "https://other.example.test";
+        f.localStorage.setItem(
+          key.replace(encodeURIComponent(origin), encodeURIComponent(otherOrigin)),
+          raw,
+        );
+        expect(f.open({ origin: otherOrigin }).getStorageIdentity()).not.toBe(before);
+        expect(f.account.getStorageIdentity()).toBe(before);
+      } else {
+        if (field === "user") record.bundle.user.id = "2";
+        if (field === "sid") record.bundle.session_id = "other-test-sid";
+        if (field === "generation") record.authGeneration++;
+        f.localStorage.setItem(key, JSON.stringify(record));
+        expect(f.account.getStorageIdentity()).not.toBe(before);
+      }
+    },
+  );
+
+  it.each(["json", "generation", "bundle", "extra-field"] as const)(
+    "uses the existing strict record parser for an invalid storage stamp: %s",
+    async (kind) => {
+      const f = fixture();
+      await f.login();
+      const [key, raw] = f.stored()!;
+      const record = JSON.parse(raw);
+      if (kind === "generation") record.authGeneration = 0;
+      if (kind === "bundle") record.bundle.relay_credential.token = "invalid-relay";
+      if (kind === "extra-field") record.unknown = true;
+      const invalid = kind === "json" ? "not-json" : JSON.stringify(record);
+      f.localStorage.setItem(key, invalid);
+      const requests = f.fetch.mock.calls.length;
+      expect(() => f.account.getStorageIdentity()).toThrow("XCODE_CREDENTIAL_RECORD_INVALID");
+      expect(f.localStorage.getItem(key)).toBe(invalid);
+      expect(f.fetch).toHaveBeenCalledTimes(requests);
+    },
+  );
+
+  it("keeps other pages running during same-owner refresh and unrelated storage writes", async () => {
+    const f = fixture();
+    await f.login();
+    const owner = f.account.getOwner();
+    const stamp = f.account.getStorageIdentity();
+    const attached = attachAccount(f.account);
+    const changes = vi.fn();
+    const subscription = attached.channel.listen("browser", "session")(changes);
+    try {
+      await f.account.oauth.refreshToken();
+      expect(f.account.getStorageIdentity()).toBe(stamp);
+      expect(f.account.getOwner()).toEqual(owner);
+      expect(f.calls("auth/refresh")).toHaveLength(1);
+      const requests = f.fetch.mock.calls.length;
+      attached.notifyStorage(f.stored()![0]);
+      attached.notifyStorage(
+        `aiscoo:browser-new-api:${encodeURIComponent("https://other.example.test")}:session`,
+      );
+      attached.notifyStorage(`aiscoo:browser-new-api:${encodeURIComponent(origin)}:pending`);
+      attached.notifyStorage("oauth:zai:access_token");
+      attached.notifyStorage(null);
+      expect(attached.reload).not.toHaveBeenCalled();
+      expect(changes).not.toHaveBeenCalled();
+      expect(f.fetch).toHaveBeenCalledTimes(requests);
+    } finally {
+      subscription.dispose();
+      attached.dispose();
+    }
+  });
+
+  it("does not reload a signed-out page for another origin's session write", () => {
+    const f = fixture();
+    const attached = attachAccount(f.account);
+    try {
+      attached.notifyStorage(
+        `aiscoo:browser-new-api:${encodeURIComponent("https://other.example.test")}:session`,
+      );
+      attached.notifyStorage(null);
+      expect(attached.reload).not.toHaveBeenCalled();
+      expect(f.fetch).not.toHaveBeenCalled();
+    } finally {
+      attached.dispose();
+    }
+  });
+
+  it("updates the comparison stamp on its own login and logout events without reloading", async () => {
+    const f = fixture();
+    const attached = attachAccount(f.account);
+    const changes = vi.fn();
+    const subscription = attached.channel.listen("browser", "session")(changes);
+    try {
+      await f.login();
+      const key = f.stored()![0];
+      const owner = f.account.getOwner();
+      attached.notifyStorage(key);
+      expect(changes).toHaveBeenLastCalledWith({ owner });
+      expect(attached.reload).not.toHaveBeenCalled();
+      await f.account.oauth.logout();
+      attached.notifyStorage(key);
+      expect(changes.mock.calls).toEqual([[{ owner }], [{ owner: null }]]);
+      expect(attached.reload).not.toHaveBeenCalled();
+      attached.dispose();
+      f.localStorage.setItem(key, "invalid-after-dispose");
+      attached.notifyStorage(key);
+      expect(attached.reload).not.toHaveBeenCalled();
+    } finally {
+      subscription.dispose();
+      attached.dispose();
+    }
+  });
+
+  it.each(["user", "sid", "generation", "logout", "json", "bundle", "unreadable"] as const)(
+    "synchronously publishes owner invalidation before reloading changed storage: %s",
+    async (kind) => {
+      const f = fixture();
+      await f.login();
+      const [key, raw] = f.stored()!;
+      const record = JSON.parse(raw);
+      const attached = attachAccount(f.account);
+      const order: string[] = [];
+      const subscription = attached.channel.listen(
+        "browser",
+        "session",
+      )((event) => {
+        expect(event).toEqual({ owner: null });
+        order.push("session");
+      });
+      attached.reload.mockImplementation(() => {
+        order.push("reload");
+      });
+      try {
+        if (kind === "user") record.bundle.user.id = "2";
+        if (kind === "sid") record.bundle.session_id = "other-test-sid";
+        if (kind === "generation") record.authGeneration++;
+        if (kind === "bundle") record.bundle.relay_credential.token = "invalid-relay";
+        if (kind === "logout") f.localStorage.removeItem(key);
+        else f.localStorage.setItem(key, kind === "json" ? "not-json" : JSON.stringify(record));
+        if (kind === "unreadable")
+          vi.spyOn(f.localStorage, "getItem").mockImplementation(() => {
+            throw new Error("synthetic storage unavailable");
+          });
+        const requests = f.fetch.mock.calls.length;
+        attached.notifyStorage(kind === "logout" ? null : key);
+        expect(order).toEqual(["session", "reload"]);
+        expect(f.account.getOwner()).toBeNull();
+        expect(attached.reload).toHaveBeenCalledOnce();
+        expect(f.fetch).toHaveBeenCalledTimes(requests);
+      } finally {
+        subscription.dispose();
+        attached.dispose();
+      }
+    },
+  );
 
   it("single-flights duplicate callbacks, consumes pending before exchange, and never retries a failed code", async () => {
     const f = fixture();
