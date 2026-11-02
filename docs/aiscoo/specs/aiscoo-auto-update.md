@@ -72,7 +72,8 @@ GET {AISCOO_ADMIN_BASE_URL}/api/v1/releases/electron/manifest
 
 ### 管理页面
 
-- 入口为 aiscoo-admin「管理员 → 版本管理」(`/desktop-releases`)，放在任务插件与系统设置之间。菜单和路由均仅 root 可访问，服务端仍由 RootAuth 决定操作权限。
+- 入口为 aiscoo-admin「管理员 → 版本」(`/desktop-releases`)，放在任务插件与系统设置之间；页面标题仍是「版本管理」。菜单名用更短的「版本」，因为 13rem 的侧栏放不下「版本管理」的英文、法文和俄文标题，会被省略号截断。菜单和路由均仅 root 可访问，服务端仍由 RootAuth 决定操作权限。
+- 管理接口拒绝请求时，每条原因同时是哨兵错误（控制器据此选 HTTP 状态）和带 `message_key`/`message_params` 的控制台消息；key 是英文原文，占位符为 `{{host}}`、`{{max}}`，中文等界面据此翻译，API 调用方仍得到渲染后的英文。
 - 使用现有 SectionPageLayout、DataTablePage、移动卡片、Sheet、ConfirmDialog、CopyButton 与 Markdown。列表按语义版本倒序，搜索、状态筛选与分页均基于 GET 返回的完整列表。
 - 顶部显示当前正式供给版本（对应平台具有文件的 status=1 最高语义版本）与灰度/暂停数量。版本日期来自 release_date，不作为正式发布操作时间；没有安装量、成功率或实际覆盖率。
 - 状态呈现为「未分发」(0)、「预览灰度」(3)、「已暂停」(3 且 rollout_disabled)、「正式发布」(1)。status=0 无法区分未发布与已下线，统一称未分发。较低的正式版本标为历史正式版。

@@ -1155,21 +1155,7 @@ export function ModelProviderSection({
       onReorderProviderIds={handleReorderProviderIds}
       reorderableProviderIds={reorderableProviderIds}
     >
-      {providerSettingsView?.catalogIssues?.map((issue) => (
-        <div
-          key={issue.modelId}
-          role="note"
-          className="mb-2 rounded-lg border border-border p-3 text-ui-base text-foreground-subtle"
-        >
-          <span className="break-words font-medium">{issue.displayName || issue.modelId}</span>
-          <span className="block break-words">
-            {intl.formatMessage(
-              { id: "settings.modelProvider.native.catalogIssue" },
-              { reason: issue.code },
-            )}
-          </span>
-        </div>
-      ))}
+      {/* XCODE: Native 目录诊断归属所选供应商的模型列表，不在详情前全局置顶。 */}
       {(invalidProviderTarget || navigationUnavailable) && !templatePickerOpen ? (
         <p role="alert" className="mb-3 text-ui-base text-destructive">
           {intl.formatMessage({

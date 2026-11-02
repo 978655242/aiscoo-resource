@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import type { NewApiCatalogIssue } from "@zcode/shared";
+import { ModelRowIdentity } from "./ProviderFormControls.js";
 import { InfoIcon, Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 import { ZCodeAboutLogo } from "@/components/ui/ZCodeAboutLogo.js";
@@ -23,12 +25,14 @@ export function NativePlanProviderDetail({
   provider,
   read,
   onOpenPlans,
+  catalogIssues,
   children,
 }: {
   provider: ProviderSettingsFormProvider;
   read: NativePlanSettingsRead;
   onOpenPlans: () => void;
-  children?: ReactNode;
+  catalogIssues?: readonly NewApiCatalogIssue[];
+  children?: (modelsVisible: boolean, modelListFooter: ReactNode) => ReactNode;
 }) {
   const { intl, locale } = useZCodeIntl();
   const snapshot = read.snapshot;
@@ -44,6 +48,31 @@ export function NativePlanProviderDetail({
           ? "settings.modelProvider.codingPlan.status.notPurchased"
           : `settings.usage.nativeAuthorization.${snapshot?.entitlement.status ?? "unassigned"}`;
   const offers = getNativePlanReferenceOffers(snapshot?.plans ?? []);
+  const modelsVisible = snapshot?.entitlement.status === "active" && provider.executable;
+  // XCODE: 全异常时 provider 不可执行仍须展示原因；诊断只追加只读行，不补 metadata 或 model ref。
+  const modelListFooter = catalogIssues?.length
+    ? catalogIssues.map((issue) => (
+        <div
+          key={issue.modelId}
+          data-native-catalog-issue={issue.modelId}
+          className="border-t border-input-border first:border-t-0"
+        >
+          <div className="space-y-2 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <ModelRowIdentity model={issue} />
+              </div>
+            </div>
+          </div>
+          <div className="px-3 pb-2 text-ui-sm text-destructive break-words">
+            {intl.formatMessage(
+              { id: "settings.modelProvider.native.catalogIssue" },
+              { reason: issue.code },
+            )}
+          </div>
+        </div>
+      ))
+    : null;
   // 原始 quota 计数不能替代源版剩余百分比卡；两处设置页共用同一呈现。
   return (
     <div className="flex min-w-0 flex-col gap-4" data-native-plan-detail="true">
@@ -185,7 +214,7 @@ export function NativePlanProviderDetail({
           description={intl.formatMessage({ id: "settings.modelProvider.native.teamUnsupported" })}
           disabled
         />
-        {snapshot?.entitlement.status === "active" && provider.executable ? children : null}
+        {modelsVisible || modelListFooter ? children?.(modelsVisible, modelListFooter) : null}
       </div>
     </div>
   );
