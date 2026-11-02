@@ -7,7 +7,7 @@
 ## 1. 验收环境与边界
 
 - macOS arm64，Electron 44.7.0，Node 24.14.0。完整构建两份 production 形态安装包，构建时打开 `ZCODE_AUTO_UPDATE=1`，账号与更新 origin 编译为专用回环后端。
-- 两版分别为 `3.17.1` 与 `3.17.2`。根 `package.json` 版本只在验收工作树临时改变，结束后恢复，不发布版本号或 tag。
+- 两版分别为 `3.17.1` 与 `3.17.2`。根 `package.json` 版本只在验收工作树临时改变，结束后恢复，不发布版本号或 tag。这是 2026-11-01 验收当时的做法；2026-11-02 起仓库根版本正式升为 `3.17.2`，规则见 [应用内更新](aiscoo-auto-update.md) 第 1 节。验收包与正式发布包不是同一份产物，验收包不能作为正式发布。
 - 两版均使用同一个专用验收 bundle ID、Developer ID 团队和 designated requirement。改 Info.plist 与外部 `app-update.yml` 后重新签名，保留 `ElectronAsarIntegrity`，不修改已签的 ASAR。
 - `LSEnvironment` 固定相同的独立 userData、sessionData、业务根、CLI 库、日志及设置路径；ShipIt 经 LaunchServices 自动重启后继续使用这些路径。系统 HOME 保持原样。独立 bundle ID 与 `updaterCacheDirName` 用于隔离 ShipIt 和下载缓存。
 - 后端用当前真实 Go 代码、新 SQLite 库和合成 root 账号，仅监听回环；真实 `/Applications/Aiscoo.app`、线上服务、官网下载链接和正式版本登记均未替换。云端只上传本次验收 ZIP 到独立构建路径，验收完成后已把该对象恢复为 private，匿名请求返回 403。
