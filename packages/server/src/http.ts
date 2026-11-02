@@ -19,6 +19,7 @@ import {
   type ISocket,
   type IChannelClient,
   type IDisposable,
+  type Event,
 } from "@zcode/rpc";
 import type { TopicResourcePeers } from "@zcode/services/node";
 import { TOPIC_RESOURCE_RELAY_CHANNEL } from "@zcode/shared";
@@ -96,11 +97,12 @@ function setupChannelServer(
   workspaceIdentityMapper?: SourceServerWorkspaceIdentityMapper,
   resourcePeers?: TopicResourcePeers,
   // XCODE: 普通 Web 可装配窄的反向服务，不提升现有 clientMode 权限。
-  browserPeer?: (client: IChannelClient) => IDisposable & { ready?: Promise<void> },
+  browserPeer?: HttpServerOptions["attachBrowserPeer"],
 ) {
   const socket = wrapWebSocket(ws);
   const protocol = new SocketProtocol(socket);
-  const rawServer = new ChannelServer(protocol, "server");
+  // XCODE: 浏览器接入完成前延迟正向初始化，反向 RPC 保持可用以恢复本标签账号。
+  const rawServer = new ChannelServer(protocol, "server", undefined, Boolean(browserPeer));
   // 用日志中间件包装，统一记录所有 RPC 调用
   const loggedServer = new LoggingChannelServer(rawServer, log);
   const server = workspaceIdentityMapper
@@ -111,21 +113,6 @@ function setupChannelServer(
     (clientMode === "desktop-continuous" && resourcePeers) || browserPeer
       ? new ChannelClient(protocol)
       : undefined;
-  // XCODE: 单一浏览器 attachment 的准入失败只关闭本连接；不借用已有账号。
-  let browserAttachment: IDisposable | undefined;
-  try {
-    const attachment = reverseClient && browserPeer?.(reverseClient);
-    browserAttachment = attachment;
-    void attachment?.ready?.catch(() => {
-      attachment.dispose();
-      ws.close(1008, "Browser account is unavailable");
-    });
-  } catch {
-    reverseClient?.dispose();
-    rawServer.dispose();
-    ws.close(1008, "Browser account is already attached");
-    return;
-  }
   const peer = reverseClient
     ? resourcePeers?.attach(reverseClient.getChannel(TOPIC_RESOURCE_RELAY_CHANNEL))
     : undefined;
@@ -136,7 +123,36 @@ function setupChannelServer(
         role: clientMode === "desktop-continuous" ? "trusted-host-relay" : "terminal-client",
       })
     : undefined;
-  const overrides = new Map<string, unknown>();
+  // XCODE: 接入拒绝与断线共用本连接的幂等清理，迟到恢复不能重新暴露服务。
+  let disposed = false;
+  let browserAttachment: ReturnType<NonNullable<typeof browserPeer>> | undefined;
+  let closeSubscription: IDisposable | undefined;
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    closeSubscription?.dispose();
+    browserAttachment?.dispose();
+    peer?.dispose();
+    reverseClient?.dispose();
+    void connectionScope?.dispose();
+    rawServer.dispose();
+  };
+  const close = (code: number, reason: string) => {
+    if (disposed) return;
+    dispose();
+    ws.close(code, reason);
+  };
+  socket.onClose(dispose);
+  try {
+    browserAttachment = reverseClient && browserPeer?.(reverseClient);
+    closeSubscription = browserAttachment?.onDidClose?.(({ code, reason }) => close(code, reason));
+    if (disposed) closeSubscription?.dispose();
+  } catch {
+    close(1008, "Browser account is unavailable");
+    return;
+  }
+  // XCODE: 扩展只覆盖当前连接，Agent scope 与 provisioning 权限边界仍在后面覆盖。
+  const overrides = new Map<string, unknown>(browserAttachment?.serviceOverrides);
   if (connectionScope) {
     overrides.set(IZCodeAgentService.channelName, connectionScope.service);
   }
@@ -152,14 +168,19 @@ function setupChannelServer(
       },
     });
   }
-  services.exposeOnChannelServer(server, overrides);
-  socket.onClose(() => {
-    browserAttachment?.dispose();
-    peer?.dispose();
-    reverseClient?.dispose();
-    void connectionScope?.dispose();
-    rawServer.dispose();
-  });
+  const exposeServices = () => {
+    if (disposed || ws.readyState !== ws.OPEN) return;
+    services.exposeOnChannelServer(server, overrides);
+    if (browserPeer && !disposed && ws.readyState === ws.OPEN) rawServer.ready();
+  };
+  if (browserPeer) {
+    // XCODE: 仅可选浏览器接入等待准入；失败或关闭后不得发送 forward ready。
+    void Promise.resolve(browserAttachment?.ready)
+      .then(exposeServices)
+      .catch(() => close(1008, "Browser account is unavailable"));
+  } else {
+    exposeServices();
+  }
 }
 
 export interface HttpServerOptions {
@@ -177,7 +198,12 @@ export interface HttpServerOptions {
   workspaces?: ServerRemoteWorkspaceInfo[];
   // XCODE: 可选入口策略与反向 RPC 装配，未提供时保留原 HTTP/WS 行为。
   acceptRequest?: (request: Request) => boolean;
-  attachBrowserPeer?: (client: IChannelClient) => IDisposable & { ready?: Promise<void> };
+  attachBrowserPeer?: (client: IChannelClient) => IDisposable & {
+    ready?: Promise<void>;
+    // XCODE: 服务覆盖与关闭事件由入口装配，通用 HTTP 不依赖具体账号语义。
+    serviceOverrides?: ReadonlyMap<string, unknown>;
+    onDidClose?: Event<{ code: number; reason: string }>;
+  };
 }
 
 function readTrimmedEnv(name: string): string | undefined {

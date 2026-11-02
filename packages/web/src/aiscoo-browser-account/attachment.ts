@@ -23,13 +23,27 @@ export function registerBrowserAccountChannel(
   account: BrowserNewApiAccount,
 ) {
   const changes = new Emitter<{ owner: NewApiOwner | null }>();
-  const subscription = account.oauth.onDidChangeSession(() =>
-    changes.fire({ owner: account.getOwner() }),
-  );
-  // 跨标签身份改变时重新挂载页面，旧确认框及闭包不能追随新账号退出。
+  const readStorageIdentity = () => {
+    try {
+      return account.getStorageIdentity();
+    } catch {
+      return undefined;
+    }
+  };
+  let storageIdentity = readStorageIdentity();
+  const subscription = account.oauth.onDidChangeSession(() => {
+    const owner = account.getOwner();
+    storageIdentity = readStorageIdentity();
+    changes.fire({ owner });
+  });
   const onStorage = (event: StorageEvent) => {
-    if (event.key === null || event.key.startsWith("aiscoo:browser-new-api:"))
-      window.location.reload();
+    if (event.key !== null && !event.key.startsWith("aiscoo:browser-new-api:")) return;
+    const nextIdentity = readStorageIdentity();
+    // token 轮换和其他 origin 的写入不改变本页 stamp，不能打断仍有效的页面与草稿。
+    if (nextIdentity !== undefined && nextIdentity === storageIdentity) return;
+    // 先同步失效旧投影并沿现有 session 事件通知 Host，再重载；新 callback 不能被旧 owner 阻挡。
+    account.getOwner();
+    window.location.reload();
   };
   window.addEventListener("storage", onStorage);
   const channel = {

@@ -20,6 +20,7 @@ export function sanitizedError(error: unknown): Error & { code: string } {
     "XCODE_RATE_LIMITED",
     "XCODE_PRIVATE_POLLING_UNSUPPORTED",
     "XCODE_LOGOUT_FAILED",
+    "XCODE_BROWSER_ACCOUNT_MISMATCH",
   ];
   return bridgeError(
     typeof code === "string" && known.includes(code) ? code : "XCODE_BROWSER_ACCOUNT_UNAVAILABLE",

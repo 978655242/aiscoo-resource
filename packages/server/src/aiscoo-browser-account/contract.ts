@@ -1,4 +1,4 @@
-import type { IChannelClient, IDisposable } from "@zcode/rpc";
+import type { Event, IChannelClient, IDisposable } from "@zcode/rpc";
 import type { IOAuthService } from "@zcode/services";
 import type { NewApiOwner, OAuthCachedSessionRestoreResult } from "@zcode/shared";
 
@@ -79,13 +79,20 @@ export interface BrowserAccountBridgeOptions {
   onOwnerChanged?: (owner: NewApiOwner | null) => void | Promise<void>;
 }
 
+export type BrowserAccountInvalidationReason = "owner-changed" | "account-mismatch" | "unavailable";
+
 export interface BrowserAccountAttachment extends IDisposable {
-  /** Includes the first reverse restore and acceptance by onOwnerChanged. */
+  /** Own restore and the shared owner acceptance; forward services wait for this promise. */
   readonly ready: Promise<void>;
+  /** Explicit facade bound to this connection, including tab-local PKCE and cancellation. */
+  readonly oauth: IOAuthService;
+  /** Parent closes only this socket; owner-changed permits one fresh page admission. */
+  readonly onDidInvalidate: Event<BrowserAccountInvalidationReason>;
 }
 
 export interface BrowserAccountBridge extends IDisposable {
+  /** One Host owner and credential authority; never register this object as an RPC service. */
   readonly authority: BrowserAccountAuthority;
-  /** Throws synchronously while another attachment is live, or after bridge disposal. */
+  /** Same full owner may attach concurrently; mismatched restore rejects ready. */
   attach(client: IChannelClient): BrowserAccountAttachment;
 }
