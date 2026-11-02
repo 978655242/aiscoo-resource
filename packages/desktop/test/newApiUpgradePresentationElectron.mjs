@@ -158,7 +158,7 @@ async function run() {
       void contents.debugger.sendCommand("Page.enable").then(() =>
         contents.debugger.sendCommand("Page.addScriptToEvaluateOnNewDocument", {
           runImmediately: true,
-          source: `window.__upgradeFrames=[];function probe(){if(document.body&&document.body.textContent.trim()){const h=document.documentElement;window.__upgradeFrames.push({theme:h.classList.contains('dark')?'dark':'light',locale:h.lang,font:h.style.getPropertyValue('--ui-font-size'),audience:h.dataset.xcodePlanAudience});}if(window.__upgradeFrames.length<20)requestAnimationFrame(probe);}requestAnimationFrame(probe);`,
+          source: `window.__upgradeFrames=[];function probe(){if(document.body&&document.body.textContent.trim()){const h=document.documentElement;window.__upgradeFrames.push({theme:h.classList.contains('dark')?'dark':'light',locale:h.lang,font:h.style.getPropertyValue('--ui-font-size'),audience:h.dataset.zenPlanAudience});}if(window.__upgradeFrames.length<20)requestAnimationFrame(probe);}requestAnimationFrame(probe);`,
         }),
       );
     });
@@ -246,7 +246,7 @@ async function run() {
     });
     const assignedStatusCount = () =>
       cycleGuest.executeJavaScript(
-        `document.querySelectorAll('article[aria-label="Pro"] .xcode-plan-card-heading .xcode-plan-tag').length`,
+        `document.querySelectorAll('article[aria-label="Pro"] .zen-plan-card-heading .zen-plan-tag').length`,
       );
     if (!liveSeed) assert.equal(await assignedStatusCount(), 1);
     for (const cycle of ["Monthly", "Yearly", "Quarterly"]) {

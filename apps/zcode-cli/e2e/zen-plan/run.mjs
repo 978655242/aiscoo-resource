@@ -57,7 +57,7 @@ const cases = {
     const device = await createDevice(context.root, "password", context.backend.origin);
     const { browserResult } = await jsonLogin(context, device, context.accounts.alice);
     check(browserResult.loginRequired, "browser required native login");
-    check(browserResult.pageText.includes("XWork CLI"), "authorization page names XWork CLI, not the desktop app");
+    check(/aiscoo zen(?:（CLI）| \(CLI\))/.test(browserResult.pageText), "authorization page identifies aiscoo zen CLI");
     check(activeSessions(context.backend, "alice", "xwork-cli").length === 1, "exactly one active xwork-cli SID for alice");
     const files = await readdir(device.credentialDirectory);
     for (const file of files.filter((name) => name.endsWith(".json"))) {
@@ -347,16 +347,48 @@ const cases = {
     check(!/authorize/.test(result.stderr), "no authorization URL was emitted");
   },
 
-  // 16. 无参数 logout 保持官方行为，不撤销 Zen。
-  async "official-logout-keeps-zen"(context) {
-    const device = await createDevice(context.root, "official", context.backend.origin);
-    await jsonLogin(context, device, context.accounts.alice);
-    const before = activeSessions(context.backend, "alice", "xwork-cli").length;
-    const result = await runCli(device, ["logout", "--json"]).exited;
-    check(result.code === 0, "official logout succeeds");
-    check(activeSessions(context.backend, "alice", "xwork-cli").length === before, "official logout did not revoke Zen");
-    const zen = await runCli(device, ["logout", "zen", "--json"]).exited;
-    check(JSON.parse(zen.stdout).serverRevoked, "zen logout still revokes afterwards");
+  // 16. Aiscoo 唯一账号策略已取代旧官方退出语义；默认与别名均须精确退出当前 Zen owner。
+  async "logout-default-and-aliases"(context) {
+    const peer = await createDevice(context.root, "logout-peer", context.backend.origin);
+    await jsonLogin(context, peer, context.accounts.alice);
+    for (const target of [undefined, "zen", "aiscoo"]) {
+      const label = target ?? "default";
+      const device = await createDevice(context.root, `logout-${label}`, context.backend.origin);
+      const existingSids = new Set(activeSessions(context.backend, "alice", "xwork-cli").map((session) => session.sid));
+      await jsonLogin(context, device, context.accounts.alice);
+      const owned = activeSessions(context.backend, "alice", "xwork-cli").filter((session) => !existingSids.has(session.sid));
+      check(owned.length === 1, `${label} logout fixture owns exactly one new CLI SID`);
+      const sid = owned[0].sid;
+      const before = sessionsFor(context.backend, "alice");
+      const othersBefore = before.filter((session) => session.sid !== sid).map((session) => JSON.stringify(session)).sort();
+      check((await readdir(device.credentialDirectory)).filter((name) => name.endsWith(".json")).length === 1, `${label} login persisted one encrypted credential record`);
+
+      const result = await runCli(device, target ? ["logout", target, "--json"] : ["logout", "--json"]).exited;
+      check(result.code === 0, `${label} logout succeeds`);
+      assertNoSecrets(`${label} logout stdout`, result.stdout);
+      assertNoSecrets(`${label} logout stderr`, result.stderr);
+      const output = JSON.parse(result.stdout);
+      check(output.provider === "zen" && output.localCleared === true && output.serverRevoked === true, `${label} logout confirms local cleanup and server revocation`);
+      const after = sessionsFor(context.backend, "alice");
+      const revoked = after.find((session) => session.sid === sid);
+      check(revoked?.status === "revoked" && revoked.revoked_at > 0, `${label} logout revoked the exact device SID`);
+      const othersAfter = after.filter((session) => session.sid !== sid).map((session) => JSON.stringify(session)).sort();
+      check(JSON.stringify(othersAfter) === JSON.stringify(othersBefore), `${label} logout preserved every unrelated session`);
+      check(!(await readdir(device.credentialDirectory)).some((name) => name.endsWith(".json")), `${label} logout removed the local credential record`);
+
+      const repeated = await runCli(device, ["logout", "zen", "--json"]).exited;
+      check(repeated.code === 0, `${label} repeated logout succeeds`);
+      assertNoSecrets(`${label} repeated logout stdout`, repeated.stdout);
+      assertNoSecrets(`${label} repeated logout stderr`, repeated.stderr);
+      const repeatedOutput = JSON.parse(repeated.stdout);
+      check(repeatedOutput.provider === "zen" && repeatedOutput.localCleared === true && repeatedOutput.serverRevoked === true, `${label} repeated logout confirms cleanup`);
+      check(JSON.stringify(sessionsFor(context.backend, "alice")) === JSON.stringify(after), `${label} repeated logout changes no SID`);
+      check(!(await readdir(device.credentialDirectory)).some((name) => name.endsWith(".json")), `${label} repeated logout does not restore credentials`);
+    }
+    const peerLogout = await runCli(peer, ["logout", "zen", "--json"]).exited;
+    check(peerLogout.code === 0 && JSON.parse(peerLogout.stdout).serverRevoked === true, "unrelated device can still revoke its own session");
+    assertNoSecrets("peer logout stdout", peerLogout.stdout);
+    assertNoSecrets("peer logout stderr", peerLogout.stderr);
   },
 };
 

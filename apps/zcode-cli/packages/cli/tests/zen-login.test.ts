@@ -15,20 +15,37 @@ function capture() {
   return { stream, read: () => output, reset: () => (output = "") };
 }
 
-test("Zen CLI login and logout route to isolated account without leaking secrets", async () => {
+test("Zen CLI login and default, alias, headless logout route to the isolated account", async () => {
   const out = capture();
   const ctx = (argv: string[]) => ({ argv, stdout: out.stream, stderr: out.stream }) as never;
+  let logoutCalls = 0;
   const deps = {
     env: {},
     loadDotenv: () => ({}),
     loginZenCli: async () => ({ providerId: "zen", user: { id: "1", display_name: "Test" } }),
-    logoutZenCli: async () => ({ localCleared: true, serverRevoked: true }),
+    logoutZenCli: async () => {
+      logoutCalls++;
+      return { localCleared: true, serverRevoked: true };
+    },
   };
   assert.equal(await runAiscoo(ctx(["login", "zen", "--json", "--no-browser"]), deps as never), 0);
   assert.match(out.read(), /"provider": "zen"/);
-  out.reset();
-  assert.equal(await runAiscoo(ctx(["logout", "zen", "--json"]), deps as never), 0);
-  assert.match(out.read(), /"serverRevoked": true/);
+  // XCODE: 唯一 Aiscoo 账号策略下，默认退出与别名必须使用同一 Zen owner，不能恢复旧官方退出预期。
+  const logoutCommands = [
+    ["logout", "--json"],
+    ["logout", "zen", "--json"],
+    ["logout", "aiscoo", "--json"],
+    ["--prompt", "/logout", "--json"],
+    ["--prompt", "/logout zen", "--json"],
+    ["--prompt", "/logout aiscoo", "--json"],
+  ];
+  for (const argv of logoutCommands) {
+    out.reset();
+    const before = logoutCalls;
+    assert.equal(await runAiscoo(ctx(argv), deps as never), 0);
+    assert.equal(logoutCalls, before + 1);
+    assert.deepEqual(JSON.parse(out.read()), { provider: "zen", localCleared: true, serverRevoked: true });
+  }
 });
 
 test("Zen CLI reports failure with exit code 1 and no stack", async () => {
@@ -139,10 +156,22 @@ test("Zen login explains an unavailable catalog without promising a model", asyn
   assert.doesNotMatch(result.response, /使用 \/model/);
 });
 
-test("Zen logout reports unconfirmed server revocation", async () => {
-  const center = createAiscooCommandCenter(baseDeps("en-US"), zenDeps());
-  const result = await center("/logout zen", {} as never);
-  assert.match(result.response, /could not be confirmed/);
+test("default and alias TUI logout use the Zen owner and report unconfirmed revocation", async () => {
+  let logoutCalls = 0;
+  const center = createAiscooCommandCenter(baseDeps("en-US"), {
+    ...zenDeps(),
+    logoutZen: async () => {
+      logoutCalls++;
+      return { localCleared: true, serverRevoked: false };
+    },
+  });
+  for (const command of ["/logout", "/logout zen", "/logout aiscoo"]) {
+    const before = logoutCalls;
+    const result = await center(command, {} as never);
+    assert.equal(logoutCalls, before + 1);
+    assert.match(result.response, /could not be confirmed/);
+    assert.doesNotMatch(result.response, /Signed out/);
+  }
 });
 
 test("slash /help projects product account help without changing other commands", async () => {

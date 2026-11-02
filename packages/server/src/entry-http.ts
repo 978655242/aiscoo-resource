@@ -11,7 +11,8 @@ import {
 } from "./bundledZCodeBuiltinProviderConfig.js";
 import { createHttpServer, resolveHttpServerId } from "./http.js";
 // XCODE: 可选本机浏览器账号使用同一服务装配，不创建 Host 持久凭据。
-import type { IChannelClient } from "@zcode/rpc";
+import { Event, type IChannelClient } from "@zcode/rpc";
+import { IOAuthService } from "@zcode/services";
 import type { NewApiOwner } from "@zcode/shared";
 import {
   createBrowserAccountBridge,
@@ -32,6 +33,8 @@ async function main(): Promise<void> {
   const authToken = process.env["ZCODE_SERVER_AUTH_TOKEN"]?.trim() || undefined;
   const topicResourcePeers = createTopicResourcePeers();
   const serverId = resolveHttpServerId();
+  // XCODE: Host 与逐连接 OAuth 复用同一产品策略，服务覆盖不能绕过账号准入。
+  const accountPolicy = createAiscooAccountPolicy({ adminBaseUrl: browserProfile?.origin });
   const { services, workspaceIdentityMapper, migrationFailedPathCount } =
     await createServerHostServices({
       topicResourceRelayChannel: (request) => topicResourcePeers.getChannel(request),
@@ -39,7 +42,7 @@ async function main(): Promise<void> {
       zcodeBuiltinProviderConfigFilePath,
       providerProvisioningTargetEnabled: Boolean(authToken),
       // XCODE: 无浏览器凭据权威时不认领 Host 历史会话，也不创建桌面 native owner。
-      accountPolicy: createAiscooAccountPolicy({ adminBaseUrl: browserProfile?.origin }),
+      accountPolicy,
       // XCODE: 相同 Native 目录和请求 resolver 只更换凭据来源。
       ...(browserProfile
         ? {
@@ -70,7 +73,25 @@ async function main(): Promise<void> {
       ? {
           host: "127.0.0.1",
           acceptRequest: browserProfile.acceptRequest,
-          attachBrowserPeer: (client: IChannelClient) => browserBridge!.attach(client),
+          attachBrowserPeer: (client: IChannelClient) => {
+            const attachment = browserBridge!.attach(client);
+            return {
+              ready: attachment.ready,
+              // XCODE: OAuth 固定回发起标签，PKCE 和取消不能借用其他连接。
+              serviceOverrides: new Map([
+                [IOAuthService.channelName, accountPolicy.wrapOAuth(attachment.oauth)],
+              ]),
+              onDidClose: Event.map(attachment.onDidInvalidate, (reason) => ({
+                code: 1008,
+                reason: {
+                  "owner-changed": "Browser account changed",
+                  "account-mismatch": "Browser account does not match",
+                  unavailable: "Browser account is unavailable",
+                }[reason],
+              })),
+              dispose: () => attachment.dispose(),
+            };
+          },
         }
       : {}),
   });

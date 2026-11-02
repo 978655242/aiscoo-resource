@@ -110,6 +110,9 @@ sequenceDiagram
 1. 打包态编译了 Aiscoo origin：manifest 请求发往该 origin，不发往官方。
 2. 打包态未编译或编译值非法：更新关闭，不发出任何 manifest 请求。
 3. 未传 Aiscoo 受信 origin（上游通用构建）：非官方 origin 仍被改回官方，上游 `packaged-backend-override` 场景继续通过。
+   - 运行 `pnpm --filter @zcode/desktop test:auto-update-source-security-smoke`（默认、`--appimage`、`--nsis` 三个变体，各 8 个场景）与 `test:auto-update-install-reentry-smoke`。这两个冒烟用 esbuild 把 `autoUpdater.ts` 及其依赖打成独立 bundle，并把 `@zcode/shared` 固定到源码入口 `index.ts`。esbuild 的别名是路径前缀匹配，会连带命中 `@zcode/shared/<子路径>`，把它拼成 `index.ts/<子路径>` 而无法解析。Aiscoo 在 `desktopDeepLinkUrl.ts`、`desktopRuntimeEnv.ts` 增加了对 `@zcode/shared/aiscoo-desktop-identity`、`@zcode/shared/aiscoo-brand` 的导入后，安全冒烟的构建阶段因此失败（2026-10-31 起，`691b3a4e` 之前同一脚本 8/8 通过）。
+   - 修复只改两个脚本的构建配置：删掉对 `@zcode/shared` 的别名。`packages/desktop` 依赖 `@zcode/shared`（workspace），裸名与子路径都由 `packages/shared/package.json` 的 `exports` 解析，裸名仍落到同一个 `src/index.ts`，所以删除别名不改变 bundle 的内容，只是不再破坏子路径。今后新增 shared 子路径导入不需要再同步这两个脚本。不改 `autoUpdater.ts`、`desktopDeepLinkUrl.ts` 和任何运行时代码。
+   - 这两个冒烟不在 `verify`、`pre-push` 或 CI 中（CI 只跑 `test:unit:node` 与 `test:aiscoo`），所以此前没人发现失败；改动更新相关代码或 shared 子路径导入时必须手动运行。
 4. 服务端选版：stable/preview、灰度 0/50/100、白名单、总开关、缺 `device_mid`、平台别名、无版本 404，YAML 可被客户端 `ManifestUpdateProvider` 解析。
 5. 管理接口：非 https、非白名单主机、坏 sha512、非法版本、登记后修改文件均被拒绝。
 6. 真实安装：旧、新两个 Developer ID 签名公证包，旧包检查到新版本、下载、重启后版本号更新。涉及签名与上传，需用户单独批准后执行。

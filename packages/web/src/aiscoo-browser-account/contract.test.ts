@@ -16,14 +16,17 @@ describe("browser account public contract", () => {
     };
     const account: BrowserNewApiAccount = createBrowserNewApiAccount(options);
     expect(account.getOwner()).toBeNull();
+    expect(account.getStorageIdentity()).toBeNull();
     expect(await account.oauth.restoreCachedSessionState()).toEqual({ status: "signed-out" });
     expect(await account.oauth.getActiveProvider()).toBeNull();
     expect(await account.oauth.getProviders()).toMatchObject([{ id: "new-api", enabled: true }]);
+    // 跨标签刷新已公开身份戳接口；精确清单仍需防止 bundle 和 refresh token 泄露。
     expect(Object.keys(account).sort()).toEqual([
       "dispose",
       "getControlCredential",
       "getOwner",
       "getRelayCredential",
+      "getStorageIdentity",
       "invalidateCredential",
       "oauth",
     ]);

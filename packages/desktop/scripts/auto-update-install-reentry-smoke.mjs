@@ -12,7 +12,6 @@ if (process.platform !== "darwin") {
 }
 
 const desktopDir = resolve(import.meta.dirname, "..");
-const repoRoot = resolve(desktopDir, "../..");
 const require = createRequire(resolve(desktopDir, "package.json"));
 const preparingDownloadFailure = process.argv.includes("--preparing-download-failure");
 const pendingCheck = process.argv.includes("--pending-check");
@@ -128,7 +127,8 @@ await build({
   platform: "node",
   format: "cjs",
   external: ["electron", "electron-updater", "semver"],
-  alias: { "@zcode/shared": resolve(repoRoot, "packages/shared/src/index.ts") },
+  // XCODE: 与 auto-update-source-security-smoke.mjs 相同：前缀别名会破坏 @zcode/shared 的子路径导入，
+  // 裸名由 desktop 对 @zcode/shared 的 workspace 依赖按 exports 解析到同一个 src/index.ts。
   plugins: [
     {
       name: "isolated-smoke-logger",

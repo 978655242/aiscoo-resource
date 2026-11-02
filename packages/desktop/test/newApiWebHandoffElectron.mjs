@@ -145,10 +145,10 @@ async function run() {
     );
     assert.deepEqual(
       await nativeAttached.executeJavaScript(`({
-        audience: document.documentElement.dataset.xcodePlanAudience,
-        theme: document.documentElement.dataset.xcodePlanTheme,
-        locale: document.documentElement.dataset.xcodePlanLocale,
-        font: document.documentElement.dataset.xcodePlanFontSize,
+        audience: document.documentElement.dataset.zenPlanAudience,
+        theme: document.documentElement.dataset.zenPlanTheme,
+        locale: document.documentElement.dataset.zenPlanLocale,
+        font: document.documentElement.dataset.zenPlanFontSize,
         dark: document.documentElement.classList.contains("dark"),
         lang: document.documentElement.lang,
         uiFont: document.documentElement.style.getPropertyValue("--ui-font-size")

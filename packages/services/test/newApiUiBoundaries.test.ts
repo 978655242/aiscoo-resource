@@ -139,7 +139,7 @@ test("Native compact quota reads the actual period and never displays unlimited 
   const finite = NewApiEntitlementsSchema.parse({
     ...entitlements,
     quota: {
-      scope: "xcode-subscription",
+      scope: "zen-subscription",
       unit: "quota",
       unlimited: false,
       total: "100",
@@ -181,7 +181,7 @@ test("Expired Native quota remains inspectable without becoming an active Coding
       ...entitlements,
       status: "expired",
       quota: {
-        scope: "xcode-subscription",
+        scope: "zen-subscription",
         unit: "quota",
         unlimited: false,
         total: "100",

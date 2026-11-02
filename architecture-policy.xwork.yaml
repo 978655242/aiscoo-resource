@@ -175,7 +175,7 @@ modules:
   - id: aiscoo-browser-account-web
     roots: [packages/web/src/aiscoo-browser-account]
     managed: true
-    requires: [shared, services, rpc]
+    requires: [shared, services, rpc, client]
     publicEntrypoints:
       - packages/web/src/aiscoo-browser-account/index.ts
       - packages/web/src/aiscoo-browser-account/contract.ts
@@ -260,7 +260,7 @@ modules:
   - id: aiscoo-account-login-web
     roots: [packages/web/src/aiscoo-account-login]
     managed: true
-    requires: [shared, web, aiscoo-brand]
+    requires: [shared, web, aiscoo-brand, aiscoo-browser-account-web, ui]
     publicEntrypoints:
       - packages/web/src/aiscoo-account-login/index.ts
       - packages/web/src/aiscoo-account-login/contract.ts
