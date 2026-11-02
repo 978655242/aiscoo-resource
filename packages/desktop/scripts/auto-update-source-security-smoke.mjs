@@ -135,7 +135,10 @@ async function listen(label) {
   platform: "node",
   format: "cjs",
   external: ["electron", "electron-updater", "semver"],
-  alias: { "@zcode/shared": resolve(repoRoot, "packages/shared/src/index.ts") },
+  // XCODE: 不再把 "@zcode/shared" 别名到 index.ts。别名按前缀匹配，会把 Aiscoo 的子路径导入
+  // （@zcode/shared/aiscoo-desktop-identity、@zcode/shared/aiscoo-brand）拼成 index.ts/<子路径> 而构建失败。
+  // desktop 依赖 @zcode/shared，裸名与子路径都由 packages/shared/package.json 的 exports 解析，
+  // 裸名仍指向同一个 src/index.ts；下面的 onResolve 只替换官方 origin，不依赖该别名。
   plugins: [
     {
       name: "security-smoke-official-origin",
