@@ -331,7 +331,7 @@ test("official source invalidation revokes worker cloud authorization even behin
     assert.equal(after.states?.[providerId]?.connectionKey, undefined);
     assert.deepEqual(after.owner, before.owner);
     assert.deepEqual(after.modelConfigs, before.modelConfigs);
-    assert.equal(after.providers.get("account:new-api-openai-responses")?.access?.entitled, true);
+    assert.equal(after.providers.get("account:aiscoo-openai-responses")?.access?.entitled, true);
     await registry.refresh("official-disconnect-before-catalog");
     assert.equal(registry.getModel(providerId, "cloud-model"), undefined);
   } finally {

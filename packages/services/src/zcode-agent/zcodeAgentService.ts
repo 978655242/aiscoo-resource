@@ -141,6 +141,8 @@ import {
   zcodeComputerUseOperationEventSchema,
   zcodeProviderRuntimeHeadersCancelledSchema,
   zcodeProviderRuntimeHeadersRequestParamsSchema,
+  // XCODE: 私有请求只接受同一规范 Provider 的选择与鉴权意图。
+  isNewApiModelProviderId,
   zcodeProviderRefreshRegistryResultSchema,
   zcodeProviderTestModelConnectivityResultSchema,
   zcodeOfficialMcpAuthHeadersRequestParamsSchema,
@@ -3044,6 +3046,22 @@ export function createZCodeAgentService(
               code: -32602,
               message: "Invalid provider runtime headers request params",
               data: parsed.error.flatten(),
+            });
+            return;
+          }
+          // XCODE: 外层鉴权 ID 与模型选择各自迁移后仍须相等；拒绝跨 Provider 或缺失私有 access。
+          const nativeRequest =
+            parsed.data.accountAccess?.type === "new-api-account" ||
+            isNewApiModelProviderId(parsed.data.providerId) ||
+            isNewApiModelProviderId(parsed.data.modelSelection.providerId);
+          if (
+            nativeRequest &&
+            (parsed.data.providerId !== parsed.data.modelSelection.providerId ||
+              parsed.data.accountAccess?.type !== "new-api-account")
+          ) {
+            void client.respondError(request.id, {
+              code: -32602,
+              message: "Invalid Native provider runtime headers identity",
             });
             return;
           }

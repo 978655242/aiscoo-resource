@@ -11,6 +11,7 @@
 // 确认窗**之前**——窗上显示的是将要生效的那个模型，而解不出来的调用根本不该开窗。
 
 import type { ModelCatalogEntry, ModelSelection } from "@zcode/contracts";
+import { normalizeAiscooModelProviderId } from "@zcode/shared/model-provider-types";
 import {
   ZCODE_MODEL_REASONING_SEPARATOR,
   formatModelPickerValue,
@@ -165,7 +166,8 @@ function matchEntries(
 ): ModelCatalogEntry[] {
   if (qualified) {
     const providerSeparatorIndex = reference.indexOf("/");
-    const providerId = reference.slice(0, providerSeparatorIndex);
+    // XCODE: 旧 run 的规范串先迁移精确 Provider 身份，避免目录重验将同一模型误判下线。
+    const providerId = normalizeAiscooModelProviderId(reference.slice(0, providerSeparatorIndex));
     const modelId = reference.slice(providerSeparatorIndex + 1);
     return entries.filter(
       (entry) => sameToken(entry.providerId, providerId) && sameToken(entry.modelId, modelId),

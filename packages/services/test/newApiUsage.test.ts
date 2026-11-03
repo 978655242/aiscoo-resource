@@ -221,7 +221,7 @@ test("Native service routes real account HTTP and never falls back when its back
   } as never;
   const request = {
     range: "today" as const,
-    preferredProviderId: "account:new-api-anthropic-messages",
+    preferredProviderId: "account:aiscoo-anthropic-messages",
     accountAccess: access,
     timeZone: "America/New_York",
   };
@@ -233,6 +233,15 @@ test("Native service routes real account HTTP and never falls back when its back
   });
   const generic = await service.getSnapshot({ range: "7d", dataSource: "new-api" });
   assert.equal(generic.source, "new-api");
+  for (const preferredProviderId of [
+    undefined,
+    "account:new-api-anthropic-messages",
+    "account:aiscoo-anthropic-messages",
+  ]) {
+    const snapshot = await service.getEntitlementSnapshot({ preferredProviderId });
+    assert.equal(snapshot.provider?.id, "account:aiscoo-anthropic-messages");
+    assert.equal(snapshot.source, "new-api");
+  }
   await assert.rejects(
     () => service.getSnapshot({ range: "7d", dataSource: "local" }),
     /XCODE_USAGE_SOURCE_UNSUPPORTED/,
@@ -292,7 +301,7 @@ test("DST repeated hours stay distinct while daily tokens and record counts aggr
       models: [{ model_id: "historical-disabled-model", ...usage.summary, buckets }],
     },
     "today",
-    "account:new-api-anthropic-messages",
+    "account:aiscoo-anthropic-messages",
   );
   assert.deepEqual(mapped.modelUsage.xTime, ["01:00 -04:00", "01:00 -05:00"]);
   const day = mapped.activity.heatmap.weeks[0]?.days[0];
@@ -368,7 +377,7 @@ test("default server-local usage consumer keeps server calendar dates across a n
   const today = await service.getCodingPlanUsageSnapshot({
     range: "today",
     accountAccess,
-    preferredProviderId: "account:new-api-anthropic-messages",
+    preferredProviderId: "account:aiscoo-anthropic-messages",
   });
   const days = today.activity.heatmap.weeks
     .flatMap((week) => week.days)
@@ -384,7 +393,7 @@ test("default server-local usage consumer keeps server calendar dates across a n
   const daily = await service.getCodingPlanUsageSnapshot({
     range: "7d",
     accountAccess,
-    preferredProviderId: "account:new-api-anthropic-messages",
+    preferredProviderId: "account:aiscoo-anthropic-messages",
   });
   assert.deepEqual(
     daily.activity.heatmap.weeks

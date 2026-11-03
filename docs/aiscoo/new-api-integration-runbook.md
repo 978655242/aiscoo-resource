@@ -129,7 +129,7 @@ sequenceDiagram
 
 - 管理员在 New API 为用户授予 canonical 的 `xcode` 专用实例。托管 relay key 只消费指定实例；钱包/general/其他订阅不兜底。renew、replace、revoke、reset 通过当前管理员接口及 revision 执行，不在客户端造订单或修改原生账户关系。
 - 客户端模板价格、指定实例、额度单位和 `quota_per_unit` 来自真实 metadata；保持原始十进制字符串。Unlimited 与未知指标明确区分，不把 unknown/null 变成零。
-- 前端仅展示 `account:new-api-openai-chat-completions`，名称为 `Aiscoo Zen`；模型设置、聊天选择和默认候选使用同一可见性规则。Responses/Messages anchor 保留底层协议与历史身份，但不向前端开放；旧选择须手动重选，不自动转换协议。管理员需将供 Aiscoo 使用的模型配置为真实可用的 Chat Completions transport。
+- 前端仅展示 `account:aiscoo-openai-chat-completions`，名称为 `Aiscoo Zen`；模型设置、聊天选择和默认候选使用同一可见性规则。旧 `account:new-api-*` 引用仅按[规格 §5.1.1](./specs/new-api-integration.md#511-provider-id-命名迁移与旧引用兼容)转换为同协议 `account:aiscoo-*`，后续保存使用新 ID。Responses/Messages anchor 保留底层协议但不向前端开放，不自动转换协议或模型；管理员需将供 Aiscoo 使用的模型配置为真实可用的 Chat Completions transport。
 - 管理员维护真实 transport、完整 model properties 与 option/CEL maps。Native 本地配置只允许已有模型排序，不能覆盖托管能力、名称或可见性。缺失配置、非法 CEL、禁用模型或授权/catalog revision 不一致均不能获得可执行 ref；问题在目录 issue 投影中显示，不猜供应商默认能力。
 - 旧个人、企业、Start Plan ref 必须手动重选，即使 `model_id` 同名也不自动映射。Native 的 `off/nothink` 等历史值不转换为 `disabled`；未选、已删除或不支持的值保留原选择并要求重选。保留历史消息/ref 与用户自配 Provider/key/模型，不批量改写用户配置。
 - 模型设置现有刷新入口重新读取服务端目录；Renderer 重读 View 不代替 HTTP 刷新。首次后续提交等待 Host→Worker 串行交付的实际 `appliedRevision`；仅收到新目录或 `receivedRevision` 不代表可执行。纯能力更新保留旧 turn 的冻结配置，新 turn 重新绑定；owner/授权或模型资格失效仍取消/拒绝。Host 与 Worker 必须来自同版本产物，不支持旧 Native 鉴权字段兼容。当前私有链路仅本机 worker；远程私有 provisioning 明确 unsupported，原非私有远程功能不删除。

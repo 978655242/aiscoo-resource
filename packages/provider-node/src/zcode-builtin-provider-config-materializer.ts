@@ -5,7 +5,11 @@ import {
   decodeZCodeBuiltinRelease,
   serializeZCodeBuiltinRelease,
 } from "./zcode-builtin-release.js";
-import { createNewApiProviderAnchors } from "./new-api-provider-anchors.js";
+// XCODE: 已验证的随包内容先投影规范身份，避免新 anchors 与旧键重复物化。
+import {
+  createNewApiProviderAnchors,
+  normalizeAiscooBuiltinProviderRelease,
+} from "./new-api-provider-anchors.js";
 
 export interface MaterializeZCodeBuiltinProviderConfigOptions {
   readonly environmentConfigRoot: string;
@@ -20,7 +24,10 @@ export interface MaterializeZCodeBuiltinProviderConfigOptions {
 export async function materializeZCodeBuiltinProviderConfig(
   options: MaterializeZCodeBuiltinProviderConfigOptions,
 ): Promise<string> {
-  const release = decodeZCodeBuiltinRelease(JSON.parse(options.content));
+  // XCODE: 不改变原文 schema 校验，仅将新的物化输出转换为 Aiscoo 身份。
+  const release = normalizeAiscooBuiltinProviderRelease(
+    decodeZCodeBuiltinRelease(JSON.parse(options.content)),
+  );
   const content = `${serializeZCodeBuiltinRelease(
     options.newApiOrigin
       ? {

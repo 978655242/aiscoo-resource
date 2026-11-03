@@ -143,7 +143,7 @@ test(
     const address = peer.address();
     assert.ok(address && typeof address !== "string");
     const currentOwner = { ...owner, origin: `http://127.0.0.1:${address.port}` };
-    const nativeId = "account:new-api-openai-chat-completions";
+    const nativeId = "account:aiscoo-openai-chat-completions";
     const resolve = (next: boolean, map = next ? defaultEnabledMap : reasoningMap) => {
       const native = resolveNewApiAccountProviders({
         owner: currentOwner,
@@ -236,7 +236,13 @@ test(
     try {
       toolDirectory = await mkdtemp(join(tmpdir(), "xwork-native-sdk-tool-"));
       await writeFile(join(toolDirectory, "fixture.txt"), "synthetic lookup result");
-      const oldModel = runtime.modelFactory({ selection });
+      const legacySelection = {
+        ...selection,
+        providerId: "account:new-api-openai-chat-completions",
+      };
+      const oldModel = runtime.modelFactory({ selection: legacySelection });
+      assert.equal(oldModel.providerId, nativeId);
+      assert.equal(legacySelection.providerId, "account:new-api-openai-chat-completions");
       streaming = runWithModelInvocationContext(credential, async () => {
         for await (const event of oldModel.streamText(request)) {
           if (event.type === "error") throw event.error;

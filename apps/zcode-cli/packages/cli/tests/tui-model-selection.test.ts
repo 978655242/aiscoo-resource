@@ -199,6 +199,38 @@ test("literal model ID wins before parsing a manual reasoning suffix", async () 
   });
 });
 
+for (const apiType of ["anthropic-messages", "openai-chat-completions", "openai-responses"]) {
+  test(`legacy managed model strings preserve literal IDs for ${apiType}`, async () => {
+    const f = fixture();
+    const providerId = `account:aiscoo-${apiType}`;
+    const legacyProviderId = `account:new-api-${apiType}`;
+    const literal = model(providerId, "vendor/hy3$literal");
+    const prefix = {
+      ...model(providerId, "vendor/hy3"),
+      reasoning: {
+        levels: [{ value: "literal", label: "Literal" }],
+        defaultLevel: "literal",
+      },
+    };
+    // XCODE: 同时提供前缀模型，确保旧命令不会把字面量 $literal 误作合法档位并选错模型。
+    f.setCatalog([prefix, literal]);
+    const expected = { ...literal.ref, options: { reasoningLevel: "high" } };
+    await handleModelCommand(`${legacyProviderId}/vendor/hy3$literal`, f.deps);
+    assert.deepEqual(f.writes, [expected]);
+    assert.deepEqual(f.defaultWrites, [expected]);
+    await handleModelCommand(`${providerId}/vendor/hy3$literal`, f.deps);
+    assert.deepEqual(f.writes.at(-1), expected);
+
+    f.setCatalog([model(providerId, "vendor/hy3")]);
+    await handleModelCommand(`${legacyProviderId}/vendor/hy3$low`, f.deps);
+    assert.deepEqual(f.writes.at(-1), {
+      providerId,
+      modelId: "vendor/hy3",
+      options: { reasoningLevel: "low" },
+    });
+  });
+}
+
 test("invalid reasoning and removed models fail before changing selection", async () => {
   const f = fixture();
   const invalid = await handleModelCommand("display", f.deps, {

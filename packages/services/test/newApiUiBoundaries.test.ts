@@ -37,7 +37,7 @@ const view = (access: unknown) =>
     revision: "native:1",
     providers: [
       {
-        providerId: "account:new-api-anthropic-messages",
+        providerId: "account:aiscoo-anthropic-messages",
         providerName: "Native",
         effectiveConfig: { access },
         accountState: { availability: "available", connectionKey: "opaque-native-owner" },
@@ -48,7 +48,7 @@ const view = (access: unknown) =>
 test("Native managed account access is inspected without mapping to an official family", () => {
   const result = resolveEntitledAccountProviderAccess(
     view(native),
-    "account:new-api-anthropic-messages",
+    "account:aiscoo-anthropic-messages",
   );
   assert.deepEqual(result?.access, native);
   assert.equal(result?.label, "Native");
@@ -57,11 +57,11 @@ test("Native managed account access is inspected without mapping to an official 
 test("Native inspection does not grant execution rights for an expired subscription", () => {
   const expired = { ...native, entitled: false };
   assert.equal(
-    resolveEntitledAccountProviderAccess(view(expired), "account:new-api-anthropic-messages"),
+    resolveEntitledAccountProviderAccess(view(expired), "account:aiscoo-anthropic-messages"),
     null,
   );
   assert.deepEqual(
-    resolveAccountProviderInspectionAccess(view(expired), "account:new-api-anthropic-messages")
+    resolveAccountProviderInspectionAccess(view(expired), "account:aiscoo-anthropic-messages")
       ?.access,
     expired,
   );
@@ -76,13 +76,13 @@ test("Native usage remains account scoped for expired access and a custom select
     teamSources: [],
     nativeSource: source,
   });
-  assert.equal(selected?.providerId, "account:new-api-anthropic-messages");
+  assert.equal(selected?.providerId, "account:aiscoo-anthropic-messages");
   assert.ok(selected?.audience === "individual");
   assert.equal(selected.accountAccess.type, "new-api-account");
 });
 
 test("Native usage source follows the projected transport when anthropic-messages is absent", () => {
-  const chat = "account:new-api-openai-chat-completions";
+  const chat = "account:aiscoo-openai-chat-completions";
   const only = (providerId: string, connectionKey?: string) =>
     ({
       revision: "native:1",
@@ -174,7 +174,7 @@ test("Native compact quota reads the actual period and never displays unlimited 
 });
 
 test("Expired Native quota remains inspectable without becoming an active Coding Plan", () => {
-  const providerId = "account:new-api-anthropic-messages";
+  const providerId = "account:aiscoo-anthropic-messages";
   const access = { ...native, entitled: false };
   const snapshot = mapNewApiEntitlement(
     {

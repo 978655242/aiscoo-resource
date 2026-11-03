@@ -48,7 +48,7 @@ async function prompt(device, text, extra = []) {
 async function selectZenModel(device) {
   // 与用户用 /model 选择后的持久结果一致：只把非秘密选择写入 Personal Config。
   const { writeFile } = await import("node:fs/promises");
-  await writeFile(device.env.ZCODE_PERSONAL_PROVIDER_CONFIG_FILE, JSON.stringify({ schemaVersion: 1, config: { defaultModelSelection: { providerId: "new-api-openai-chat-completions", modelId: ACCEPTANCE_MODEL_ID, options: { reasoningLevel: "none" } } } }));
+  await writeFile(device.env.ZCODE_PERSONAL_PROVIDER_CONFIG_FILE, JSON.stringify({ schemaVersion: 1, config: { defaultModelSelection: { providerId: "account:aiscoo-openai-chat-completions", modelId: ACCEPTANCE_MODEL_ID, options: { reasoningLevel: "none" } } } }));
 }
 
 const cases = {

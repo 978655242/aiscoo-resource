@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { modelSelectionSchema } from "../model-selection.js";
+// XCODE: 历史 snapshot/replay 的 flat 投影与结构化选择保持同一 Provider 身份。
+import { normalizeAiscooModelProviderId } from "../model-provider-types.js";
 
 // ── config──
 export const sessionConfigStateSchema = z.object({
   /** Session 接受并持久化的稀疏选择意图；provider/model/thought 仅为 UI effective 投影。 */
   modelSelection: modelSelectionSchema.optional(),
-  provider: z.string(),
+  provider: z.string().transform(normalizeAiscooModelProviderId),
   model: z.string(),
   thought: z.string(),
   // 思考档位是当前模型的能力，不是 workspace/UI 偏好。
@@ -32,11 +34,11 @@ export const sessionModelTransitionSchema = z.object({
   eventId: z.string().min(1),
   origin: z.literal("registryFallback"),
   from: z.object({
-    provider: z.string(),
+    provider: z.string().transform(normalizeAiscooModelProviderId),
     model: z.string(),
   }),
   to: z.object({
-    provider: z.string(),
+    provider: z.string().transform(normalizeAiscooModelProviderId),
     model: z.string(),
   }),
 });

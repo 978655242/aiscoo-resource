@@ -4,6 +4,9 @@ import {
   type ProviderRegistryView,
 } from "./registry.js";
 
+// XCODE: 纯选择入口也接受旧精确身份，避免 typed 调用绕过协议 schema。
+import { normalizeAiscooModelSelection } from "@zcode/shared/model-provider-types";
+
 export type InitialModelSelectionResolution =
   | {
       readonly source: "configured-default" | "registry-fallback";
@@ -31,11 +34,14 @@ export function resolveInitialModelSelection(input: {
 }): InitialModelSelectionResolution {
   // 这里只构造 Host 的初始推荐，不解析已有会话意图。失效默认是可丢弃偏好，
   // 应继续按 Registry 顺序推荐；不能把历史选择留空的规则误用于新草稿初始化。
-  if (input.configuredDefault) {
-    if (isSelectable(input.registry, input.configuredDefault)) {
+  // XCODE: 默认偏好仅替换精确旧身份，不回退到别的协议或改写原对象。
+  const configuredDefault =
+    input.configuredDefault && normalizeAiscooModelSelection(input.configuredDefault);
+  if (configuredDefault) {
+    if (isSelectable(input.registry, configuredDefault)) {
       return {
         source: "configured-default",
-        selection: freezeSelection(input.configuredDefault),
+        selection: freezeSelection(configuredDefault),
       };
     }
   }
@@ -59,6 +65,8 @@ export function completeNewModelSelection(
   registry: ModelSelectionCompletionView,
   selection: ModelSelection,
 ): ModelSelection | undefined {
+  // XCODE: 复用共享兼容边界，后续仍执行原模型存在性与档位规则。
+  selection = normalizeAiscooModelSelection(selection);
   const model = registry.providers
     .find((provider) => provider.providerId === selection.providerId)
     ?.models.find((candidate) => candidate.modelId === selection.modelId);
@@ -80,6 +88,8 @@ export function normalizeModelSelection(
   registry: ModelSelectionCompletionView,
   selection: ModelSelection,
 ): ModelSelection | undefined {
+  // XCODE: 复用共享兼容边界，后续仍执行原模型存在性与档位规则。
+  selection = normalizeAiscooModelSelection(selection);
   const model = registry.providers
     .find((provider) => provider.providerId === selection.providerId)
     ?.models.find((candidate) => candidate.modelId === selection.modelId);

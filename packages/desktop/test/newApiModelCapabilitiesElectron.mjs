@@ -11,7 +11,7 @@ import { createCapabilityHost } from "./newApiModelCapabilitiesHost.mjs";
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const requireRoot = createRequire(new URL("../../../package.json", import.meta.url));
 const requireDesktop = createRequire(new URL("../package.json", import.meta.url));
-const nativeId = "account:new-api-openai-chat-completions";
+const nativeId = "account:aiscoo-openai-chat-completions";
 const modelTrigger = '[data-testid="chat-model-select-trigger"]';
 const thoughtSlider = '[data-testid="composer-thought-slider"]';
 const providerTrigger = '[data-testid="composer-provider-trigger"]';

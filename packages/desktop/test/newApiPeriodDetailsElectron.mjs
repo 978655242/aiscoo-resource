@@ -42,7 +42,7 @@ async function run() {
       import { PlatformProvider } from "./packages/ui/src/hooks/usePlatform.tsx";
       import { StoreProvider, useZCodeStore } from "./packages/ui/src/store/StoreProvider.tsx";
       import { connectProviderSettingsSnapshot } from "./packages/ui/src/lib/providerSettingsSnapshot.ts";
-      const providerId = "account:new-api-anthropic-messages";
+      const providerId = "account:aiscoo-anthropic-messages";
       const accountAccess = { type: "new-api-account", accountType: "new-api", mode: "private-subscription", entitled: true };
       const entitlement = {
         schema_version: 1, server_time: 1800000000000, status: "active", authorization_revision: "42",

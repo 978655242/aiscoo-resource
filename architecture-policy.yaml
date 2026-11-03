@@ -1503,3 +1503,12 @@ exceptions:
     paths:
       - packages/zcode-cua/src/**
     reason: The whole zcode-cua producer package (broker, native adapters, tools) entered the repo after the gate timestamp as pre-existing code moved from a separate repository; adopting its internal layers needs a dedicated CONTRACT pass (it has known internal cycles by design), not a mechanical split in this branch.
+  # XCODE: 四个已入库的上游边界仅接入共享的精确 Provider 身份迁移，不新增源码或状态 owner。
+  - id: aiscoo-model-provider-identity-existing-boundaries
+    rule: unmanaged-new-file
+    paths:
+      - apps/zcode-cli/packages/bootstrap/src/app/cli-default-selection.ts
+      - apps/zcode-cli/packages/bootstrap/src/app/dynamic-workflow-run-launch-anchor.ts
+      - apps/zcode-cli/packages/bootstrap/src/zcode-protocol/fork-model-selection.ts
+      - packages/shared/src/zcode-protocol-v4/create-session-config.ts
+    reason: 已准入的默认选择、工作流元数据、派生会话和创建会话 schema 只调用共享 Aiscoo Provider ID 规范化，保留原 owner、事件顺序与校验；接管整个 CLI app、协议或 shared 目录不属于本次身份兼容迁移。

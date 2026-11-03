@@ -1,9 +1,11 @@
 import { z } from "zod";
 import { modelSelectionSchema } from "../model-selection.js";
+// XCODE: 旧 flat provider 与结构化选择共享精确身份迁移。
+import { normalizeAiscooModelProviderId } from "../model-provider-types.js";
 
 export const createSessionRequestedConfigSchema = z.object({
   modelSelection: modelSelectionSchema.optional(),
-  provider: z.string().optional(),
+  provider: z.string().transform(normalizeAiscooModelProviderId).optional(),
   model: z.string().optional(),
   thought: z.string().optional(),
   followupMode: z.enum(["queue", "guide"]).optional(),

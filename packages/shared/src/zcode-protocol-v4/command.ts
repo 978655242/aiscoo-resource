@@ -10,6 +10,8 @@ import { conversationRowTargetSchema, timestampSchema } from "./core.js";
 import { attachmentRefSchema } from "./attachment-ref.js";
 import { v4ConversationFileRewindPreviewResultSchema } from "./transport.js";
 import { modelSelectionSchema } from "../model-selection.js";
+// XCODE: legacy flat 切模命令在接纳边界转换旧 Provider，不绕过 Registry 校验。
+import { normalizeAiscooModelProviderId } from "../model-provider-types.js";
 import { modelExecutionSchema } from "../model-execution.js";
 import { submissionModeSchema } from "./submission.js";
 import { botGroupInputSourceSchema, zcodeAutomationBotDeliveryTargetSchema } from "../bots.js";
@@ -254,7 +256,7 @@ export const commandPayloadSchemas = {
     interactionId: z.string(),
   }),
   switchModelConfig: z.object({
-    provider: z.string(),
+    provider: z.string().transform(normalizeAiscooModelProviderId),
     model: z.string(),
     thought: z.string(),
   }),

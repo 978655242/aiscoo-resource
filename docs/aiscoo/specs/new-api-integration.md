@@ -254,17 +254,60 @@ type NewApiAccountAccess = {
 
 Provider API transport 固定一个协议，因此声明三个稳定 Built-in 私有 anchor：
 
-- `account:new-api-anthropic-messages`
-- `account:new-api-openai-chat-completions`
-- `account:new-api-openai-responses`
+- `account:aiscoo-anthropic-messages`
+- `account:aiscoo-openai-chat-completions`
+- `account:aiscoo-openai-responses`
 
 group 为 `new-api-family`，不要按每个套餐新建 provider ID。模型归属由 canonical api_type 决定，每个实际 model_id 只进入管理员选择的 transport。Built-in anchor 不包含 key 或猜测 GLM 模型；origin 在 Host 从显式配置形成，不从模型响应接受上游 URL。
 
 Native Provider 归类为 ordinary model-selection 行为，但 access 仍为 managed account；不套原 `account-plan` 的“唯一 current Provider 自动 remap”，避免三种 transport 产生歧义。选择由实际 provider+model ref 决定，不自动转成另一协议或模型。
 
-XWork 前端仅开放 `account:new-api-openai-chat-completions`，模型设置与对话模型选择中的提供商展示名称固定为 `XWork Zen`。另两个 anchor 使用现有 `visibility: hidden`，不进入模型设置、聊天模型选择或默认候选；历史 ref 保留但不自动迁移，重新选择可见模型。底层协议契约与管理员模型归属不改，不把其他 transport 的模型移入 Chat Completions。可见入口即使目录为空也保留，按真实权限和配置显示不可用。用户自配 Provider 不受影响；独立官方云连接已由唯一登录规格退役。
+Aiscoo 前端仅开放 `account:aiscoo-openai-chat-completions`，模型设置与对话模型选择中的提供商展示名称来自统一品牌配置的 `Aiscoo Zen`。另两个 anchor 使用现有 `visibility: hidden`，不进入模型设置、聊天模型选择或默认候选；旧 Provider ID 仅按 §5.1.1 迁移同协议身份，不自动改选可见协议或其他模型。底层协议契约与管理员模型归属不改，不把其他 transport 的模型移入 Chat Completions。可见入口即使目录为空也保留，按真实权限和配置显示不可用。用户自配 Provider 不受影响；独立官方云连接已由唯一登录规格退役。
 
 模型设置遵循 [原版呈现规格](new-api-model-settings-ui.md)：托管入口复用现有标题、编程套餐状态卡、个人/团队入口，数据只取 Native `/plans` 与 `/entitlements`。个人入口按 `/plans` 目录顺序仅展示首个启用模板的价格、完整周期和说明，不追加其他模板摘要；团队明确不支持。独立官方连接操作及 MCP 连接卡按唯一账号规格移除，不在套餐详情或使用统计另造登录入口。UI 投影按既有 connectionKey、登录 epoch、服务实例与请求序号隔离，换号/退出首帧清空旧数据，查询失败不解释为未开通。
+
+### 5.1.1 Provider ID 命名迁移与旧引用兼容
+
+产品模型来源统一为 Aiscoo；只有下列三个精确旧 ID 可转换为同协议的新 ID，不按前缀猜测其他 Provider：
+
+| 旧 Provider ID                            | 唯一规范 Provider ID                     |
+| ----------------------------------------- | ---------------------------------------- |
+| `account:new-api-anthropic-messages`      | `account:aiscoo-anthropic-messages`      |
+| `account:new-api-openai-chat-completions` | `account:aiscoo-openai-chat-completions` |
+| `account:new-api-openai-responses`        | `account:aiscoo-openai-responses`        |
+
+共享协议层拥有唯一的纯身份规范化规则；模型选择解析、个人配置 codec、CLI 持久化及直接运行时入口复用该规则，不增加第二套 Registry 或按账号猜测的别名解析器。Registry、目录映射、Host→Worker 发布、模型菜单和新保存的引用只使用规范 ID。旧数据读取时转换，后续正常保存写新值，不批量改写历史数据库或未触及的用户文件。旧历史消息的模型、思考档位及执行事实保持原意。
+
+- 转换保留 `modelId`、options、协议和排序，不补默认模型或思考档位。未知、官方、自配 Provider 以及与旧 ID 仅前缀相似的值保持原样。
+- 个人配置的旧 Provider key、规则目标与默认模型选择在既有读写边界规范化。新旧键同时存在时，新键的完整条目优先；规范化幂等，不产生重复提供商。
+- 旧会话、模型切换记录、用户/助手消息、子任务与自动化的模型引用复用既有解析路径；直接传入 typed selection 的执行入口也须先规范化，不能因绕过 schema 而找不到 Provider。
+- 运行时鉴权中的外层 `providerId`、内层 `modelSelection.providerId` 与 Registry 使用相同规范身份；owner、SID、generation、授权版本、模型资格和 stale-result 校验保持原有边界。ID 转换不授予权限，不恢复已退出或已撤销账号。
+- Desktop continuous 与手机 Web replayable 使用同一 Host/Runtime owner 及同一模型选择契约；转换不改变队列 admission、事件顺序、snapshot/replay、workspaceIdentity 或 remoteSessionId。Host 与 Worker 仍要求同版本产物，不提供跨版本私有鉴权兼容。
+- 本次只迁移模型 Provider 身份。OAuth `provider=new-api`、`new-api-account` access 类型、JWT、Cookie、凭据存储键、接口路径、目录 `model_id/api_type` 与推理 JSON `model` 不改名。
+
+```mermaid
+sequenceDiagram
+    participant P as 既有配置 / 会话 / 子任务
+    participant S as 共享身份规范化
+    participant R as 当前 Provider Registry
+    participant H as Host 账号 owner
+    participant C as CLI Runtime
+    P->>S: 读取旧 Provider 引用
+    S-->>R: 同协议 account:aiscoo-* / 原 modelId 与 options
+    R->>H: 当前模型资格与请求鉴权
+    H-->>C: owner / 授权版本匹配后的请求凭据
+    C->>C: 按既有顺序执行并保存规范引用
+    Note over H,C: 退出、撤销、换号仍拒绝旧 owner；不改实时流或恢复流顺序
+```
+
+回归验收场景：
+
+1. 三种旧 ID 均转换为同协议新 ID；`hy3`、含斜线或字面量 `$` 的模型名和 reasoning options 原样保留。旧完整命令字符串先只规范 Provider 片段，再精确匹配目录；只有未命中真实模型时才按原规则解析 reasoning 后缀，不能误选同名前缀模型。新 ID 重复读取不变，未知 Provider 不变。
+2. 旧默认模型、个人 Provider 排序/规则及新旧混合配置可读取；新条目优先，保存后没有重复旧键，不修改调用者对象。
+3. 旧会话恢复、模型切换记录、子任务和 legacy picker/CLI `--model` 引用可解析到规范身份；后续新记录使用新 ID。
+4. 模型目录只注册三个新 ID，Chat Completions 仍是唯一可见入口；用量默认来源、权益与 UI 归属仍识别 Aiscoo 账号。
+5. 用规范身份构造实际 SDK 请求，路径仍为 `/v1/chat/completions`、JSON `model` 仍为原始 `hy3`；原模型 capabilities、tools/reasoning 参数和 relay credential 来源保持正确。
+6. 缺失授权、错误 owner、旧 generation、撤销和换号仍拒绝请求；ID 迁移不得使旧 owner 获得执行权限。Desktop 与 Web 的结构化选择协议均接受旧引用并输出规范引用。
 
 ### 5.2 动态能力的真实通道
 
