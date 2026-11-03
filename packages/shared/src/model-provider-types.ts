@@ -48,7 +48,8 @@ export function normalizeAiscooModelProviderRecord<T>(
   return Object.fromEntries(normalized);
 }
 
-function normalizeStoredAiscooModelReference(value: string): string {
+/** 只规范完整引用的 Provider 片段，保留模型名中的斜线、字面量 $ 与后缀。 */
+export function normalizeAiscooModelReference(value: string): string {
   const separator = value.indexOf("/");
   return separator > 0
     ? `${normalizeAiscooModelProviderId(value.slice(0, separator))}${value.slice(separator)}`
@@ -65,14 +66,14 @@ export function normalizeAiscooStoredModelReferences<
   const subagentModel =
     value.subagentModel === undefined
       ? undefined
-      : normalizeStoredAiscooModelReference(value.subagentModel);
+      : normalizeAiscooModelReference(value.subagentModel);
   let changed = subagentModel !== value.subagentModel;
   const modelBindings =
     value.modelBindings === undefined
       ? undefined
       : Object.fromEntries(
           Object.entries(value.modelBindings).map(([name, model]) => {
-            const normalized = normalizeStoredAiscooModelReference(model);
+            const normalized = normalizeAiscooModelReference(model);
             changed ||= normalized !== model;
             return [name, normalized];
           }),

@@ -302,7 +302,7 @@ sequenceDiagram
 
 回归验收场景：
 
-1. 三种旧 ID 均转换为同协议新 ID；`hy3`、含斜线模型名和 reasoning options 原样保留；新 ID 重复读取不变，未知 Provider 不变。
+1. 三种旧 ID 均转换为同协议新 ID；`hy3`、含斜线或字面量 `$` 的模型名和 reasoning options 原样保留。旧完整命令字符串先只规范 Provider 片段，再精确匹配目录；只有未命中真实模型时才按原规则解析 reasoning 后缀，不能误选同名前缀模型。新 ID 重复读取不变，未知 Provider 不变。
 2. 旧默认模型、个人 Provider 排序/规则及新旧混合配置可读取；新条目优先，保存后没有重复旧键，不修改调用者对象。
 3. 旧会话恢复、模型切换记录、子任务和 legacy picker/CLI `--model` 引用可解析到规范身份；后续新记录使用新 ID。
 4. 模型目录只注册三个新 ID，Chat Completions 仍是唯一可见入口；用量默认来源、权益与 UI 归属仍识别 Aiscoo 账号。
