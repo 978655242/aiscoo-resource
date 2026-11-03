@@ -141,8 +141,6 @@ import {
   zcodeComputerUseOperationEventSchema,
   zcodeProviderRuntimeHeadersCancelledSchema,
   zcodeProviderRuntimeHeadersRequestParamsSchema,
-  // XCODE: 私有请求只接受同一规范 Provider 的选择与鉴权意图。
-  isAiscooAdminModelProviderId,
   zcodeProviderRefreshRegistryResultSchema,
   zcodeProviderTestModelConnectivityResultSchema,
   zcodeOfficialMcpAuthHeadersRequestParamsSchema,
@@ -1123,6 +1121,10 @@ interface CreateZCodeAgentServiceBaseOptions extends Omit<
 > {
   /** 仅供 MCP 状态探测进程使用，不能把空闲回收传给 chat。 */
   mcpStatusIdleTimeoutMs?: number;
+  // XCODE: 通用扩展点。依次调用，返回拒绝文案即拒绝 runtime headers 请求；undefined 为放行。
+  providerRuntimeHeadersRequestValidators?: readonly ((
+    request: ZCodeProviderRuntimeHeadersRequestParams,
+  ) => string | undefined)[];
   accountProviderConfigSource?: ProviderSource<AccountProviderConfigSnapshot>;
   /** Desktop Host 请求 Main 登记 Agent 已授权的精确本地视频路径。 */
   authorizeLocalMediaPreviewPath?: (path: string) => Promise<string>;
@@ -3049,20 +3051,12 @@ export function createZCodeAgentService(
             });
             return;
           }
-          // XCODE: 外层鉴权 ID 与模型选择各自迁移后仍须相等；拒绝跨 Provider 或缺失私有 access。
-          const nativeRequest =
-            parsed.data.accountAccess?.type === "new-api-account" ||
-            isAiscooAdminModelProviderId(parsed.data.providerId) ||
-            isAiscooAdminModelProviderId(parsed.data.modelSelection.providerId);
-          if (
-            nativeRequest &&
-            (parsed.data.providerId !== parsed.data.modelSelection.providerId ||
-              parsed.data.accountAccess?.type !== "new-api-account")
-          ) {
-            void client.respondError(request.id, {
-              code: -32602,
-              message: "Invalid Native provider runtime headers identity",
-            });
+          // XCODE: 下游注册的请求校验；未注册时与上游一致，命中拒绝文案即按参数错误返回。
+          const rejection = options?.providerRuntimeHeadersRequestValidators
+            ?.map((validate) => validate(parsed.data))
+            .find((message) => message !== undefined);
+          if (rejection !== undefined) {
+            void client.respondError(request.id, { code: -32602, message: rejection });
             return;
           }
           const pendingKey = providerRuntimeHeadersRequestKey({

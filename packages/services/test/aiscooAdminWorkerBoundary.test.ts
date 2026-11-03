@@ -38,7 +38,7 @@ import {
 } from "@zcode/provider";
 import { resolveAiscooAdminAccountProviders } from "../src/aiscoo-admin/aiscooAdminAccountProviderResolution.js";
 import { entitlements, catalog } from "./aiscooAdminRegistryFixtures.js";
-import { createAiscooAdminAccountRequestAuthResolver } from "../src/model-provider/accountProviderRequestAuthService.js";
+import { createAiscooAdminAccountRequestAuthResolver } from "../src/aiscoo-admin-request-auth/index.js";
 import { createAiscooAdminProviderAnchors } from "@zcode/provider-node";
 import { listRegistryBackedModels } from "../../../apps/zcode-cli/packages/bootstrap/src/app/provider-registry-selection.js";
 import { ApiProviderModelRuntime } from "../../../apps/zcode-cli/packages/bootstrap/src/app/provider-registry-model-runtime.js";

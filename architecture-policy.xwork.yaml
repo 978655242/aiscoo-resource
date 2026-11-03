@@ -257,6 +257,16 @@ modules:
       - packages/services/src/aiscoo-account-policy/contract.ts
     layers: { adapters: . }
     owner: account
+  # XCODE: 托管 Provider 调用期鉴权规则经上游通用校验点注册，不写进上游 handler。
+  - id: aiscoo-admin-request-auth
+    roots: [packages/services/src/aiscoo-admin-request-auth]
+    managed: true
+    requires: [provider, services, shared]
+    publicEntrypoints:
+      - packages/services/src/aiscoo-admin-request-auth/index.ts
+      - packages/services/src/aiscoo-admin-request-auth/contract.ts
+    layers: { adapters: . }
+    owner: account
   - id: aiscoo-account-login-ui
     roots: [packages/ui/src/aiscoo/account-login]
     managed: true

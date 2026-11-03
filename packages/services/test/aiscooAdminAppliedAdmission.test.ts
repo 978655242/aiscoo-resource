@@ -18,6 +18,7 @@ import { createZCodeAgentService } from "../src/zcode-agent/zcodeAgentService.js
 import { createZCodeAgentConnectionScope } from "../src/zcode-agent/zcodeAgentConnectionScope.js";
 import { setDataBaseDir } from "../src/paths.js";
 import { resolveAiscooAdminAccountProviders } from "../src/aiscoo-admin/aiscooAdminAccountProviderResolution.js";
+import { validateAiscooAdminRuntimeHeadersRequest } from "../src/aiscoo-admin-request-auth/index.js";
 import { owner, catalog, entitlements, builtinModelRules } from "./aiscooAdminRegistryFixtures.js";
 
 test(
@@ -128,6 +129,8 @@ await connection.waitForClose();
         env: { TSX_TSCONFIG_PATH: fileURLToPath(new URL("./tsconfig.json", import.meta.url)) },
       }),
       requestTimeoutMs: 5_000,
+      // 与 node.ts 装配一致：托管身份规则经通用校验点注册。
+      providerRuntimeHeadersRequestValidators: [validateAiscooAdminRuntimeHeadersRequest],
       readRequestVerificationConfig: async () => null,
       accountRequestAuthService: {
         resolveAccessCurrent: async () => {

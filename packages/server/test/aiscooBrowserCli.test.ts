@@ -19,7 +19,7 @@ import {
 import { ChannelClient, ChannelServer, createQueuePair, Emitter, type Event } from "@zcode/rpc";
 import { createZCodeAgentService } from "../../services/src/zcode-agent/zcodeAgentService.js";
 import { createAiscooAdminAccountProviderResolver } from "../../services/src/aiscoo-admin/aiscooAdminAccountProviderResolution.js";
-import { createAiscooAdminAccountRequestAuthResolver } from "../../services/src/model-provider/accountProviderRequestAuthService.js";
+import { createAiscooAdminAccountRequestAuthResolver } from "../../services/src/aiscoo-admin-request-auth/index.js";
 import { AiscooAdminClient } from "../../services/src/aiscoo-admin/aiscooAdminClient.js";
 import {
   catalog,

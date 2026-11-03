@@ -524,10 +524,11 @@ import { readLegacyZCodeConfigProviders } from "./model-provider/legacyZCodeConf
 import { resolveAccountTeamPlanRuntimeMaterial } from "./model-provider/accountProviderTeamPlanRequestKey.js";
 import { createAccountProviderCredentialStore } from "./model-provider/accountProviderCredentialStore.js";
 import { createAccountProviderCredentialService } from "./model-provider/accountProviderCredentialService.js";
+import { createAccountProviderRequestAuthService } from "./model-provider/accountProviderRequestAuthService.js";
 import {
-  createAccountProviderRequestAuthService,
   createAiscooAdminAccountRequestAuthResolver,
-} from "./model-provider/accountProviderRequestAuthService.js";
+  validateAiscooAdminRuntimeHeadersRequest,
+} from "./aiscoo-admin-request-auth/index.js";
 import {
   createAccountProviderConfigSource,
   createCodingPlanFamilyAvailabilityResolver,
@@ -2542,6 +2543,8 @@ export function createLocalServices(options: {
     accountRequestAuthService,
     readRequestVerificationConfig: () =>
       codingPlanSubscriptionService.getRequestVerificationConfig(),
+    // XCODE: 托管 Provider 的 runtime headers 身份规则经通用校验点注册，无条件生效。
+    providerRuntimeHeadersRequestValidators: [validateAiscooAdminRuntimeHeadersRequest],
     ...(modelSelectionReadinessSource ? { modelSelectionReadinessSource } : {}),
     authorizeLocalMediaPreviewPath: options?.authorizeLocalMediaPreviewPath,
     ...offPeakToolWiring,

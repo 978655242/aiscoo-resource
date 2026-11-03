@@ -11,7 +11,7 @@ import { createAiscooAdminProviderAnchors } from "../../provider-node/src/aiscoo
 import { ChannelClient, ChannelServer, createQueuePair, Emitter, Event } from "@zcode/rpc";
 import type { AiscooAdminOwner } from "@zcode/shared";
 import { createAiscooAdminAccountProviderResolver } from "../../services/src/aiscoo-admin/aiscooAdminAccountProviderResolution.js";
-import { createAiscooAdminAccountRequestAuthResolver } from "../../services/src/model-provider/accountProviderRequestAuthService.js";
+import { createAiscooAdminAccountRequestAuthResolver } from "../../services/src/aiscoo-admin-request-auth/index.js";
 import {
   catalog,
   entitlements,

@@ -369,6 +369,10 @@ sequenceDiagram
 
 secret 不进入 provider config、header rule、modelPresentation、Renderer DTO 或个人配置文件。沿用本机 Agent 已有请求期 secret 传输及安全存储边界，不设计远程 lease/provisioning。
 
+**runtime headers 请求身份校验（2026-11-03）。** Agent 发来的 provider runtime headers 请求，只要外层 Provider、模型选择 Provider 之一是托管 ID，或访问类型是 `new-api-account`，就必须同时满足两条：外层 Provider 与模型选择 Provider 相同，且携带 `new-api-account` 访问凭据；否则在任何凭据 IO 前以 JSON-RPC `-32602` 拒绝。账号鉴权解析器只处理带 `accountAccess` 的请求，缺少访问凭据的托管请求会走界面交互路径，所以这条规则必须在 handler 入口拦截。
+
+规则本身和托管请求解析器在受管模块 `services/src/aiscoo-admin-request-auth/`（`runtimeHeadersRequestValidator.ts`、`accountRequestAuthResolver.ts`，经 `index.ts` 导出）。上游 `zcodeAgentService.ts` 只提供通用选项 `providerRuntimeHeadersRequestValidators`：按顺序调用，返回拒绝文案即拒绝；不注册时与上游行为一致。`node.ts` 无条件注册该规则，不经可选的 `HostAccountPolicy`，因为通用的 desktop-local 路径在没有该策略时也能启用托管账号。
+
 ### 5.4 原选择与各分支清理
 
 原 `account:{bigmodel,zai}-{individual-coding-plan,team-coding-plan,start-plan}` 普通推理选择标记为旧官方选择不可用，并提示重选。持久化历史 ref 保留用于显示/回放；不能同 ID 自动映射 Native，也不能悄悄运行旧官方网关。

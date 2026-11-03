@@ -9,13 +9,6 @@ import {
   type ZCodeProviderAccountAccess,
   ZAI_PROVIDER_ID,
 } from "@zcode/shared";
-import type { AiscooAdminAccountService } from "../aiscoo-admin/aiscooAdminAccountService.js";
-import type { AccountProviderConfigSnapshot, ProviderSource } from "@zcode/provider";
-import {
-  isAiscooAdminModelProviderId,
-  isBuiltinModelProviderId,
-  normalizeAiscooModelProviderId,
-} from "@zcode/shared";
 
 export interface AccountRequestAuthMaterial {
   /** 私有传输字段兼容旧命名；套餐 OAuth 实际传入短期 Project Token。 */
@@ -84,6 +77,7 @@ class AccountProviderRequestAuthService implements AccountRequestAuthResolver {
 
   async resolveCurrent(input: AccountRequestAuthInput): Promise<AccountRequestAuthMaterial> {
     const providerId = input.providerId.trim();
+    // XCODE: 托管访问由 aiscoo-admin 解析器处理；联合类型带 mode 字段，不能落入 zhipu 路径。
     if (input.accountAccess.type === "new-api-account")
       throw new Error("XCODE_PRIVATE_REQUEST_AUTH_UNCONFIGURED");
     const access = await this.#resolveAccess(input.accountAccess);
@@ -152,6 +146,7 @@ class AccountProviderRequestAuthService implements AccountRequestAuthResolver {
   #resolveAccess(
     access: ZCodeProviderAccountAccess | ZCodeAccountAccess,
   ): Promise<ZCodeAccountAccess | null> {
+    // XCODE: 同上，托管访问不按 zhipu mode 解析。
     if (access.type === "new-api-account") return Promise.resolve(null);
     return "mode" in access
       ? this.#options.resolveCurrentAccountAccess(access)
@@ -175,74 +170,4 @@ export function createAccountProviderRequestAuthService(
   options: AccountProviderRequestAuthServiceOptions,
 ): AccountProviderRequestAuthService {
   return new AccountProviderRequestAuthService(options);
-}
-
-/** XCODE: 请求凭据绑定 owner/授权代际；能力版本只影响下一轮冻结配置。 */
-export function createAiscooAdminAccountRequestAuthResolver(options: {
-  account: Pick<AiscooAdminAccountService, "isCurrent" | "getRelayCredential">;
-  accountSource: ProviderSource<AccountProviderConfigSnapshot>;
-  official: AccountRequestAuthResolver;
-}): AccountRequestAuthResolver {
-  const assertNative = async (input: AccountAccessIdentityInput & { modelId?: string }) => {
-    const access = input.accountAccess;
-    if (access.type !== "new-api-account")
-      throw new AccountRequestCredentialUnavailableError(input.providerId);
-    // XCODE: typed 直调不经过协议 schema，只迁移精确旧选择；Host 快照键仍须是规范身份。
-    const providerId = normalizeAiscooModelProviderId(input.providerId);
-    const snapshot = await options.accountSource.read();
-    const providerAccess = snapshot.providers.get(providerId)?.access;
-    if (
-      !isAiscooAdminModelProviderId(providerId) ||
-      !access.owner ||
-      !access.authorizationRevision ||
-      !options.account.isCurrent(access.owner) ||
-      !snapshot.owner ||
-      !options.account.isCurrent(snapshot.owner) ||
-      access.authorizationRevision !== snapshot.authorizationRevision ||
-      providerAccess?.type !== "new-api-account" ||
-      providerAccess.entitled !== true ||
-      snapshot.states?.[providerId]?.current !== true ||
-      // XCODE: 用规范身份核对授权目录；个人能力变更不撤销已冻结的 turn。
-      (input.modelId !== undefined &&
-        !snapshot.providers.get(providerId)?.builtinModelIds?.includes(input.modelId))
-    ) {
-      throw new AccountRequestCredentialUnavailableError(input.providerId);
-    }
-    return { snapshot, owner: access.owner };
-  };
-  return {
-    resolveAccessCurrent: (access) => {
-      if (access.type === "new-api-account") throw new Error("XCODE_PRIVATE_REMOTE_UNSUPPORTED");
-      return options.official.resolveAccessCurrent(access);
-    },
-    assertCurrent: async (input) => {
-      if (input.accountAccess.type === "new-api-account") {
-        await assertNative(input);
-        return;
-      }
-      // XCODE: 私有模型身份不能借官方 access 进入另一条凭据路径。
-      if (isAiscooAdminModelProviderId(normalizeAiscooModelProviderId(input.providerId)))
-        throw new AccountRequestCredentialUnavailableError(input.providerId);
-      await options.official.assertCurrent(input);
-    },
-    resolveCurrent: async (input) => {
-      if (input.accountAccess.type !== "new-api-account") {
-        if (isAiscooAdminModelProviderId(normalizeAiscooModelProviderId(input.providerId)))
-          throw new AccountRequestCredentialUnavailableError(input.providerId);
-        if (input.reason === "model-request" && isBuiltinModelProviderId(input.providerId))
-          throw new Error("XCODE_LEGACY_OFFICIAL_SELECTION_RESELECT_REQUIRED");
-        return options.official.resolveCurrent(input);
-      }
-      if (input.reason !== "model-request")
-        throw new Error(
-          `XCODE_PRIVATE_${input.reason === "off-peak" ? "OFF_PEAK" : "USAGE_AUTH"}_UNSUPPORTED`,
-        );
-      if (!input.modelId) throw new AccountRequestCredentialUnavailableError(input.providerId);
-      const { owner } = await assertNative(input);
-      const credential = await options.account.getRelayCredential(owner);
-      // XCODE: await 期间可能退出、换授权或下架模型，二次检查后才能释放凭据。
-      await assertNative(input);
-      return { apiKey: credential.token };
-    },
-  };
 }
