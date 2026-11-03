@@ -19,6 +19,7 @@ import {
   ProviderRegistry,
 } from "@zcode/provider";
 import { createNewApiProviderAnchors } from "@zcode/provider-node";
+import { AISCOO_MODEL_PROVIDER_IDS } from "@zcode/shared";
 import type { CommandEnvelope } from "@zcode/shared/zcode-protocol-v4";
 import { createZCodeApp } from "../../../apps/zcode-cli/packages/bootstrap/src/app/create-app.js";
 import type { ZCodeApp } from "../../../apps/zcode-cli/packages/bootstrap/src/app/types.js";
@@ -26,10 +27,16 @@ import { V4CommandExecutor } from "../../../apps/zcode-cli/packages/bootstrap/sr
 import type { V4SessionRecordView } from "../../../apps/zcode-cli/packages/bootstrap/src/zcode-protocol-v4/commands/types.js";
 import { ProductProjection } from "../../../apps/zcode-cli/packages/bootstrap/src/zcode-protocol-v4/product-projection.js";
 import { resolveNewApiAccountProviders } from "../src/new-api/newApiAccountProviderResolution.js";
-import { catalog, entitlements, modelConfig, owner } from "./newApiRegistryFixtures.js";
+import {
+  catalog,
+  entitlements,
+  modelConfig,
+  builtinModelRules,
+  owner,
+} from "./newApiRegistryFixtures.js";
 
 const lowSelection = {
-  providerId: "account:aiscoo-openai-chat-completions",
+  providerId: AISCOO_MODEL_PROVIDER_IDS["openai-chat-completions"],
   modelId: "real-model",
   options: { reasoningLevel: "low" },
 };
@@ -111,31 +118,13 @@ for (const promotion of ["manual", "auto"] as const) {
           const native = resolveNewApiAccountProviders({
             owner: currentOwner,
             entitlements,
-            configRevision: "builtin-1",
+            configRevision: removeLow ? "builtin-2" : "builtin-1",
             catalog: {
               ...catalog,
-              catalog_revision: removeLow ? "capabilities-B" : "capabilities-A",
               models: [
                 {
                   ...catalog.models[0]!,
                   api_type: "openai-chat-completions",
-                  model_config: {
-                    ...modelConfig,
-                    properties: {
-                      ...modelConfig.properties,
-                      contextWindow: 65536,
-                      supportsToolCall: true,
-                    },
-                    optionSpecs: {
-                      ...modelConfig.optionSpecs,
-                      reasoningLevel: {
-                        values: removeLow
-                          ? ["disabled", "high", "max"]
-                          : ["disabled", "low", "high", "max"],
-                        map: 'reasoningLevel == "disabled" ? {"thinking":{"type":"disabled"},"reasoning_effort":null} : {"thinking":{"type":"enabled"},"reasoning_effort":reasoningLevel}',
-                      },
-                    },
-                  },
                 },
               ],
             },
@@ -144,10 +133,26 @@ for (const promotion of ["manual", "auto"] as const) {
             zcodeBuiltinProviders: createNewApiProviderAnchors(currentOwner.origin),
             personalProviders: ProviderConfigMap.empty(),
             personalModels: ModelConfigRules.empty(),
-            zcodeBuiltinModelRules: ModelConfigRules.empty(),
+            zcodeBuiltinModelRules: builtinModelRules({
+              ...modelConfig,
+              properties: {
+                ...modelConfig.properties,
+                contextWindow: 65536,
+                supportsToolCall: true,
+              },
+              optionSpecs: {
+                ...modelConfig.optionSpecs,
+                reasoningLevel: {
+                  values: removeLow
+                    ? ["disabled", "high", "max"]
+                    : ["disabled", "low", "high", "max"],
+                  map: 'reasoningLevel == "disabled" ? {"thinking":{"type":"disabled"},"reasoning_effort":null} : {"thinking":{"type":"enabled"},"reasoning_effort":reasoningLevel}',
+                },
+              },
+            }),
             accountProviders: native.providers,
             accountStates: native.states,
-            accountModelConfigs: native.modelConfigs,
+            accountModelPresentation: native.modelPresentation,
             accountOwner: currentOwner,
             accountRevision: native.revision,
             accountAuthorizationRevision: native.authorizationRevision,

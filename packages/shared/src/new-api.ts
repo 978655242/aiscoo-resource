@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { completeModelPropertiesDataSchema } from "./model-config.js";
 import { getAiscooDesktopIdentity } from "./aiscoo-desktop-identity/index.js";
 
 export const NEW_API_PROVIDER_ID = "new-api";
@@ -127,7 +126,6 @@ const positiveId = z.string().regex(/^[1-9]\d*$/);
 const decimal = z.string().regex(/^(0|[1-9]\d*)(\.\d+)?$/);
 const signedInteger = z.string().regex(/^(0|-?[1-9]\d*)$/);
 const milliseconds = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
-const safePositive = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const nonempty = z.string().min(1);
 const snapshot = { schema_version: z.literal(1), server_time: milliseconds };
 const resetPeriod = z.enum(["never", "daily", "weekly", "monthly", "custom"]);
@@ -252,28 +250,16 @@ export const NewApiEntitlementsSchema = z
   .strict();
 export type NewApiEntitlements = z.infer<typeof NewApiEntitlementsSchema>;
 
-// XCODE: 只校验 wire 结构，CEL 编译失败必须由目录 owner 投影成单模型 issue 而非整页丢弃。
-const modelConfig = z
-  .object({
-    enabled: z.boolean(),
-    properties: completeModelPropertiesDataSchema.extend({ contextWindow: safePositive }),
-    optionSpecs: z
-      .object({
-        reasoningLevel: z
-          .object({
-            values: z
-              .array(nonempty)
-              .min(1)
-              .refine((values) => new Set(values).size === values.length)
-              .readonly(),
-            map: z.string(),
-          })
-          .strict(),
-        maxOutputTokens: z.object({ max: safePositive, map: z.string() }).strict(),
-      })
-      .strict(),
-  })
-  .strict();
+// XCODE: 账号扩展只传展示字段；能力由上游 Built-in 与 Personal 规则唯一合成。
+export const newApiModelPresentationSchema = z.record(
+  z.string(),
+  z.record(
+    z.string(),
+    z.object({ displayName: z.string().optional(), icon: z.string().optional() }).strict(),
+  ),
+);
+export type NewApiModelPresentation = z.infer<typeof newApiModelPresentationSchema>;
+
 export const NewApiCatalogSchema = z
   .object({
     ...snapshot,
@@ -291,9 +277,11 @@ export const NewApiCatalogSchema = z
             .nullable(),
           enabled: z.boolean(),
           disabled_reason: z.string().nullable(),
-          model_config: modelConfig.nullable(),
+          // XCODE: 旧服务可返回任意兼容值，新客户端丢弃它，不能阻挡有效目录。
+          model_config: z.unknown().optional(),
         })
-        .strict(),
+        .strict()
+        .transform(({ model_config: _legacy, ...model }) => model),
     ),
   })
   .strict();

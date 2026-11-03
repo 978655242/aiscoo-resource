@@ -13,11 +13,12 @@ import {
   projectModelSelectionProviderView,
 } from "@zcode/provider";
 import { createNewApiProviderAnchors } from "@zcode/provider-node";
+import { AISCOO_MODEL_PROVIDER_IDS } from "@zcode/shared";
 import { createZCodeAgentService } from "../src/zcode-agent/zcodeAgentService.js";
 import { createZCodeAgentConnectionScope } from "../src/zcode-agent/zcodeAgentConnectionScope.js";
 import { setDataBaseDir } from "../src/paths.js";
 import { resolveNewApiAccountProviders } from "../src/new-api/newApiAccountProviderResolution.js";
-import { owner, catalog, entitlements, modelConfig } from "./newApiRegistryFixtures.js";
+import { owner, catalog, entitlements, builtinModelRules } from "./newApiRegistryFixtures.js";
 
 test(
   "Host normalizes legacy runtime auth IDs and rejects contradictory Native request identities before credential IO",
@@ -26,7 +27,7 @@ test(
     const dir = await mkdtemp(join(tmpdir(), "aiscoo-runtime-auth-identity-"));
     setDataBaseDir(dir);
     const workerPath = join(dir, "worker.mjs");
-    const canonicalId = "account:aiscoo-openai-responses";
+    const canonicalId = AISCOO_MODEL_PROVIDER_IDS["openai-responses"];
     const legacyId = "account:new-api-openai-responses";
     const selection = { providerId: canonicalId, modelId: "real-model" };
     const accountAccess = {
@@ -101,16 +102,16 @@ await connection.waitForClose();
       entitlements,
       catalog: {
         ...catalog,
-        models: [{ ...catalog.models[0]!, api_type: "openai-chat-completions" }],
+        models: [{ ...catalog.models[0]!, api_type: "openai-responses" }],
       },
     });
     const resolution = new ProviderConfigResolver().resolve({
       zcodeBuiltinProviders: createNewApiProviderAnchors(owner.origin),
       personalProviders: ProviderConfigMap.empty(),
       personalModels: ModelConfigRules.empty(),
-      zcodeBuiltinModelRules: ModelConfigRules.empty(),
+      zcodeBuiltinModelRules: builtinModelRules(),
       accountProviders: native.providers,
-      accountModelConfigs: native.modelConfigs,
+      accountModelPresentation: native.modelPresentation,
       accountStates: native.states,
     });
     const agent = createZCodeAgentService({
@@ -243,9 +244,9 @@ await connection.waitForClose();
           zcodeBuiltinProviders: createNewApiProviderAnchors(owner.origin),
           personalProviders: ProviderConfigMap.empty(),
           personalModels: ModelConfigRules.empty(),
-          zcodeBuiltinModelRules: ModelConfigRules.empty(),
+          zcodeBuiltinModelRules: builtinModelRules(),
           accountProviders: native.providers,
-          accountModelConfigs: native.modelConfigs,
+          accountModelPresentation: native.modelPresentation,
           accountStates: native.states,
         });
         const agent = createZCodeAgentService({
@@ -337,6 +338,13 @@ await connection.waitForClose();
               "v4/command",
             ],
           );
+          assert.equal("modelConfigs" in admitted[0].params, false);
+          assert.deepEqual(
+            admitted[0].params.modelPresentation[
+              AISCOO_MODEL_PROVIDER_IDS["openai-chat-completions"]
+            ]["real-model"],
+            { displayName: "Real" },
+          );
           const forwarded = admitted[3].params;
           assert.equal(forwarded.commandId, envelope.commandId);
           assert.equal(forwarded.clientId, envelope.clientId);
@@ -359,22 +367,19 @@ await connection.waitForClose();
             ],
           );
 
-          const revisions = [9000, 10000].map((contextWindow) => {
+          const revisions = ["first", "second"].map((label) => {
             const next = resolveNewApiAccountProviders({
               owner,
               entitlements,
               configRevision: "builtin-1",
               catalog: {
                 ...catalog,
-                catalog_revision: `catalog-context-${contextWindow}`,
+                catalog_revision: `catalog-${label}`,
                 models: [
                   {
                     ...catalog.models[0]!,
+                    display_name: `Queued ${label}`,
                     api_type: "openai-chat-completions",
-                    model_config: {
-                      ...modelConfig,
-                      properties: { ...modelConfig.properties, contextWindow },
-                    },
                   },
                 ],
               },

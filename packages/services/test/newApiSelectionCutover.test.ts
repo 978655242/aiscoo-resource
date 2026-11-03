@@ -116,7 +116,7 @@ test("Aiscoo selects only Chat Completions and requires reselect for hidden or o
 
 function nativeSelectionFixture(
   personalProviders = ProviderConfigMap.empty(),
-  builtinModelRules = ModelConfigRules.empty(),
+  extraBuiltinRules = ModelConfigRules.empty(),
 ) {
   const config: ProviderConfigSnapshot = {
     revision: "config-1",
@@ -126,7 +126,10 @@ function nativeSelectionFixture(
     zcodeBuiltinProviderTemplates: ProviderTemplateMap.empty(),
     personalProviders,
     personalModels: ModelConfigRules.empty(),
-    zcodeBuiltinModelRules: builtinModelRules,
+    zcodeBuiltinModelRules: new ModelConfigRules([
+      { type: "model", modelMatch: ".*", config: ModelConfig.fromData(modelConfig) },
+      ...extraBuiltinRules.rules(),
+    ]),
   };
   const native = resolveNewApiAccountProviders({
     owner,
@@ -139,13 +142,6 @@ function nativeSelectionFixture(
           ...catalog.models[0]!,
           model_id: "deepseek-v4-flash",
           api_type: "openai-chat-completions",
-          model_config: {
-            ...modelConfig,
-            optionSpecs: {
-              ...modelConfig.optionSpecs,
-              reasoningLevel: { values: ["disabled", "low"], map: "{}" },
-            },
-          },
         },
       ],
     },
@@ -161,7 +157,7 @@ function nativeSelectionFixture(
   const resolution = new ProviderConfigResolver().resolve({
     ...config,
     accountProviders: account.providers,
-    accountModelConfigs: account.modelConfigs,
+    accountModelPresentation: account.modelPresentation,
     accountStates: account.states,
   });
   const registry = { revision: 1, providers: resolution.registryProviders };

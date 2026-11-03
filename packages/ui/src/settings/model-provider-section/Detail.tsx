@@ -847,16 +847,17 @@ export function ModelProviderSectionDetail({
           })
         }
       >
-        {/* XCODE: 无执行资格时仅投影诊断列表，不把目录问题伪装成可测试或可保存的候选。 */}
-        {(modelsVisible, modelListFooter) => (
+        {/* XCODE: 设置成员只受目录授权控制；个人禁用与非法能力仍可编辑恢复，测试单独校验执行资格。 */}
+        {(modelsVisible, modelListFooter, modelRowPolicy) => (
           <InlineEditableProviderCard
             provider={
               modelsVisible ? selectedNavItem.provider : { ...selectedNavItem.provider, models: [] }
             }
             modelListFooter={modelListFooter}
+            modelRowPolicy={modelRowPolicy}
             onSave={onSave}
             {...modelEditingProps}
-            onTestModel={modelsVisible ? onTestModel : undefined}
+            onTestModel={selectedNavItem.provider.executable ? onTestModel : undefined}
             headerVisible={false}
             readOnlyEndpoints
             nameEditable={false}

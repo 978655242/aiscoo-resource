@@ -1651,30 +1651,42 @@ export function createLocalServices(options: {
   const providerConfigRuntime = createProviderConfigRuntime({
     zcodeBuiltinFilePath: options.zcodeBuiltinProviderConfigFilePath,
     ...(newApiClient ? { newApiOrigin: newApiClient.origin } : {}),
-    zcodeBuiltinEnvironment: {
-      environmentConfigRoot: resolveAppConfigDir(),
-      platform: clientConfigPlatform,
-      appVersion: ZCODE_VERSION,
-      resolveEndpointOrigin: resolveCurrentZCodeEndpointOrigin,
-      onRefreshResult: (event) => {
-        if (event.result === "updated")
-          // XCODE: 本地产品配置状态日志投影品牌，远端事件数据不改写。
-          providerConfigLog.info(
-            undefined,
-            brandProductText("XWork Built-in CDN 配置已更新"),
-            event,
-          );
-        else providerConfigLog.debug(undefined, brandProductText("XWork Built-in 刷新检查"), event);
-      },
-      fetchRelease: (endpointOrigin, signal) =>
-        fetchZCodeBuiltinRemoteRelease({
-          apiClient,
-          endpointOrigin,
-          signal,
-          appVersion: ZCODE_VERSION,
-          platform: clientConfigPlatform,
-        }),
-    },
+    // XCODE: 产品缺配置时仅保留本地规则与自配模型，不创建会回退官方的远端源。
+    zcodeBuiltinEnvironment:
+      options.accountPolicy?.newApiOrigin === null
+        ? undefined
+        : {
+            environmentConfigRoot: resolveAppConfigDir(),
+            platform: clientConfigPlatform,
+            appVersion: ZCODE_VERSION,
+            // XCODE: Built-in 复用上游下载器，产品只注入校验后的配置源，缺配置不得回退官方。
+            resolveEndpointOrigin:
+              options.accountPolicy?.resolveBuiltinEndpointOrigin ??
+              (newApiClient ? () => newApiClient.origin : resolveCurrentZCodeEndpointOrigin),
+            onRefreshResult: (event) => {
+              if (event.result === "updated")
+                // XCODE: 本地产品配置状态日志投影品牌，远端事件数据不改写。
+                providerConfigLog.info(
+                  undefined,
+                  brandProductText("XWork Built-in CDN 配置已更新"),
+                  event,
+                );
+              else
+                providerConfigLog.debug(
+                  undefined,
+                  brandProductText("XWork Built-in 刷新检查"),
+                  event,
+                );
+            },
+            fetchRelease: (endpointOrigin, signal) =>
+              fetchZCodeBuiltinRemoteRelease({
+                apiClient,
+                endpointOrigin,
+                signal,
+                appVersion: ZCODE_VERSION,
+                platform: clientConfigPlatform,
+              }),
+          },
     onZCodeBuiltinRefreshError: (error) => {
       // XCODE: 静态日志标题消费品牌，错误对象保留来源信息。
       providerConfigLog.warn(undefined, brandProductText("XWork Built-in Config 远端刷新失败"), {

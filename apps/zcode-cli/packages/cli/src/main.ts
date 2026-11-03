@@ -65,7 +65,8 @@ async function main(): Promise<void> {
       return;
     }
     if (argv[0] !== STORAGE_MIGRATION_COMMAND && !argv.includes("--prepare-storage")) {
-      const { prepareCliProviderRuntimeEnv } = await import("./provider-runtime-env.js");
+      // XCODE: 产品在装配点选择 Built-in 源与缓存，不改变通用 CLI 的官方默认地址。
+      const { prepareAiscooProviderRuntimeEnv: prepareCliProviderRuntimeEnv } = await import("./aiscoo/provider-runtime-env.js");
       Object.assign(
         process.env,
         await prepareCliProviderRuntimeEnv({

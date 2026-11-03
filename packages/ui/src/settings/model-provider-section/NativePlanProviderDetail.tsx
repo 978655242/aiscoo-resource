@@ -7,6 +7,7 @@ import { ZCodeAboutLogo } from "@/components/ui/ZCodeAboutLogo.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import type { NativePlanSettingsRead } from "@/hooks/useNativePlanSettings.js";
 import type { ProviderSettingsFormProvider } from "@/lib/providerSettingsFormTypes.js";
+import type { ProviderModelRowPolicy } from "./ProviderCardSections.js";
 import {
   formatQuotaRemainingPercentage,
   getQuotaRemainingPercentage,
@@ -20,6 +21,15 @@ import {
   getNativePlanReferenceOffers,
 } from "./nativePlanSettingsPresentation.js";
 
+// 目录成员可编辑不代表可执行；只用 Registry 投影决定测试和真实容量展示。
+const nativeModelRowPolicy: ProviderModelRowPolicy = {
+  canTest: (model) => model.executable,
+  showContextWindow: (model) => {
+    const value = model.config.properties?.contextWindow;
+    return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+  },
+};
+
 // XCODE: 保留原版套餐详情的呈现，仅消费 Native 事实，不套用官方支付或额度语义。
 export function NativePlanProviderDetail({
   provider,
@@ -32,7 +42,11 @@ export function NativePlanProviderDetail({
   read: NativePlanSettingsRead;
   onOpenPlans: () => void;
   catalogIssues?: readonly NewApiCatalogIssue[];
-  children?: (modelsVisible: boolean, modelListFooter: ReactNode) => ReactNode;
+  children?: (
+    modelsVisible: boolean,
+    modelListFooter: ReactNode,
+    modelRowPolicy: ProviderModelRowPolicy,
+  ) => ReactNode;
 }) {
   const { intl, locale } = useZCodeIntl();
   const snapshot = read.snapshot;
@@ -48,7 +62,13 @@ export function NativePlanProviderDetail({
           ? "settings.modelProvider.codingPlan.status.notPurchased"
           : `settings.usage.nativeAuthorization.${snapshot?.entitlement.status ?? "unassigned"}`;
   const offers = getNativePlanReferenceOffers(snapshot?.plans ?? []);
-  const modelsVisible = snapshot?.entitlement.status === "active" && provider.executable;
+  // XCODE: 目录授权决定设置成员；个人禁用或能力校验失败不能隐藏最后一行及其恢复开关。
+  const modelsVisible =
+    read.connected &&
+    snapshot?.entitlement.status === "active" &&
+    provider.config.access?.type === "new-api-account" &&
+    provider.config.access.entitled === true &&
+    provider.accountState?.current === true;
   // XCODE: 全异常时 provider 不可执行仍须展示原因；诊断只追加只读行，不补 metadata 或 model ref。
   const modelListFooter = catalogIssues?.length
     ? catalogIssues.map((issue) => (
@@ -214,7 +234,9 @@ export function NativePlanProviderDetail({
           description={intl.formatMessage({ id: "settings.modelProvider.native.teamUnsupported" })}
           disabled
         />
-        {modelsVisible || modelListFooter ? children?.(modelsVisible, modelListFooter) : null}
+        {modelsVisible || modelListFooter
+          ? children?.(modelsVisible, modelListFooter, nativeModelRowPolicy)
+          : null}
       </div>
     </div>
   );

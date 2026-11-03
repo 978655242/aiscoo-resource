@@ -26,7 +26,7 @@ export type AccountProviderResolver = (
 ) => Promise<
   { readonly providers: ProviderConfigMap; readonly states: AccountProviderStates } & Pick<
     AccountProviderConfigSnapshot,
-    "modelConfigs" | "catalogIssues" | "owner" | "catalogRevision" | "authorizationRevision"
+    "modelPresentation" | "catalogIssues" | "owner" | "catalogRevision" | "authorizationRevision"
   > & { readonly revision?: string }
 >;
 
@@ -117,7 +117,7 @@ export class AccountProviderService implements ProviderSource<AccountProviderCon
       ),
       {
         owner: null,
-        modelConfigs: {},
+        modelPresentation: {},
         catalogIssues: [],
         revision: `${snapshot.revision}:native-invalidated:${ownerChanged ? "primary" : "catalog"}`,
       },

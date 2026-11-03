@@ -202,9 +202,9 @@ export function createNewApiAccountRequestAuthResolver(options: {
       providerAccess?.type !== "new-api-account" ||
       providerAccess.entitled !== true ||
       snapshot.states?.[providerId]?.current !== true ||
+      // XCODE: 用规范身份核对授权目录；个人能力变更不撤销已冻结的 turn。
       (input.modelId !== undefined &&
-        (!snapshot.providers.get(providerId)?.builtinModelIds?.includes(input.modelId) ||
-          snapshot.modelConfigs?.[providerId]?.[input.modelId]?.enabled !== true))
+        !snapshot.providers.get(providerId)?.builtinModelIds?.includes(input.modelId))
     ) {
       throw new AccountRequestCredentialUnavailableError(input.providerId);
     }

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ProviderConfigMap, createAccountProviderConfigSnapshot } from "@zcode/provider";
+import { ProviderConfigMap, ModelConfig, ModelConfigRules, createAccountProviderConfigSnapshot } from "@zcode/provider";
 import {
   ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV,
   ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV,
@@ -131,7 +131,7 @@ describe("托管 Worker 账号交付", () => {
     expect(started.runtime.registryService.getSnapshot()?.account.revision).toBe(next.revision);
   });
 
-  it("Native 完整能力与 owner 同一快照应用，缺失能力或 current 时失败关闭", async () => {
+  it("Native 展示与 owner 同快照应用，能力只使用配套 Built-in，缺 current 时失败关闭", async () => {
     const origin = "http://127.0.0.1:3001";
     const started = await startRuntime({ AISCOO_ADMIN_BASE_URL: origin });
     const providerId = AISCOO_MODEL_PROVIDER_IDS["anthropic-messages"];
@@ -158,11 +158,16 @@ describe("托管 Worker 账号交付", () => {
         [providerId]: { availability: "available", entitled: true, current: true },
       },
       owner,
-      modelConfigs: { [providerId]: { [modelId]: modelConfig } },
+      modelPresentation: { [providerId]: { [modelId]: { displayName: "Native" } } },
       catalogIssues: [],
       catalogRevision: "catalog-1",
       authorizationRevision: "authorization-1",
     };
+    const config = await started.runtime.configService.read();
+    vi.spyOn(started.runtime.configService, "read").mockResolvedValue({
+      ...config, revision: "config-with-native-rules",
+      zcodeBuiltinModelRules: new ModelConfigRules([{ type: "provider-model", providerId, modelId, config: ModelConfig.fromData(modelConfig) }]),
+    });
     const snapshot = parseProcessAccountProviderConfigSnapshot(envelope);
     await expect(started.syncAccountProviderConfig(snapshot)).resolves.toMatchObject({
       appliedRevision: envelope.revision,
@@ -170,14 +175,14 @@ describe("托管 Worker 账号交付", () => {
     const applied = started.runtime.registryService.getSnapshot();
     expect(applied?.sourceRevisions.account).toBe(envelope.revision);
     expect(applied?.account.owner).toEqual(owner);
-    expect(applied?.account.modelConfigs).toEqual(envelope.modelConfigs);
+    expect(applied?.account.modelPresentation).toEqual(envelope.modelPresentation);
     expect(applied?.account.authorizationRevision).toBe("authorization-1");
     expect(started.runtime.registryService.getModel(providerId, modelId)?.config.toJSON()).toEqual(
       modelConfig,
     );
     expect(() =>
-      parseProcessAccountProviderConfigSnapshot({ ...envelope, modelConfigs: {} }),
-    ).toThrow("Native complete model config missing");
+      parseProcessAccountProviderConfigSnapshot({ ...envelope, modelPresentation: { [providerId]: { [modelId]: modelConfig } } }),
+    ).toThrow();
     expect(() =>
       parseProcessAccountProviderConfigSnapshot({
         ...envelope,

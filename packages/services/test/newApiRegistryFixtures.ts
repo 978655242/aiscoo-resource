@@ -1,4 +1,9 @@
-import { NewApiCatalogSchema, NewApiEntitlementsSchema } from "@zcode/shared";
+import {
+  AISCOO_MODEL_PROVIDER_IDS,
+  NewApiCatalogSchema,
+  NewApiEntitlementsSchema,
+} from "@zcode/shared";
+import { ModelConfig, ModelConfigRules } from "@zcode/provider";
 export const owner = {
   origin: "http://127.0.0.1:3001",
   userId: "42",
@@ -28,6 +33,17 @@ export const modelConfig = {
     maxOutputTokens: { max: 1024, map: '{"max_tokens": maxOutputTokens}' },
   },
 };
+// 集中配置通过真实 Built-in 规则构造，不从账号目录复制能力。
+export function builtinModelRules(config = modelConfig) {
+  return new ModelConfigRules(
+    Object.values(AISCOO_MODEL_PROVIDER_IDS).map((providerId) => ({
+      type: "provider-model" as const,
+      providerId,
+      modelId: "real-model",
+      config: ModelConfig.fromData(config),
+    })),
+  );
+}
 export const entitlements = NewApiEntitlementsSchema.parse({
   schema_version: 1,
   server_time: 1,
@@ -63,7 +79,6 @@ export const catalog = NewApiCatalogSchema.parse({
       api_type: "openai-responses",
       enabled: true,
       disabled_reason: null,
-      model_config: modelConfig,
     },
     {
       model_id: "unconfigured",
@@ -71,21 +86,13 @@ export const catalog = NewApiCatalogSchema.parse({
       api_type: null,
       enabled: false,
       disabled_reason: "XCODE_MODEL_CONFIG_MISSING",
-      model_config: null,
     },
     {
       model_id: "bad-cel",
       display_name: "Bad CEL",
       api_type: "anthropic-messages",
-      enabled: true,
-      disabled_reason: null,
-      model_config: {
-        ...modelConfig,
-        optionSpecs: {
-          ...modelConfig.optionSpecs,
-          reasoningLevel: { values: ["none"], map: "not valid CEL (" },
-        },
-      },
+      enabled: false,
+      disabled_reason: "XCODE_MODEL_DISABLED",
     },
   ],
 });

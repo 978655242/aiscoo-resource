@@ -15,7 +15,7 @@ import { createNewApiAccountRequestAuthResolver } from "../../services/src/model
 import {
   catalog,
   entitlements,
-  modelConfig,
+  builtinModelRules,
   owner as fixtureOwner,
 } from "../../services/test/newApiRegistryFixtures.js";
 import {
@@ -32,7 +32,6 @@ const browserCatalog = {
     {
       ...catalog.models[0]!,
       api_type: "openai-chat-completions" as const,
-      model_config: modelConfig,
     },
   ],
 };
@@ -85,7 +84,7 @@ async function fixture() {
     zcodeBuiltinProviders: createNewApiProviderAnchors(owner.origin),
     zcodeBuiltinProviderTemplates: ProviderTemplateMap.empty(),
     personalProviders: ProviderConfigMap.empty(),
-    zcodeBuiltinModelRules: ModelConfigRules.empty(),
+    zcodeBuiltinModelRules: builtinModelRules(),
     personalModels: ModelConfigRules.empty(),
   };
   const configSource = { read: async () => config, onDidChange: () => () => {} };

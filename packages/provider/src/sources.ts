@@ -7,24 +7,12 @@ import {
   type ModelConfigRules,
 } from "./config/index.js";
 import type { AccountProviderStates } from "./account-provider-state.js";
-import type { z } from "zod";
-import type { completeModelConfigDataSchema } from "@zcode/shared/model-config";
-import type { NewApiOwner } from "@zcode/shared/new-api";
+import type { NewApiOwner, NewApiModelPresentation } from "@zcode/shared/new-api";
 import type { NewApiCatalogIssue } from "@zcode/shared/model-provider-types";
 
-export type AccountModelConfigs = Readonly<
-  Record<
-    string,
-    Readonly<
-      Record<
-        string,
-        z.infer<typeof completeModelConfigDataSchema> & {
-          readonly displayName?: string;
-          readonly icon?: string;
-        }
-      >
-    >
-  >
+// XCODE: 账号只补充名称/图标，不能成为第二份模型能力配置。
+export type AccountModelPresentation = Readonly<
+  Record<string, Readonly<Record<string, Readonly<NewApiModelPresentation[string][string]>>>>
 >;
 
 export interface ProviderSource<TSnapshot> {
@@ -49,7 +37,7 @@ export interface AccountProviderConfigSnapshot {
   readonly basedOnZCodeBuiltinRevision: string;
   readonly providers: ProviderConfigMap;
   readonly states?: AccountProviderStates;
-  readonly modelConfigs?: AccountModelConfigs;
+  readonly modelPresentation?: AccountModelPresentation;
   readonly catalogIssues?: readonly NewApiCatalogIssue[];
   readonly catalogRevision?: string;
   readonly authorizationRevision?: string;
@@ -81,7 +69,7 @@ export function createFailClosedAccountProviderConfigSnapshot(
     config.zcodeBuiltinRevision,
     unentitledProviders,
     undefined,
-    { owner: null, modelConfigs: {}, catalogIssues: [] },
+    { owner: null, modelPresentation: {}, catalogIssues: [] },
   );
 }
 
@@ -91,7 +79,7 @@ export function createAccountProviderConfigSnapshot(
   states?: AccountProviderStates,
   details: Pick<
     AccountProviderConfigSnapshot,
-    "modelConfigs" | "catalogIssues" | "owner" | "catalogRevision" | "authorizationRevision"
+    "modelPresentation" | "catalogIssues" | "owner" | "catalogRevision" | "authorizationRevision"
   > & { readonly revision?: string } = {},
 ): AccountProviderConfigSnapshot {
   const { revision, ...snapshotDetails } = details;
@@ -160,7 +148,7 @@ function freezeAccountProviderConfigSnapshot(
     basedOnZCodeBuiltinRevision: snapshot.basedOnZCodeBuiltinRevision,
     providers: snapshot.providers,
     ...(snapshot.states ? { states: snapshot.states } : {}),
-    ...(snapshot.modelConfigs ? { modelConfigs: snapshot.modelConfigs } : {}),
+    ...(snapshot.modelPresentation ? { modelPresentation: snapshot.modelPresentation } : {}),
     ...(snapshot.catalogIssues ? { catalogIssues: snapshot.catalogIssues } : {}),
     ...(snapshot.owner !== undefined ? { owner: snapshot.owner } : {}),
     ...(snapshot.catalogRevision ? { catalogRevision: snapshot.catalogRevision } : {}),

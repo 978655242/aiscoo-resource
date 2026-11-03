@@ -23,7 +23,7 @@ import {
 } from "./config/index.js";
 import { resolveOwnedOrder } from "./owned-order.js";
 import type { AccountProviderStates } from "./account-provider-state.js";
-import type { AccountModelConfigs } from "./sources.js";
+import type { AccountModelPresentation } from "./sources.js";
 import type { NewApiOwner } from "@zcode/shared/new-api";
 
 export type RegistryZhipuAccountAccessConfig = ZhipuAccountAccessConfig &
@@ -141,7 +141,7 @@ export interface ProviderConfigResolverInput {
   readonly personalModels: ModelConfigRules;
   readonly accountProviders: ProviderConfigMap;
   readonly accountStates?: AccountProviderStates;
-  readonly accountModelConfigs?: AccountModelConfigs;
+  readonly accountModelPresentation?: AccountModelPresentation;
   readonly accountOwner?: NewApiOwner | null;
   readonly accountRevision?: string;
   readonly accountAuthorizationRevision?: string;
@@ -314,28 +314,22 @@ export class ProviderConfigResolver {
       const providerExecutable =
         enabled && accessEntitled && accountCurrent && providerIssues.length === 0;
       const models = orderedModelIds.map((modelId): ResolvedProviderModel => {
-        const { displayName, icon, ...nativeConfig } =
-          input.accountModelConfigs?.[providerId]?.[modelId] ?? {};
-        const modelConfig =
-          config.access?.type === "new-api-account"
-            ? ModelConfig.fromData(nativeConfig)
-            : effectiveModelRules.resolve({
-                providerId,
-                templateId,
-                modelId,
-                apiType: config.api?.type,
-                baseUrl: config.api?.baseUrl,
-              });
-        const effectiveBuiltinConfig =
-          config.access?.type === "new-api-account"
-            ? modelConfig
-            : input.zcodeBuiltinModelRules.resolve({
-                providerId,
-                templateId,
-                modelId,
-                apiType: config.api?.type,
-                baseUrl: config.api?.baseUrl,
-              });
+        // XCODE: 目录只提供展示；所有模型恢复上游 Built-in → Personal 的同一规则路径。
+        const { displayName, icon } = input.accountModelPresentation?.[providerId]?.[modelId] ?? {};
+        const modelConfig = effectiveModelRules.resolve({
+          providerId,
+          templateId,
+          modelId,
+          apiType: config.api?.type,
+          baseUrl: config.api?.baseUrl,
+        });
+        const effectiveBuiltinConfig = input.zcodeBuiltinModelRules.resolve({
+          providerId,
+          templateId,
+          modelId,
+          apiType: config.api?.type,
+          baseUrl: config.api?.baseUrl,
+        });
         const registryModelResult = createRegistryModelConfig(modelConfig, [
           ...providerPath,
           "models",
