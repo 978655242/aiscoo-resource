@@ -7,7 +7,6 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   AccountProviderService,
-  ModelConfigRules,
   ProviderConfigMap,
   ProviderRegistryService,
   ProviderTemplateMap,
@@ -25,7 +24,7 @@ import { NewApiClient } from "../../services/src/new-api/newApiClient.js";
 import {
   catalog,
   entitlements,
-  modelConfig,
+  builtinModelRules,
   owner as fixtureOwner,
 } from "../../services/test/newApiRegistryFixtures.js";
 import {
@@ -48,7 +47,6 @@ it("browser QueuePair authority authorizes a real CLI model HTTP request through
       {
         ...catalog.models[0]!,
         api_type: "openai-chat-completions" as const,
-        model_config: modelConfig,
       },
     ],
   };
@@ -115,7 +113,7 @@ it("browser QueuePair authority authorizes a real CLI model HTTP request through
       config: {
         providers: ProviderConfigMap.empty(),
         providerTemplates: ProviderTemplateMap.empty(),
-        modelConfigRules: ModelConfigRules.empty(),
+        modelConfigRules: builtinModelRules(),
       },
     }),
   );

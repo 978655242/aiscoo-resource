@@ -347,12 +347,19 @@ function createEmptyModel(): ProviderSettingsFormModel {
   };
 }
 
+// XCODE: 可选逐行策略供下游约束操作与展示；未注入时沿用上游默认行为。
+export interface ProviderModelRowPolicy {
+  readonly canTest?: (model: ProviderSettingsFormModel) => boolean;
+  readonly showContextWindow?: (model: ProviderSettingsFormModel) => boolean;
+}
+
 export function ProviderModelsSection({
   providerId,
   providerName,
   providerEnabled = true,
   providerAccess,
   models,
+  modelRowPolicy,
   onTestModel,
   onModelCommit,
   onModelEnabledChange,
@@ -367,6 +374,7 @@ export function ProviderModelsSection({
   providerEnabled?: boolean;
   providerAccess?: ProviderConfigObject["access"];
   models: ProviderSettingsFormModel[];
+  modelRowPolicy?: ProviderModelRowPolicy;
   onTestModel?: (model: string) => Promise<ModelConnectivityResult>;
   onModelCommit: (
     originalModelId: string,
@@ -511,6 +519,7 @@ export function ProviderModelsSection({
                 outputFormat?.supportsText != null;
               return (
                 <>
+                  {/* XCODE: 逐行策略由外层注入，未提供策略时保留原测试和容量展示。 */}
                   <ModelRowInput
                     key={`${providerId}/${model.modelId}`}
                     providerId={providerId}
@@ -538,17 +547,18 @@ export function ProviderModelsSection({
                         : undefined
                     }
                     onEnabledChange={
-                      providerAccess?.type === "new-api-account"
-                        ? undefined
-                        : (enabled) => {
-                            void Promise.resolve(
-                              onModelEnabledChange?.(model.modelId, enabled),
-                            ).catch(() => undefined);
-                          }
+                      // XCODE: 个人启停复用上游写入路径，不改变托管目录成员或账号授权。
+                      (enabled) => {
+                        void Promise.resolve(onModelEnabledChange?.(model.modelId, enabled)).catch(
+                          () => undefined,
+                        );
+                      }
                     }
-                    onTest={onTestModel}
+                    onTest={modelRowPolicy?.canTest?.(model) === false ? undefined : onTestModel}
+                    showContextWindow={modelRowPolicy?.showContextWindow?.(model)}
                   />
-                  {!completeProperties && (
+                  {/* XCODE: 集中规则的表达式也可能无效；字段齐全时仍保留行内原因供编辑恢复。 */}
+                  {(!completeProperties || Boolean(model.issues?.length)) && (
                     <div className="px-3 pb-2 text-ui-sm text-destructive">
                       {model.issues?.[0]?.message ??
                         intl.formatMessage({ id: "settings.modelProvider.modelConfigIncomplete" })}

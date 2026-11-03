@@ -36,16 +36,15 @@ import { accountProviderUnavailableReasonSchema } from "../account-provider-stat
 import { bashOutputDisplaySchema } from "../bash-output-display.js";
 import { zcodeAutomationBotDeliveryTargetSchema } from "../bots.js";
 import { executionOutputPreviewSchema } from "../execution-output-preview.js";
-import {
-  completeModelPropertiesDataSchema,
-  completeModelConfigDataSchema,
-} from "../model-config.js";
+import { completeModelPropertiesDataSchema } from "../model-config.js";
 import {
   newApiCatalogIssueSchema,
   newApiRegistryOwnerSchema,
   // XCODE: 请求外层 Provider 与内层 ModelSelection 使用相同的旧身份迁移。
   normalizeAiscooModelProviderId,
 } from "../model-provider-types.js";
+// XCODE: 账号展示扩展独立于上游模型能力协议，拒绝混入能力或秘密字段。
+import { newApiModelPresentationSchema } from "../new-api.js";
 import { modelExecutionSchema } from "../model-execution.js";
 export type { ModelExecutionSelectionFallback } from "../model-execution.js";
 export * from "../off-peak-execution.js";
@@ -2642,18 +2641,8 @@ export const zcodeProviderUpdateAccountConfigParamsSchema = z
     // Provider Config 的字段校验由 @zcode/provider 负责；协议层只约束可传输信封。
     providers: z.record(z.string(), z.unknown()),
     owner: newApiRegistryOwnerSchema.nullable().optional(),
-    modelConfigs: z
-      .record(
-        z.string(),
-        z.record(
-          z.string(),
-          completeModelConfigDataSchema.extend({
-            displayName: z.string().optional(),
-            icon: z.string().optional(),
-          }),
-        ),
-      )
-      .optional(),
+    // XCODE: Worker 仅收目录展示；能力跟随 basedOnZCodeBuiltinRevision 的原配置源。
+    modelPresentation: newApiModelPresentationSchema.optional(),
     catalogIssues: z.array(newApiCatalogIssueSchema).readonly().optional(),
     catalogRevision: z.string().min(1).optional(),
     authorizationRevision: z.string().min(1).optional(),

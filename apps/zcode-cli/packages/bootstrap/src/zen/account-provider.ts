@@ -4,7 +4,7 @@ import {
   ProviderConfig,
   ProviderConfigMap,
   type AccountProviderStates,
-  type AccountModelConfigs,
+  type AccountModelPresentation,
 } from "@zcode/provider";
 import {
   NEW_API_MODEL_PROVIDER_IDS,
@@ -13,9 +13,8 @@ import {
   type NewApiCatalog,
   type NewApiCatalogIssue,
 } from "@zcode/shared";
-import { completeModelConfigDataSchema } from "@zcode/shared/model-config";
 
-// XCODE: CLI 套餐目录只投影 canonical 的完整模型配置，不能合成个人 API Key 或自动迁移旧模型。
+// XCODE: CLI 套餐目录只投影 canonical 的成员与展示字段，不能合成个人 API Key 或自动迁移旧模型。
 export function resolveZenAccountProviders(input: {
   owner: NewApiOwner | null;
   entitlements?: NewApiEntitlements;
@@ -31,31 +30,29 @@ export function resolveZenAccountProviders(input: {
     throw new Error("XCODE_AUTHORIZATION_REVISION_MISMATCH");
   const entitled =
     owner !== null && entitlements?.status === "active" && entitlements.subscription !== null;
-  const modelConfigs: Record<string, Record<string, AccountModelConfigs[string][string]>> = {};
+  const modelPresentation: Record<string, Record<string, AccountModelPresentation[string][string]>> = {};
   const catalogIssues: NewApiCatalogIssue[] = [];
   const ids: Record<string, string[]> = {};
   const seen = new Set<string>();
   for (const id of Object.values(NEW_API_MODEL_PROVIDER_IDS)) {
     ids[id] = [];
-    modelConfigs[id] = Object.create(null);
+    modelPresentation[id] = Object.create(null);
   }
   for (const model of owner ? (catalog?.models ?? []) : []) {
     if (seen.has(model.model_id)) throw new Error("XCODE_DUPLICATE_CATALOG_MODEL");
     seen.add(model.model_id);
-    const parsed = completeModelConfigDataSchema.safeParse(model.model_config);
-    if (!model.api_type || !parsed.success || !model.enabled || !parsed.data.enabled) {
+    if (!model.api_type || !model.enabled) {
       catalogIssues.push({
         source: "new-api",
         modelId: model.model_id,
         displayName: model.display_name,
-        code: model.disabled_reason?.trim() || "XCODE_MODEL_CONFIG_INVALID",
+        code: model.disabled_reason?.trim() || (!model.enabled ? "XCODE_MODEL_DISABLED" : "XCODE_MODEL_CONFIG_MISSING"),
       });
       continue;
     }
     const id = NEW_API_MODEL_PROVIDER_IDS[model.api_type];
     ids[id]!.push(model.model_id);
-    modelConfigs[id]![model.model_id] = {
-      ...parsed.data,
+    modelPresentation[id]![model.model_id] = {
       displayName: model.display_name,
       ...(model.icon ? { icon: model.icon } : {}),
     };
@@ -85,7 +82,7 @@ export function resolveZenAccountProviders(input: {
     providers,
     states,
     owner,
-    modelConfigs,
+    modelPresentation,
     catalogIssues,
     catalogRevision: catalog?.catalog_revision,
     authorizationRevision: entitlements?.authorization_revision,

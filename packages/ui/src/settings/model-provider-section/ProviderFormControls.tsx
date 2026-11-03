@@ -55,6 +55,7 @@ export function ModelRowInput({
   onDelete,
   onEnabledChange,
   onTest,
+  showContextWindow = true,
 }: {
   model: ProviderSettingsFormModel;
   providerId: string;
@@ -72,6 +73,8 @@ export function ModelRowInput({
   onDelete?: () => void;
   onEnabledChange?: (enabled: boolean) => void;
   onTest?: (model: string) => Promise<ModelConnectivityResult>;
+  /** XCODE: 可选行展示策略；缺省保持上游容量显示。 */
+  showContextWindow?: boolean;
 }) {
   const { intl, locale } = useZCodeIntl();
   const { showFeedback } = useProviderDetailFeedback();
@@ -275,13 +278,16 @@ export function ModelRowInput({
       <div className="flex items-center gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <ModelRowIdentity model={model} inputTestId={inputTestId} />
-          <span
-            className="inline-flex h-5 max-w-20 shrink-0 items-center truncate rounded-md border border-border bg-surface px-1.5 font-mono text-ui-sm text-foreground-subtle"
-            aria-label={contextWindowAccessibleLabel}
-            title={contextWindowAccessibleLabel}
-          >
-            {contextWindowLabel}
-          </span>
+          {/* XCODE: 调用方可隐藏不适用的容量，默认呈现保持上游行为。 */}
+          {showContextWindow ? (
+            <span
+              className="inline-flex h-5 max-w-20 shrink-0 items-center truncate rounded-md border border-border bg-surface px-1.5 font-mono text-ui-sm text-foreground-subtle"
+              aria-label={contextWindowAccessibleLabel}
+              title={contextWindowAccessibleLabel}
+            >
+              {contextWindowLabel}
+            </span>
+          ) : null}
           {shouldShowModelVisionBadge(
             model.modelId,
             model.config.properties?.inputFormat?.supportsImage,
@@ -310,36 +316,35 @@ export function ModelRowInput({
             {testIcon}
           </Button>
         ) : null}
-        {providerAccess?.type !== "new-api-account" ? (
-          <ProviderModelMetadataDialog
-            onRestore={() => {
-              setDraftErrorField(null);
-              setCommitErrorMessage(null);
-              void editor
-                .restore()
-                .catch((error) =>
-                  setCommitErrorMessage(error instanceof Error ? error.message : String(error)),
-                );
-            }}
-            mode="edit"
-            open={metadataDialogOpen}
-            draft={draft}
-            draftErrorMessage={draftErrorMessage}
-            draftErrorField={draftErrorField}
-            overrideFields={editor.overrides}
-            inheritedConfig={editor.inheritedConfig}
-            onOpenChange={handleMetadataDialogOpenChange}
-            onDraftChange={updateDraft}
-            onCommit={handleMetadataDialogCommit}
-            saving={metadataSaving}
-            modelConfigResolutionPending={editor.pending}
-            modelDefaultsLoaded={editor.defaultsLoaded}
-            onModelIdBlur={() => {
-              void editor.flush().catch(() => undefined);
-            }}
-            modelIdReadOnly={model.builtin}
-          />
-        ) : null}
+        {/* XCODE: 托管成员恢复上游个人能力编辑，模型 ID 仍由 builtin 归属锁定。 */}
+        <ProviderModelMetadataDialog
+          onRestore={() => {
+            setDraftErrorField(null);
+            setCommitErrorMessage(null);
+            void editor
+              .restore()
+              .catch((error) =>
+                setCommitErrorMessage(error instanceof Error ? error.message : String(error)),
+              );
+          }}
+          mode="edit"
+          open={metadataDialogOpen}
+          draft={draft}
+          draftErrorMessage={draftErrorMessage}
+          draftErrorField={draftErrorField}
+          overrideFields={editor.overrides}
+          inheritedConfig={editor.inheritedConfig}
+          onOpenChange={handleMetadataDialogOpenChange}
+          onDraftChange={updateDraft}
+          onCommit={handleMetadataDialogCommit}
+          saving={metadataSaving}
+          modelConfigResolutionPending={editor.pending}
+          modelDefaultsLoaded={editor.defaultsLoaded}
+          onModelIdBlur={() => {
+            void editor.flush().catch(() => undefined);
+          }}
+          modelIdReadOnly={model.builtin}
+        />
         {onDelete ? (
           <Button
             type="button"

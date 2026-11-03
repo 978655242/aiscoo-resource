@@ -13,6 +13,7 @@ import {
   IOffPeakTaskService,
   ICredentialService,
   IModelSelectionService,
+  IProviderSettingsService,
 } from "../src/index.js";
 import type { LocalCredentialService } from "../src/credential/credentialService.js";
 
@@ -137,11 +138,8 @@ for (const adminBaseUrl of [undefined, "", "  ", "http://untrusted.example", "no
         supported: false,
         reason: "jwt_missing",
       });
-      // XCODE: Built-in 公开配置刷新复用原启动行为；账号/官方能力的探测不能增加请求。
-      assert.ok(
-        networkRequests.every((url) => /\/client\/configs(?:\?|$)/.test(url)),
-        networkRequests.join("\n"),
-      );
+      // XCODE: 缺少合法管理端源时只读本地 Built-in，自配模型不受影响且不探测官方源。
+      assert.deepEqual(networkRequests, []);
       assert.equal(await readFile(credentialsFile, "utf8"), historical);
     } finally {
       await disposeServiceResourcesAndWait(services);
@@ -296,6 +294,71 @@ test("Aiscoo policy keeps the existing configured PKCE owner and unrelated crede
       false,
     );
   } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test("Aiscoo Host downloads standard Built-in Releases only from its validated admin source", async () => {
+  const home = await mkdtemp(join(tmpdir(), "aiscoo-host-builtin-"));
+  const savedEnv = { ...process.env };
+  Object.assign(process.env, {
+    HOME: home,
+    USERPROFILE: home,
+    ZCODE_DATA_BASE_DIR: home,
+    ZCODE_DESKTOP_HOME_DIR: home,
+    ZCODE_SETTINGS_FILE_PATH: join(home, "setting.json"),
+  });
+  const { createAiscooAccountPolicy } = await import("../src/aiscoo-account-policy/index.js");
+  const { createLocalServices, disposeServiceResourcesAndWait, setDataBaseDir } =
+    await import("../src/node.js");
+  const builtinPath = new URL("../../../config/provider/zcode-builtin.json", import.meta.url);
+  const release = JSON.parse(await readFile(builtinPath, "utf8"));
+  release.revision += 1;
+  const origin = "https://admin.example";
+  const requests: URL[] = [];
+  setDataBaseDir(home);
+  const services = createLocalServices({
+    accountPolicy: createAiscooAccountPolicy({ adminBaseUrl: `${origin}/` }),
+    serviceAuthorityMode: "desktop-local",
+    zcodeBuiltinProviderConfigFilePath: builtinPath.pathname,
+    runtimeProcessEnvPatch: { PATH: process.env.PATH ?? "" },
+    hostApiNetworkTransport: {
+      fetch: async (input, init) => {
+        const url = new URL(String(input));
+        requests.push(url);
+        assert.equal(url.origin, origin);
+        assert.equal(new Headers(init?.headers).has("Authorization"), false);
+        assert.equal(init?.credentials, "omit");
+        return Response.json(
+          url.pathname === "/api/v1/client/configs"
+            ? {
+                code: 0,
+                data: {
+                  configs: {
+                    builtin_provider_config_json: `${origin}/builtin/releases/${release.revision}`,
+                  },
+                },
+              }
+            : release,
+        );
+      },
+      dispose() {},
+      async disposeAndWait() {},
+    },
+    zcodeAgentCommandResolver: () => null,
+  });
+  try {
+    await services.get(IProviderSettingsService).refresh("centralized-source-test");
+    assert.ok(requests.some((url) => url.pathname === "/api/v1/client/configs"));
+    assert.ok(requests.some((url) => url.pathname === `/builtin/releases/${release.revision}`));
+    const configRequest = requests.find((url) => url.pathname === "/api/v1/client/configs")!;
+    assert.ok(configRequest.searchParams.get("app_version"));
+    assert.ok(configRequest.searchParams.get("platform"));
+  } finally {
+    await disposeServiceResourcesAndWait(services);
+    setDataBaseDir(null);
+    for (const key of Object.keys(process.env)) if (!(key in savedEnv)) delete process.env[key];
+    Object.assign(process.env, savedEnv);
     await rm(home, { recursive: true, force: true });
   }
 });

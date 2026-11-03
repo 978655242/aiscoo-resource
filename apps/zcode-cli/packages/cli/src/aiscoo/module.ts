@@ -4,7 +4,7 @@
  */
 export const cliAiscooModule = {
   id: "cli-aiscoo",
-  requires: ["cli-arguments", "cli-sea-keyring", "zcode-cli", "cli-aiscoo-brand"],
+  requires: ["cli-arguments", "cli-sea-keyring", "zcode-cli", "cli-aiscoo-brand", "shared"],
   provides: ["cli-aiscoo"],
-  publicEntrypoints: ["index.ts", "contract.ts"],
+  publicEntrypoints: ["index.ts", "contract.ts", "provider-runtime-env.ts"],
 } as const;

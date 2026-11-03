@@ -211,6 +211,7 @@ export function createAiscooAccountPolicy(
   const unavailableAccount = createUnavailableAccount();
   return Object.freeze({
     newApiOrigin,
+    resolveBuiltinEndpointOrigin: () => newApiOrigin ?? rejectConfiguration(),
     allowOfficialCloud: false,
     createUnavailableAccount: () => unavailableAccount,
     wrapOAuth,

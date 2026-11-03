@@ -15,6 +15,8 @@ export type PolicyAccountAuthority = Pick<
 /** Optional composition port. An omitted policy preserves the generic Host behavior. */
 export interface HostAccountPolicy {
   readonly newApiOrigin: string | null;
+  /** Built-in 使用已验证 origin；缺配置失败，不触发官方远端读取。 */
+  readonly resolveBuiltinEndpointOrigin: () => string;
   readonly allowOfficialCloud: boolean;
   createUnavailableAccount(): PolicyAccountAuthority;
   wrapOAuth(oauth: IOAuthService): IOAuthService;

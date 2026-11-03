@@ -9,16 +9,24 @@ import {
   ProviderConfigResolver,
   ProviderConfigMap,
   ModelConfigRules,
+  ModelConfig,
   ProviderSettingsFacade,
 } from "@zcode/provider";
 import { createNewApiProviderAnchors } from "@zcode/provider-node";
+import { AISCOO_MODEL_PROVIDER_IDS } from "@zcode/shared";
 import { resolveNewApiAccountProviders } from "../../services/src/new-api/newApiAccountProviderResolution.ts";
-import { owner, catalog, entitlements } from "../../services/test/newApiRegistryFixtures.ts";
+import {
+  owner,
+  catalog,
+  entitlements,
+  modelConfig,
+  builtinModelRules,
+} from "../../services/test/newApiRegistryFixtures.ts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const requireRoot = createRequire(new URL("../../../package.json", import.meta.url));
 const requireDesktop = createRequire(new URL("../package.json", import.meta.url));
-const id = "account:aiscoo-openai-chat-completions";
+const id = AISCOO_MODEL_PROVIDER_IDS["openai-chat-completions"];
 const plan = {
   id: "1",
   title: "Personal",
@@ -90,33 +98,36 @@ async function run() {
     let revision = 0;
     let heldRead;
     let readStarted = false;
-    function view() {
+    function view(resolveInput) {
       const account = resolveNewApiAccountProviders({
         owner: scene.connected ? { ...owner, userId: scene.userId } : null,
-        // XCODE: 可见 transport 同时覆盖正常、无 metadata 和完整但 CEL 非法的真实目录投影。
+        // XCODE: 目录不携带能力，覆盖正常、无路由和服务端禁用条目。
         catalog: {
           ...catalog,
-          models: catalog.models
-            .filter((model) => !scene.allIssues || model.model_id !== "real-model")
-            .map((model) => ({
-              ...model,
-              api_type: model.api_type ? "openai-chat-completions" : null,
-              ...(model.model_id === "real-model"
-                ? {
-                    icon: "OpenAI",
-                    model_config: {
-                      ...model.model_config,
-                      properties: {
-                        ...model.model_config.properties,
-                        inputFormat: {
-                          ...model.model_config.properties.inputFormat,
-                          supportsImage: true,
-                        },
-                      },
-                    },
-                  }
-                : {}),
-            })),
+          models: [
+            ...catalog.models
+              .filter((model) => !scene.allIssues || model.model_id !== "real-model")
+              .map((model) => ({
+                ...model,
+                api_type: model.api_type ? "openai-chat-completions" : null,
+                ...(model.model_id === "real-model" ? { icon: "OpenAI" } : {}),
+              })),
+            ...(scene.mixedEligibility
+              ? [
+                  {
+                    ...catalog.models[0],
+                    model_id: "personal-disabled",
+                    display_name: "Personal Disabled",
+                  },
+                  { ...catalog.models[0], model_id: "invalid-cel", display_name: "Invalid CEL" },
+                  {
+                    ...catalog.models[0],
+                    model_id: "missing-context",
+                    display_name: "Missing Context",
+                  },
+                ].map((model) => ({ ...model, api_type: "openai-chat-completions" }))
+              : []),
+          ],
         },
         entitlements: {
           ...entitlements,
@@ -125,13 +136,84 @@ async function run() {
         },
       });
       const builtins = createNewApiProviderAnchors(owner.origin);
+      const baseRecommendations = builtinModelRules({
+        ...modelConfig,
+        properties: {
+          ...modelConfig.properties,
+          inputFormat: { ...modelConfig.properties.inputFormat, supportsImage: true },
+        },
+        ...(scene.invalidCapabilities
+          ? {
+              optionSpecs: {
+                ...modelConfig.optionSpecs,
+                reasoningLevel: { values: ["none"], map: "invalid (" },
+              },
+            }
+          : {}),
+      });
+      const recommendations = new ModelConfigRules([
+        ...baseRecommendations.rules(),
+        ...(scene.mixedEligibility
+          ? [
+              {
+                type: "provider-model",
+                providerId: id,
+                modelId: "personal-disabled",
+                config: ModelConfig.fromData(modelConfig),
+              },
+              {
+                type: "provider-model",
+                providerId: id,
+                modelId: "invalid-cel",
+                config: ModelConfig.fromData({
+                  ...modelConfig,
+                  optionSpecs: {
+                    ...modelConfig.optionSpecs,
+                    reasoningLevel: { values: ["none"], map: "invalid (" },
+                  },
+                }),
+              },
+              {
+                type: "provider-model",
+                providerId: id,
+                modelId: "missing-context",
+                config: ModelConfig.fromData({
+                  ...modelConfig,
+                  properties: { ...modelConfig.properties, contextWindow: undefined },
+                }),
+              },
+            ]
+          : []),
+      ]);
+      const personalModels = new ModelConfigRules([
+        ...(scene.personalDisabled
+          ? [
+              {
+                type: "provider-model",
+                providerId: id,
+                modelId: "real-model",
+                config: ModelConfig.fromData({ enabled: false }),
+              },
+            ]
+          : []),
+        ...(scene.mixedEligibility
+          ? [
+              {
+                type: "provider-model",
+                providerId: id,
+                modelId: "personal-disabled",
+                config: ModelConfig.fromData({ enabled: false }),
+              },
+            ]
+          : []),
+      ]);
       const resolution = new ProviderConfigResolver().resolve({
         zcodeBuiltinProviders: builtins,
         personalProviders: ProviderConfigMap.empty(),
-        personalModels: ModelConfigRules.empty(),
-        zcodeBuiltinModelRules: ModelConfigRules.empty(),
+        personalModels,
+        zcodeBuiltinModelRules: recommendations,
         accountProviders: account.providers,
-        accountModelConfigs: account.modelConfigs,
+        accountModelPresentation: account.modelPresentation,
         accountStates: account.states,
       });
       const registry = { revision: ++revision, providers: resolution.registryProviders };
@@ -142,17 +224,20 @@ async function run() {
         config: {
           zcodeBuiltinProviders: builtins,
           personalProviders: ProviderConfigMap.empty(),
-          personalModels: ModelConfigRules.empty(),
+          personalModels,
+          zcodeBuiltinModelRules: recommendations,
         },
         sourceRevisions: { config: "fixture", account: String(revision) },
       };
-      return new ProviderSettingsFacade({
+      const facade = new ProviderSettingsFacade({
         getView: () => registry,
         getSnapshot: () => state,
         refresh: async () => state,
         onDidChange: () => () => {},
-      }).getView();
+      });
+      return resolveInput ? facade.resolveModelConfig(resolveInput) : facade.getView();
     }
+    ipcMain.handle("native-settings-resolve", (_event, input) => view(input));
     ipcMain.handle("native-settings-view", () => view());
     ipcMain.handle("native-settings-scene", (_event, next) => {
       scene = next;
@@ -171,7 +256,7 @@ async function run() {
     });
     await writeFile(
       join(temporary, "preload.cjs"),
-      'const {contextBridge,ipcRenderer}=require("electron");contextBridge.exposeInMainWorld("nativeSettingsSmoke",{view:()=>ipcRenderer.invoke("native-settings-view"),read:()=>ipcRenderer.invoke("native-settings-read"),scene:next=>ipcRenderer.invoke("native-settings-scene",next)});',
+      'const {contextBridge,ipcRenderer}=require("electron");contextBridge.exposeInMainWorld("nativeSettingsSmoke",{resolve:input=>ipcRenderer.invoke("native-settings-resolve",input),view:()=>ipcRenderer.invoke("native-settings-view"),read:()=>ipcRenderer.invoke("native-settings-read"),scene:next=>ipcRenderer.invoke("native-settings-scene",next)});',
     );
     const renderer = await build({
       stdin: {
@@ -194,13 +279,15 @@ import {TooltipProvider} from "./packages/ui/src/components/ui/tooltip.tsx";
 import {applyTheme} from "./packages/ui/src/useTheme.ts";
 let currentView=await window.nativeSettingsSmoke.view();
 const listeners=new Set();
-const providerSettingsService={getView:async()=>currentView,onDidChange:listener=>{listeners.add(listener);return{dispose:()=>listeners.delete(listener)}}};
+const providerSettingsService={resolveModelConfig:input=>window.nativeSettingsSmoke.resolve(input),getView:async()=>currentView,onDidChange:listener=>{listeners.add(listener);return{dispose:()=>listeners.delete(listener)}}};
 const services={providerSettingsService,usageStatsService:{getEntitlementSnapshot:async()=>null},codingPlanSubscriptionService:{getStaticProducts:()=>window.nativeSettingsSmoke.read()}};
 const broadcastService={send:async()=>{},onMessage:()=>()=>{}};
 await connectProviderSettingsSnapshot(providerSettingsService).ready;
 let setUser, initialized=false, fixtureUserId="A";
 window.modelTests=[];
 window.modelWrites=[];
+window.modelMutations=[];
+const recordMutation=(kind,...args)=>{window.modelMutations.push({kind,args})};
 const unexpectedWrite=(...args)=>{window.modelWrites.push(args);throw new Error("Read-only fixture must not save")};
 function Scene(){
   setUser=useZCodeStore(state=>state.setUser);
@@ -211,17 +298,17 @@ function Scene(){
   const read=useNativePlanSettings(${JSON.stringify(id)});
   window.refreshPlans=read.refresh;
   if(!provider)return null;
-  const customProvider={...provider,providerId:"fixture-custom",providerName:"Fixture Custom",models:[],config:{group:"standard-personal",access:{type:"api-key",apiKey:""},api:{type:"openai-chat-completions",baseUrl:"https://fixture.invalid/v1"}}};
+  const customProvider={...provider,providerId:"fixture-custom",providerName:"Fixture Custom",models:window.fixtureScene?.customMixed?provider.models:[],config:{group:"standard-personal",access:{type:"api-key",apiKey:""},api:{type:"openai-chat-completions",baseUrl:"https://fixture.invalid/v1"}}};
   const selectedNavItem=custom?{key:"custom",type:"custom",label:"Fixture Custom",provider:customProvider,statusActive:true}:{key:"native",type:"nativePlan",label:provider.providerName,provider,statusActive:provider.executable};
   return <>
     <button data-testid="fixture-native" onClick={()=>setCustom(false)}>Native</button>
     <button data-testid="fixture-custom" onClick={()=>setCustom(true)}>Custom</button>
-    <ModelProviderSectionDetail selectedNavItem={selectedNavItem} nativePlanRead={read} providerSettingsView={settings.state.view} presetLoading={false} codingPlanPurchaseTokenAuthenticatedByProviderId={{}} onSave={unexpectedWrite} onAddPersonalModel={unexpectedWrite} onSavePersonalModelDraft={unexpectedWrite} onSetPersonalModelEnabled={unexpectedWrite} onDeletePersonalModel={unexpectedWrite} onDelete={unexpectedWrite} onReorderProviderModels={unexpectedWrite} onTestModel={async(providerId,modelId)=>{window.modelTests.push({providerId,modelId});return{success:true}}} onCodingPlanLogin={unexpectedWrite} onCodingPlanDisconnect={unexpectedWrite} onRetryCodingPlan={unexpectedWrite} onOpenApiKeyUrl={unexpectedWrite} onOpenBigModelRegistration={unexpectedWrite} onCodingPlanPurchaseComplete={unexpectedWrite}/>
+    <ModelProviderSectionDetail selectedNavItem={selectedNavItem} nativePlanRead={read} providerSettingsView={settings.state.view} presetLoading={false} codingPlanPurchaseTokenAuthenticatedByProviderId={{}} onSave={unexpectedWrite} onAddPersonalModel={unexpectedWrite} onSavePersonalModelDraft={(...args)=>recordMutation("draft",...args)} onSetPersonalModelEnabled={async(providerId,modelId,enabled)=>{recordMutation("enabled",providerId,modelId,enabled);await window.setScene({...window.fixtureScene,personalDisabled:!enabled})}} onDeletePersonalModel={unexpectedWrite} onDelete={unexpectedWrite} onReorderProviderModels={unexpectedWrite} onTestModel={async(providerId,modelId)=>{window.modelTests.push({providerId,modelId});return{success:true}}} onCodingPlanLogin={unexpectedWrite} onCodingPlanDisconnect={unexpectedWrite} onRetryCodingPlan={unexpectedWrite} onOpenApiKeyUrl={unexpectedWrite} onOpenBigModelRegistration={unexpectedWrite} onCodingPlanPurchaseComplete={unexpectedWrite}/>
   </>;
 }
 const renderer=createRoot(document.getElementById("root"));
 const mount=locale=>flushSync(()=>renderer.render(<ServiceProvider services={services}><PlatformProvider platform={{}}><StoreProvider broadcastService={broadcastService}><ZCodeIntlProvider key={locale} initialLocale={locale}><TooltipProvider><Scene/></TooltipProvider></ZCodeIntlProvider></StoreProvider></PlatformProvider></ServiceProvider>));
-window.setScene=async next=>{currentView=await window.nativeSettingsSmoke.scene(next);flushSync(()=>{const nextUserId=next.connected?next.userId:null;if(nextUserId!==fixtureUserId){fixtureUserId=nextUserId;setUser(next.connected?{id:"fixture-"+next.userId,nickname:"Fixture",provider:"new-api"}:null)}for(const listener of listeners)listener(currentView)});return document.body.innerText};
+window.setScene=async next=>{window.fixtureScene=next;currentView=await window.nativeSettingsSmoke.scene(next);flushSync(()=>{const nextUserId=next.connected?next.userId:null;if(nextUserId!==fixtureUserId){fixtureUserId=nextUserId;setUser(next.connected?{id:"fixture-"+next.userId,nickname:"Fixture",provider:"new-api"}:null)}for(const listener of listeners)listener(currentView)});return document.body.innerText};
 window.setAppearance=(theme,locale)=>{applyTheme(theme);mount(locale)};
 mount("zh-CN");
 `,
@@ -295,6 +382,9 @@ mount("zh-CN");
       },
     });
     win.webContents.setBackgroundThrottling(false);
+    win.webContents.on("console-message", (event) => {
+      if (event.level === "error") console.error("fixture renderer:", event.message);
+    });
     await win.loadURL(`http://127.0.0.1:${vite.httpServer.address().port}`);
     const waitFor = (expression) =>
       win.webContents.executeJavaScript(
@@ -441,8 +531,14 @@ mount("zh-CN");
     assert.equal(mixed.fakeCapacity, false);
     assert.equal(mixed.operations, 0);
     assert.equal(mixed.sortable, false);
-    assert.equal(mixed.nativeEdits, false);
-    assert.match(mixed.invalidModelReason, /XCODE_MODEL_CONFIG_INVALID/);
+    assert.equal(mixed.nativeEdits, true);
+    assert.equal(
+      await win.webContents.executeJavaScript(
+        '!!document.querySelector("[data-native-plan-detail] [data-testid=model-provider-add-model-button]")',
+      ),
+      false,
+    );
+    assert.match(mixed.invalidModelReason, /XCODE_MODEL_DISABLED/);
     assert.match(mixed.validModelText, /Real.*8\.192K.*视觉/);
     assert.equal(mixed.validModelIcon, true);
     await win.webContents.executeJavaScript(
@@ -451,6 +547,166 @@ mount("zh-CN");
     assert.deepEqual(await win.webContents.executeJavaScript("window.modelTests"), [
       { providerId: id, modelId: "real-model" },
     ]);
+    // XCODE: 真实上游编辑器允许能力偏好与恢复推荐；目录 ID 保持只读且不开放新增成员。
+    await win.webContents.executeJavaScript(
+      'document.querySelector("[data-native-plan-detail] [role=switch]").click()',
+    );
+    assert.equal(
+      (await win.webContents.executeJavaScript("window.modelMutations"))[0].kind,
+      "enabled",
+    );
+    await waitFor(
+      'document.querySelector("[data-native-plan-detail] [role=switch][aria-checked=false]")',
+    );
+    assert.equal(
+      await win.webContents.executeJavaScript(
+        '!!document.querySelector("[data-testid=model-provider-model-input-0]")',
+      ),
+      true,
+      "The last personally disabled model must retain its settings row",
+    );
+    await win.webContents.executeJavaScript(
+      'document.querySelector("[data-native-plan-detail] [role=switch]").click()',
+    );
+    await waitFor(
+      'document.querySelector("[data-native-plan-detail] [role=switch][aria-checked=true]")',
+    );
+
+    await win.webContents.executeJavaScript(
+      `document.querySelector('[data-native-plan-detail] button[title="编辑模型配置"]').click()`,
+    );
+    await waitFor('document.querySelector("[role=dialog] [data-model-identity-row] input")');
+    assert.equal(
+      await win.webContents.executeJavaScript(
+        'document.querySelector("[role=dialog] [data-model-identity-row] input").readOnly',
+      ),
+      true,
+    );
+    await waitFor(
+      'document.querySelector("[role=dialog] input[inputmode=numeric]")?.placeholder === "8192"',
+    );
+    await win.webContents.executeJavaScript(
+      `(()=>{const input=document.querySelector('[role=dialog] input[inputmode=numeric]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'16384');input.dispatchEvent(new Event('input',{bubbles:true}))})()`,
+    );
+    await win.webContents.executeJavaScript(
+      `document.querySelector('[role=dialog] [data-model-settings-footer] button:last-child').click()`,
+    );
+    await waitFor('!document.querySelector("[role=dialog]")');
+    const edits = await win.webContents.executeJavaScript("window.modelMutations");
+    assert.equal(edits.at(-1).kind, "draft");
+    assert.equal(edits.at(-1).args[0].nextModelId, "real-model");
+    assert.equal(edits.at(-1).args[0].personalConfig.properties.contextWindow, 16384);
+    await win.webContents.executeJavaScript(
+      `document.querySelector('[data-native-plan-detail] button[title="编辑模型配置"]').click()`,
+    );
+    await waitFor('document.querySelector("[role=dialog] input[inputmode=numeric]")');
+    await win.webContents.executeJavaScript(
+      `(()=>{const dialog=document.querySelector('[role=dialog]');const reset=[...dialog.querySelectorAll('button')].find(button=>button.textContent.includes('重置表单'));if(!reset)throw new Error('Missing restore control');reset.click()})()`,
+    );
+    await waitFor(
+      'document.querySelector("[role=dialog] input[inputmode=numeric]")?.placeholder === "8192"',
+    );
+    await win.webContents.executeJavaScript(
+      `document.querySelector('[role=dialog] [data-model-settings-footer] button:last-child').click()`,
+    );
+    await waitFor('!document.querySelector("[role=dialog]")');
+
+    // XCODE: 同一托管 provider 有可用模型时，逐行资格不能退化为 provider 级资格。
+    await change({ status: "active", userId: "B", connected: true, mixedEligibility: true });
+    await waitFor('document.querySelector("[data-testid=model-provider-model-input-3]")');
+    const mixedEligibility = await win.webContents.executeJavaScript(`(async()=>{
+      const rows=[0,1,2,3].map(index=>{
+        const identity=document.querySelector('[data-testid="model-provider-model-input-'+index+'"]');
+        const row=identity?.closest('.space-y-2');
+        const test=row?.querySelector('button[title="测试模型"]');
+        const result={
+          name:identity?.textContent,
+          test:!!test && !test.disabled,
+          edit:!!row?.querySelector('button[title="编辑模型配置"]'),
+          capacity:row?.querySelector('[aria-label*="上下文窗口"]')?.textContent ?? null,
+          issue:row?.nextElementSibling?.textContent ?? null,
+        };
+        if(test && !test.disabled) test.click();
+        return result;
+      });
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      return rows;
+    })()`);
+    assert.deepEqual(
+      mixedEligibility.map((row) => row.name),
+      ["Real", "Personal Disabled", "Invalid CEL", "Missing Context"],
+      "The mixed Native fixture must exercise four distinct models",
+    );
+    assert.deepEqual(
+      await win.webContents.executeJavaScript("window.modelTests"),
+      [
+        { providerId: id, modelId: "real-model" },
+        { providerId: id, modelId: "real-model" },
+      ],
+      "Only the executable Native model may invoke a connectivity test",
+    );
+    assert.deepEqual(
+      mixedEligibility.map((row) => row.test),
+      [true, false, false, false],
+    );
+    assert.deepEqual(
+      mixedEligibility.map((row) => row.edit),
+      [true, true, true, true],
+    );
+    assert.equal(mixedEligibility[2].capacity, "8.192K");
+    assert.ok(mixedEligibility[2].issue, "Invalid CEL must retain its inline reason");
+    assert.equal(mixedEligibility[3].capacity, null, "Missing capacity must not be fabricated");
+    assert.ok(mixedEligibility[3].issue, "Missing capability must retain its inline reason");
+
+    // XCODE: 通用卡片默认行为不变；同样的个人禁用模型在自配 Provider 仍有原测试入口。
+    await change({
+      status: "active",
+      userId: "B",
+      connected: true,
+      mixedEligibility: true,
+      customMixed: true,
+    });
+    await win.webContents.executeJavaScript(
+      'document.querySelector("[data-testid=fixture-custom]").click()',
+    );
+    await waitFor('document.body.innerText.includes("Fixture Custom")');
+    const customTestAvailable = await win.webContents.executeJavaScript(`(async()=>{
+      const row=document.querySelector('[data-testid="model-provider-model-input-1"]')?.closest('.space-y-2');
+      const test=row?.querySelector('button[title="测试模型"]');
+      if(test && !test.disabled) test.click();
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      return !!test && !test.disabled;
+    })()`);
+    assert.equal(
+      customTestAvailable,
+      true,
+      "Custom providers retain the upstream testing behavior",
+    );
+    assert.deepEqual((await win.webContents.executeJavaScript("window.modelTests")).at(-1), {
+      providerId: "fixture-custom",
+      modelId: "personal-disabled",
+    });
+    await win.webContents.executeJavaScript(
+      'document.querySelector("[data-testid=fixture-native]").click()',
+    );
+    await change({ status: "active", userId: "B", connected: true, invalidCapabilities: true });
+    await waitFor('document.querySelector("[data-testid=model-provider-model-input-0]")');
+    assert.equal(
+      await win.webContents.executeJavaScript(
+        `!!document.querySelector('[data-native-plan-detail] button[title="编辑模型配置"]')`,
+      ),
+      true,
+      "Invalid capability rules must remain editable",
+    );
+    assert.equal(
+      await win.webContents.executeJavaScript(
+        `!!document.querySelector('[data-native-plan-detail] [data-testid=model-provider-model-input-0]').closest('.space-y-2').nextElementSibling?.classList.contains('text-destructive')`,
+      ),
+      true,
+      "Invalid capability rules must retain their inline issue",
+    );
+    await change({ status: "active", userId: "B", connected: true });
+    await waitFor('document.querySelector("[data-testid=model-provider-model-input-0]")');
     const evidence = join(root, "packages/desktop/.e2e-artifacts/model-provider-upstream-ui");
     await mkdir(evidence, { recursive: true });
     await writeFile(
@@ -538,6 +794,8 @@ mount("zh-CN");
     assert.deepEqual(await win.webContents.executeJavaScript("window.modelWrites"), []);
     assert.deepEqual(await win.webContents.executeJavaScript("window.modelTests"), [
       { providerId: id, modelId: "real-model" },
+      { providerId: id, modelId: "real-model" },
+      { providerId: "fixture-custom", modelId: "personal-disabled" },
     ]);
     console.log(
       "Native model settings: real Electron state/price/owner and upstream single-list mixed/all-issue/custom-isolation/zh-en/light-dark/393px regressions passed",

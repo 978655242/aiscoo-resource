@@ -30,10 +30,12 @@ modules:
     roots:
       - apps/zcode-cli/packages/cli/src/aiscoo
     managed: true
-    requires: [cli-arguments, cli-sea-keyring, zcode-cli, cli-aiscoo-brand]
+    # XCODE: Built-in 源与缓存共享严格校验的管理端 origin，不改变上游 endpoint。
+    requires: [cli-arguments, cli-sea-keyring, zcode-cli, cli-aiscoo-brand, shared]
     publicEntrypoints:
       - apps/zcode-cli/packages/cli/src/aiscoo/index.ts
       - apps/zcode-cli/packages/cli/src/aiscoo/contract.ts
+      - apps/zcode-cli/packages/cli/src/aiscoo/provider-runtime-env.ts
     layers:
       app: .
     owner: cli

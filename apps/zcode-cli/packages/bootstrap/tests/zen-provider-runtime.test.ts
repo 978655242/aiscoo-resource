@@ -1,10 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createZenDefaultDependencies } from "@zcode/adapters/auth";
 import { resolveZenAccountProviders } from "../src/zen/index.js";
 import { createAccountProviderConfigSnapshot } from "@zcode/provider";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { ZenAccountRuntime } from "../src/zen/index.js";
 import { startProcessProviderRegistryRuntime } from "../src/zen/index.js";
 import {
@@ -298,6 +299,7 @@ describe("Zen account model authorization", () => {
         });
       await runtime.refreshStandaloneAccount("plan-available");
       expect(await runtime.readZenModelStatus()).toMatchObject({ available: true });
+      expect("modelConfigs" in await runtime.accountSource.read()).toBe(false);
       const requestInput = {
         accountAccess: {
           type: "new-api-account" as const,
@@ -316,6 +318,18 @@ describe("Zen account model authorization", () => {
       expect(
         await runtime.providerRuntimeHeadersPort!.refreshBeforeModelRequest(requestInput),
       ).toMatchObject({ requestAuth: { apiKey: "sk-test" } });
+      // 纯 Built-in/展示 revision 变化不能拒绝冻结 turn，真正移除目录成员仍在凭据 IO 后拒绝。
+      const current = await runtime.accountSource.read();
+      const read = vi.spyOn(runtime.accountSource, "read");
+      try {
+        read.mockResolvedValueOnce(current).mockResolvedValue({ ...current, revision: "capability-only-revision" });
+        await expect(runtime.providerRuntimeHeadersPort!.refreshBeforeModelRequest(requestInput)).resolves.toMatchObject({ requestAuth: { apiKey: "sk-test" } });
+        read.mockReset().mockResolvedValueOnce(current).mockResolvedValue({
+          ...current, revision: "membership-revoked",
+          providers: current.providers.set(requestInput.providerId, current.providers.get(requestInput.providerId)!.withBuiltinModelIds([])),
+        });
+        await expect(runtime.providerRuntimeHeadersPort!.refreshBeforeModelRequest(requestInput)).rejects.toThrow("XCODE_STALE_OWNER");
+      } finally { read.mockRestore(); }
       globalThis.fetch = async () =>
         Response.json({ success: false, code: "XCODE_SESSION_INVALID" }, { status: 401 });
       await expect(
@@ -344,7 +358,7 @@ describe("Zen account model authorization", () => {
       await rm(directory, { recursive: true, force: true });
     }
   });
-  it("projects only enabled complete catalog models with the current entitlement", () => {
+  it("projects only enabled catalog members and presentation with the current entitlement", () => {
     const owner = { origin: "https://zen.example.com", userId: "1", sid: "sid", authGeneration: 1 };
     const entitlements = NewApiEntitlementsSchema.parse({
       schema_version: 1,
@@ -411,7 +425,8 @@ describe("Zen account model authorization", () => {
     const id = NEW_API_MODEL_PROVIDER_IDS["openai-chat-completions"];
     expect(result.providers.get(id)?.builtinModelIds).toEqual(["real-model"]);
     expect(result.states[id]?.entitled).toBe(true);
-    expect(result.modelConfigs[id]?.["real-model"]?.enabled).toBe(true);
+    expect(result.modelPresentation[id]?.["real-model"]).toEqual({ displayName: "Real" });
+    expect("modelConfigs" in result).toBe(false);
     expect(result.authorizationRevision).toBe("7");
     expect(() =>
       createAccountProviderConfigSnapshot("builtin:1", result.providers, result.states, result),
@@ -440,5 +455,50 @@ describe("Zen account model authorization", () => {
         catalog: { authorization_revision: "2" } as never,
       }),
     ).toThrow("XCODE_AUTHORIZATION_REVISION_MISMATCH");
+  });
+});
+
+
+describe("Zen centralized Built-in source", () => {
+  it("downloads the standard Release from the validated admin origin without changing the global endpoint", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "zen-builtin-source-"));
+    const bundled = fileURLToPath(new URL("../../../../../config/provider/zcode-builtin.json", import.meta.url));
+    const release = JSON.parse(await readFile(bundled, "utf8"));
+    release.revision += 1;
+    const requests: URL[] = [];
+    const updated = Promise.withResolvers<void>();
+    const origin = "https://zen.example.com";
+    const account = new ZenAccountRuntime({ client: { origin }, store: { read: async () => null } } as never);
+    let runtime: Awaited<ReturnType<typeof startProcessProviderRegistryRuntime>> | undefined;
+    try {
+      runtime = await startProcessProviderRegistryRuntime({
+        AISCOO_ADMIN_BASE_URL: `${origin}/`,
+        ZCODE_ENDPOINT_ORIGIN: "https://official.example",
+        ZCODE_BUILTIN_PROVIDER_BUNDLED_CONFIG_FILE: bundled,
+        ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: join(directory, "active.json"),
+        ZCODE_PERSONAL_PROVIDER_CONFIG_FILE: join(directory, "personal.json"),
+        ZCODE_DATA_BASE_DIR: directory,
+      }, { standalone: {
+        zenAccount: account,
+        legacyCliUserConfigFilePath: join(directory, "absent"),
+        request: async (raw, init) => {
+          const url = new URL(String(raw)); requests.push(url);
+          expect(url.origin).toBe(origin);
+          expect(init?.credentials).toBe("omit");
+          expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+          return Response.json(url.pathname === "/api/v1/client/configs"
+            ? { code: 0, data: { configs: { builtin_provider_config_json: `${origin}/builtin/releases/${release.revision}` } } }
+            : release);
+        },
+        onBuiltinRefreshResult: event => { if (event.result === "updated") updated.resolve(); },
+        onBuiltinRefreshError: error => updated.reject(error),
+      }});
+      await updated.promise;
+      expect(requests.map(url => url.pathname)).toEqual(["/api/v1/client/configs", `/builtin/releases/${release.revision}`]);
+      expect(requests[0]?.searchParams.get("app_version")).toBeTruthy();
+      expect(requests[0]?.searchParams.get("platform")).toBeTruthy();
+      expect(JSON.parse(await readFile(join(directory, "active.json"), "utf8")).revision).toBe(release.revision);
+      expect((await runtime.runtime.configService.read()).zcodeBuiltinRevision).toContain(String(release.revision));
+    } finally { runtime?.dispose(); await rm(directory, { recursive: true, force: true }); }
   });
 });

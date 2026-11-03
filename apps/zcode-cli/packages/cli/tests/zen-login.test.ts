@@ -292,3 +292,54 @@ test("without injection the upstream TUI keeps its own command center", async ()
   assert.equal(({} as import("../src/cli-types.js").RunDependencies).createTuiCommandCenter, undefined);
   assert.equal(typeof withAiscooTuiCommandCenter({}).createTuiCommandCenter, "function");
 });
+
+
+test("Aiscoo Built-in cache isolates admin A/B and never resumes official cache without admin", async () => {
+  const { mkdtemp, mkdir, readFile, rm, writeFile } = await import("node:fs/promises");
+  const { join, dirname } = await import("node:path");
+  const { tmpdir } = await import("node:os");
+  const { resolveZCodeBuiltinCachePaths } = await import("@zcode/provider-node");
+  const { prepareAiscooProviderRuntimeEnv } = await import("../src/aiscoo/provider-runtime-env.js");
+  const directory = await mkdtemp(join(tmpdir(), "aiscoo-cache-origin-"));
+  try {
+    const bundled = join(directory, "bundled.json");
+    const release = (revision: number) => JSON.stringify({ schemaVersion: 1, revision, config: {
+      providerConfigRules: { providerRules: [], templateRules: [] },
+      modelConfigRules: { modelRules: [], modelApiRules: [], providerSiteRules: [], templateModelRules: [], builtinProviderModelRules: [] },
+    }});
+    await writeFile(bundled, release(1));
+    const sourceOptions = { environmentConfigRoot: join(directory, ".zcode", "v2"), platform: "test-platform", appVersion: "test-version" };
+    const official = resolveZCodeBuiltinCachePaths({ ...sourceOptions, zcodeEndpointOrigin: "https://official.example" });
+    await mkdir(dirname(official.activeFilePath), { recursive: true });
+    await writeFile(official.activeFilePath, release(999));
+    const prepare = (admin?: string) => prepareAiscooProviderRuntimeEnv({
+      argv: ["--prompt", "fixture", "--cwd", directory], dataBaseDir: directory, appVersion: "test-version", platform: "test-platform",
+      env: { ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: bundled, ZCODE_BASE_URL: "https://official.example", ...(admin === undefined ? {} : { AISCOO_ADMIN_BASE_URL: admin }) },
+    });
+    const a = await prepare("https://admin-a.example/");
+    const b = await prepare("https://admin-b.example");
+    const key = "ZCODE_BUILTIN_PROVIDER_CONFIG_FILE";
+    assert.equal(a[key], resolveZCodeBuiltinCachePaths({ ...sourceOptions, zcodeEndpointOrigin: "https://admin-a.example" }).activeFilePath);
+    assert.equal(b[key], resolveZCodeBuiltinCachePaths({ ...sourceOptions, zcodeEndpointOrigin: "https://admin-b.example" }).activeFilePath);
+    assert.notEqual(a[key], b[key]);
+    await writeFile(a[key]!, release(100));
+    await writeFile(b[key]!, release(2));
+    assert.equal(JSON.parse(await readFile((await prepare("https://admin-b.example/"))[key]!, "utf8")).revision, 2);
+    assert.equal(JSON.parse(await readFile((await prepare("https://admin-a.example"))[key]!, "utf8")).revision, 100);
+    for (const invalid of [undefined, "", "  ", "http://untrusted.example"]) {
+      const unconfigured = await prepare(invalid);
+      assert.equal(unconfigured[key], bundled);
+      assert.equal(unconfigured.ZCODE_BUILTIN_PROVIDER_BUNDLED_CONFIG_FILE, undefined);
+    }
+    assert.equal(JSON.parse(await readFile(official.activeFilePath, "utf8")).revision, 999);
+    await writeFile(join(directory, ".env"), "AISCOO_ADMIN_BASE_URL=https://dotenv-admin.example\n");
+    const dotenvEnv = { ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: bundled };
+    const fromDotenv = await prepareAiscooProviderRuntimeEnv({ argv: ["--prompt", "fixture", "--cwd", directory], dataBaseDir: directory,
+      appVersion: "test-version", platform: "test-platform", env: dotenvEnv });
+    assert.equal(fromDotenv[key], resolveZCodeBuiltinCachePaths({ ...sourceOptions, zcodeEndpointOrigin: "https://dotenv-admin.example" }).activeFilePath);
+    assert.equal((dotenvEnv as Record<string, string>).AISCOO_ADMIN_BASE_URL, "https://dotenv-admin.example");
+    assert.equal((await prepare("https://process-admin.example"))[key], resolveZCodeBuiltinCachePaths({ ...sourceOptions, zcodeEndpointOrigin: "https://process-admin.example" }).activeFilePath, "The process origin must override dotenv");
+    assert.equal((await prepare(""))[key], bundled, "An explicit empty process value must override dotenv");
+
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});

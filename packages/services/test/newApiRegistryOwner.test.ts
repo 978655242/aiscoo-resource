@@ -3,10 +3,12 @@ import test from "node:test";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { AISCOO_MODEL_PROVIDER_IDS } from "@zcode/shared";
 import {
   AccountProviderService,
   MutableAccountProviderConfigSource,
   ProviderRegistryService,
+  ProviderConfigResolver,
   ProviderConfigMap,
   ProviderTemplateMap,
   ModelConfigRules,
@@ -35,7 +37,13 @@ import {
   NodeZCodeBuiltinProviderConfigSource,
 } from "@zcode/provider-node";
 import { resolveNewApiAccountProviders } from "../src/new-api/newApiAccountProviderResolution.js";
-import { owner, catalog, entitlements, modelConfig } from "./newApiRegistryFixtures.js";
+import {
+  owner,
+  catalog,
+  entitlements,
+  modelConfig,
+  builtinModelRules,
+} from "./newApiRegistryFixtures.js";
 
 function config(): ProviderConfigSnapshot {
   return {
@@ -45,7 +53,7 @@ function config(): ProviderConfigSnapshot {
     zcodeBuiltinProviders: createNewApiProviderAnchors(owner.origin),
     zcodeBuiltinProviderTemplates: ProviderTemplateMap.empty(),
     personalProviders: ProviderConfigMap.empty(),
-    zcodeBuiltinModelRules: ModelConfigRules.empty(),
+    zcodeBuiltinModelRules: builtinModelRules(),
     personalModels: ModelConfigRules.empty(),
   };
 }
@@ -155,6 +163,50 @@ test("personal codec canonicalizes legacy identities with complete new entries w
     config: extractManualModelConfig(modelConfig),
   });
   assert.throws(() => decodeProviderConfigFile(contradictory), /同时声明智能和手动配置/);
+});
+
+test("personal codec preserves disabled capabilities and gives the canonical model rule complete precedence", () => {
+  const id = AISCOO_MODEL_PROVIDER_IDS["openai-chat-completions"];
+  const legacyId = "account:new-api-openai-chat-completions";
+  const legacyConfig = {
+    enabled: true,
+    properties: { contextWindow: 4096, supportsToolCall: true },
+    optionSpecs: {
+      reasoningLevel: { values: ["low"], map: '{"old_effort":reasoningLevel}' },
+    },
+  };
+  const canonicalConfig = {
+    enabled: false,
+    properties: { contextWindow: 16384 },
+    optionSpecs: {
+      reasoningLevel: { values: ["none", "high"], map: '{"reasoning_effort":reasoningLevel}' },
+    },
+  };
+  const legacyRule = { providerId: legacyId, modelId: "real-model", config: legacyConfig };
+  const canonicalRule = { providerId: id, modelId: "real-model", config: canonicalConfig };
+  for (const [rules, expected] of [
+    [[legacyRule], legacyConfig],
+    [[canonicalRule], canonicalConfig],
+    [[legacyRule, canonicalRule], canonicalConfig],
+    [[canonicalRule, legacyRule], canonicalConfig],
+  ] as const) {
+    const input = {
+      schemaVersion: 1,
+      config: {
+        providerConfigRules: { providerRules: [] },
+        modelConfigRules: { providerModelRules: rules, manualProviderModelRules: [] },
+      },
+    };
+    const before = structuredClone(input);
+    const decoded = decodeProviderConfigFile(input);
+    assert.deepEqual(decoded.models.getExact(id, "real-model")?.toJSON(), expected);
+    assert.equal(decoded.models.getExact(legacyId, "real-model"), undefined);
+    const encoded = encodeProviderConfigFile(decoded);
+    assert.deepEqual(encoded.config.modelConfigRules.providerModelRules, [
+      { providerId: id, modelId: "real-model", config: expected },
+    ]);
+    assert.deepEqual(input, before);
+  }
 });
 
 function shadowedInvalidPersonalConfigs() {
@@ -347,56 +399,56 @@ test("builtin mismatch preserves old Native capabilities but revokes a removed m
   try {
     await registry.start();
     const oldApplied = registry.getSnapshot()!.sourceRevisions.account;
-    current = { ...current, revision: "config-2", zcodeBuiltinRevision: "builtin-2" };
-    const changedCatalog = {
-      ...catalog,
-      models: catalog.models.map((entry) =>
-        entry.model_id === "real-model"
-          ? {
-              ...entry,
-              model_config: {
-                ...modelConfig,
-                optionSpecs: {
-                  ...modelConfig.optionSpecs,
-                  reasoningLevel: { values: ["none", "high"], map: "{}" },
-                },
-              },
-            }
-          : entry,
-      ),
+    const changedConfig = {
+      ...current,
+      revision: "config-2",
+      zcodeBuiltinRevision: "builtin-2",
+      zcodeBuiltinModelRules: builtinModelRules({
+        ...modelConfig,
+        properties: { ...modelConfig.properties, contextWindow: 16384 },
+        optionSpecs: {
+          ...modelConfig.optionSpecs,
+          reasoningLevel: {
+            values: ["none", "high"],
+            map: '{"reasoning_effort":reasoningLevel}',
+          },
+        },
+      }),
     };
     const changed = resolveNewApiAccountProviders({
       owner,
-      catalog: changedCatalog,
+      catalog,
       entitlements,
-      configRevision: "builtin-1",
+      configRevision: "builtin-2",
     });
+    assert.equal(changed.catalogRevision, native.catalogRevision);
     source.replace(
-      createAccountProviderConfigSnapshot("builtin-1", changed.providers, changed.states, changed),
+      createAccountProviderConfigSnapshot("builtin-2", changed.providers, changed.states, changed),
     );
-    await registry.refresh("capabilities-before-builtin");
+    await registry.refresh("account-before-matching-builtin");
     assert.deepEqual(
       registry.getModel(id, "real-model")?.config.optionSpecs.reasoningLevel.values,
       ["none"],
     );
+    assert.equal(registry.getModel(id, "real-model")?.config.properties.contextWindow, 8192);
     assert.equal(registry.getSnapshot()!.sourceRevisions.account, oldApplied);
     assert.notEqual((await source.read()).revision, oldApplied);
 
     const revoked = resolveNewApiAccountProviders({
       owner,
       catalog: {
-        ...changedCatalog,
-        models: changedCatalog.models.map((entry) =>
+        ...catalog,
+        models: catalog.models.map((entry) =>
           entry.model_id === "real-model"
-            ? { ...entry, model_config: { ...modelConfig, enabled: false } }
+            ? { ...entry, enabled: false, disabled_reason: "XCODE_MODEL_DISABLED" }
             : entry,
         ),
       },
       entitlements,
-      configRevision: "builtin-1",
+      configRevision: "builtin-2",
     });
     source.replace(
-      createAccountProviderConfigSnapshot("builtin-1", revoked.providers, revoked.states, revoked),
+      createAccountProviderConfigSnapshot("builtin-2", revoked.providers, revoked.states, revoked),
     );
     await registry.refresh("disabled-before-builtin");
     assert.equal(registry.getModel(id, "real-model"), undefined);
@@ -405,11 +457,12 @@ test("builtin mismatch preserves old Native capabilities but revokes a removed m
     source.replace(
       createAccountProviderConfigSnapshot("builtin-2", changed.providers, changed.states, changed),
     );
+    current = changedConfig;
     await registry.refresh("matching-builtin-capabilities");
-    assert.deepEqual(
-      registry.getModel(id, "real-model")?.config.optionSpecs.reasoningLevel.values,
-      ["none", "high"],
-    );
+    const updated = registry.getModel(id, "real-model")!.config;
+    assert.equal(updated.properties.contextWindow, 16384);
+    assert.deepEqual(updated.optionSpecs.reasoningLevel.values, ["none", "high"]);
+    assert.equal(updated.optionSpecs.reasoningLevel.map, '{"reasoning_effort":reasoningLevel}');
     assert.equal(registry.getSnapshot()!.sourceRevisions.account, changed.revision);
   } finally {
     registry.dispose();
@@ -636,6 +689,102 @@ test("legacy builtin projection preserves raw same-revision content conflict che
   }
 });
 
+test("Builtin Source projects legacy, canonical and mixed model rules and applies a real release update", async () => {
+  const id = AISCOO_MODEL_PROVIDER_IDS["openai-chat-completions"];
+  const legacyId = "account:new-api-openai-chat-completions";
+  const oldConfig = {
+    ...modelConfig,
+    enabled: true,
+    properties: { ...modelConfig.properties, contextWindow: 4096 },
+    optionSpecs: {
+      ...modelConfig.optionSpecs,
+      reasoningLevel: { values: ["none"], map: '{"old_effort":reasoningLevel}' },
+    },
+  };
+  const newConfig = {
+    ...modelConfig,
+    enabled: false,
+    properties: { ...modelConfig.properties, contextWindow: 16384 },
+    optionSpecs: {
+      ...modelConfig.optionSpecs,
+      reasoningLevel: { values: ["none", "high"], map: '{"reasoning_effort":reasoningLevel}' },
+    },
+  };
+  const oldRule = { providerId: legacyId, modelId: "real-model", config: oldConfig };
+  const newRule = { providerId: id, modelId: "real-model", config: newConfig };
+  const account = resolveNewApiAccountProviders({
+    owner,
+    entitlements,
+    catalog: {
+      ...catalog,
+      models: [{ ...catalog.models[0]!, api_type: "openai-chat-completions" }],
+    },
+  });
+  const release = (revision: number, rules: readonly (typeof oldRule)[]) => ({
+    schemaVersion: 1,
+    revision,
+    config: {
+      providerConfigRules: { templateRules: [], providerRules: [] },
+      modelConfigRules: {
+        ...ModelConfigRules.empty().toZCodeBuiltinJSON(),
+        builtinProviderModelRules: rules,
+      },
+    },
+  });
+  for (const [rules, expected] of [
+    [[oldRule], oldConfig],
+    [[newRule], newConfig],
+    [[oldRule, newRule], newConfig],
+    [[newRule, oldRule], newConfig],
+  ] as const) {
+    const dir = await mkdtemp(join(tmpdir(), "aiscoo-builtin-rules-"));
+    const bundledFilePath = join(dir, "bundled.json");
+    const activeFilePath = join(dir, "active.json");
+    await writeFile(bundledFilePath, JSON.stringify(release(1, rules)));
+    const source = new NodeZCodeBuiltinProviderConfigSource({
+      bundledFilePath,
+      activeFilePath,
+      watch: false,
+    });
+    try {
+      const first = await source.read();
+      assert.deepEqual(first.models.getExact(id, "real-model")?.toJSON(), expected);
+      assert.equal(first.models.getExact(legacyId, "real-model"), undefined);
+      assert.equal(first.models.rules().length, 1);
+      assert.deepEqual(account.providers.get(id)?.builtinModelIds, ["real-model"]);
+      const resolution = new ProviderConfigResolver().resolve({
+        zcodeBuiltinProviders: createNewApiProviderAnchors(owner.origin),
+        personalProviders: ProviderConfigMap.empty(),
+        zcodeBuiltinModelRules: first.models,
+        personalModels: ModelConfigRules.empty(),
+        accountProviders: account.providers,
+        accountStates: account.states,
+        accountModelPresentation: account.modelPresentation,
+      });
+      assert.equal(
+        resolution.registryProviders.some((provider) => provider.providerId === id),
+        expected.enabled,
+      );
+      assert.equal(
+        await source.applyRemoteRelease(decodeZCodeBuiltinRelease(release(2, [oldRule]))),
+        "updated",
+      );
+      const next = await source.read();
+      assert.notEqual(next.revision, first.revision);
+      assert.deepEqual(next.models.getExact(id, "real-model")?.toJSON(), oldConfig);
+      assert.equal(next.models.getExact(legacyId, "real-model"), undefined);
+      assert.equal(
+        JSON.parse(await readFile(activeFilePath, "utf8")).config.modelConfigRules
+          .builtinProviderModelRules[0].providerId,
+        legacyId,
+      );
+    } finally {
+      source.dispose();
+      await rm(dir, { recursive: true, force: true });
+    }
+  }
+});
+
 test("materialized and refreshed CDN config keep the three explicit-origin local anchors", async () => {
   const dir = await mkdtemp(join(tmpdir(), "native-anchors-"));
   const content = (revision: number) =>
@@ -769,5 +918,93 @@ test("Registry readiness survives a superseded initial account failure", async (
   } finally {
     registry.dispose();
     source.dispose();
+  }
+});
+
+test("Native personal settings persist through upstream editing and enable APIs without granting new members", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "native-personal-settings-"));
+  const builtin = join(dir, "builtin.json");
+  await writeFile(
+    builtin,
+    JSON.stringify({
+      schemaVersion: 1,
+      revision: 1,
+      config: {
+        providerConfigRules: { templateRules: [], providerRules: [] },
+        modelConfigRules: builtinModelRules().toZCodeBuiltinJSON(),
+      },
+    }),
+  );
+  const runtime = new NodeProviderConfigRuntime({
+    zcodeBuiltinFilePath: builtin,
+    newApiOrigin: owner.origin,
+    personalFilePath: join(dir, "personal.json"),
+    personalPollingIntervalMs: false,
+    watch: false,
+  });
+  const account = new AccountProviderService({
+    configSource: runtime.configService,
+    resolve: async (input) =>
+      resolveNewApiAccountProviders({
+        owner,
+        catalog,
+        entitlements,
+        configRevision: input.configRevision,
+      }),
+  });
+  const registry = new ProviderRegistryService({
+    configSource: runtime.configService,
+    accountSource: account,
+  });
+  const id = AISCOO_MODEL_PROVIDER_IDS["openai-responses"];
+  const settings = new ProviderSettingsFacade(registry, {
+    refresh: (reason: string) => registry.refresh(reason),
+    savePersonalModelDraft: runtime.configService.savePersonalModelDraft.bind(
+      runtime.configService,
+    ),
+    setPersonalModelEnabled: runtime.configService.setPersonalModelEnabled.bind(
+      runtime.configService,
+    ),
+  } as never);
+  try {
+    await registry.start();
+    await settings.savePersonalModelDraft({
+      providerId: id,
+      originalModelId: "real-model",
+      nextModelId: "real-model",
+      personalConfig: { properties: { contextWindow: 16384 } },
+      useRecommendedConfig: true,
+      basedOnRevision: registry.getView().revision,
+    });
+    assert.equal(registry.getModel(id, "real-model")?.config.properties.contextWindow, 16384);
+    await settings.setPersonalModelEnabled(id, "real-model", false);
+    assert.equal(registry.getModel(id, "real-model"), undefined);
+    await settings.setPersonalModelEnabled(id, "real-model", true);
+    assert.equal(registry.getModel(id, "real-model")?.config.properties.contextWindow, 16384);
+    await settings.savePersonalModelDraft({
+      providerId: id,
+      originalModelId: "real-model",
+      nextModelId: "real-model",
+      personalConfig: {},
+      useRecommendedConfig: true,
+      basedOnRevision: registry.getView().revision,
+    });
+    assert.equal(registry.getModel(id, "real-model")?.config.properties.contextWindow, 8192);
+    await runtime.configService.addPersonalModel(
+      id,
+      "invented",
+      ModelConfig.fromData({ enabled: true }),
+    );
+    await registry.refresh("personal-invented-member");
+    assert.equal(registry.getModel(id, "invented"), undefined);
+    assert.equal(
+      JSON.stringify(await readFile(join(dir, "personal.json"), "utf8")).includes("contextWindow"),
+      false,
+    );
+  } finally {
+    registry.dispose();
+    account.dispose();
+    runtime.dispose();
+    await rm(dir, { recursive: true, force: true });
   }
 });
