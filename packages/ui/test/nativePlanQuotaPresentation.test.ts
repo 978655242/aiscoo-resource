@@ -4,7 +4,10 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { NewApiEntitlements } from "@zcode/shared";
 import { ZCodeIntlProvider } from "../src/i18n/IntlProvider.js";
-import { NativePlanProviderDetail } from "../src/settings/model-provider-section/NativePlanProviderDetail.js";
+import {
+  NativePlanProviderDetail,
+  NativePlanQuotaCard,
+} from "../src/settings/model-provider-section/NativePlanProviderDetail.js";
 
 const quota: NonNullable<NewApiEntitlements["quota"]> = {
   scope: "zen-subscription",
@@ -92,6 +95,51 @@ describe("Native plan remaining quota", () => {
     expect(card.querySelector("time")?.textContent).toBe("Nov 1, 04:00");
     expect(screen.getAllByRole("progressbar")).toHaveLength(1);
   });
+
+  it.each([
+    {
+      locale: "zh-CN" as const,
+      title: "剩余额度",
+      removedTitle: "订阅剩余",
+      resetDescription: "不自动重置",
+    },
+    {
+      locale: "en-US" as const,
+      title: "Quota remaining",
+      removedTitle: "Subscription remaining",
+      resetDescription: "No automatic reset",
+    },
+  ])(
+    "keeps only the quota title for both non-resetting card layouts in $locale",
+    ({ locale, title, removedTitle, resetDescription }) => {
+      for (const compact of [true, false]) {
+        render(
+          createElement(
+            ZCodeIntlProvider,
+            { initialLocale: locale },
+            createElement(NativePlanQuotaCard, {
+              compact,
+              quota: {
+                unlimited: false,
+                usedPercentage: 25,
+                period: "never",
+                nextResetTime: null,
+                resetTimeZone: "UTC",
+                resetUtcOffsetSeconds: 0,
+              },
+            }),
+          ),
+        );
+        expect(screen.queryByText(removedTitle)).toBeNull();
+        expect(screen.getByRole("group", { name: title }).textContent).toContain("75%");
+        expect(screen.getByText(resetDescription)).toBeTruthy();
+        expect(screen.getByRole("progressbar", { name: title }).getAttribute("aria-valuenow")).toBe(
+          "75",
+        );
+        cleanup();
+      }
+    },
+  );
 
   it("keeps exhausted quota at zero and does not turn unlimited or unknown quota into zero", () => {
     showQuota({ used_percentage: 100, used: "100", remaining: "0" });

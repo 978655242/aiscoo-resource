@@ -19,8 +19,12 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { BUILTIN_MODEL_PROVIDER_IDS } from "@zcode/shared";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
-// XCODE: 单周期私有额度与模型设置共用源版布局。
-import { NativePlanQuotaCard } from "@/settings/model-provider-section/NativePlanProviderDetail.js";
+// XCODE: 私有套餐摘要与单周期额度共用模型设置的呈现，不新增读取路径。
+import {
+  NativePlanQuotaCard,
+  NativePlanStatusCard,
+} from "@/settings/model-provider-section/NativePlanProviderDetail.js";
+import { useOptionalCodingPlanUpgradeDialog } from "@/settings/CodingPlanUpgradeDialogProvider.js";
 import { useUsageEntitlement } from "@/hooks/useUsageEntitlement.js";
 import { useCodingPlanQuotaResetUi } from "@/hooks/useCodingPlanQuotaResetUi.js";
 import { useCodingPlanUsageStats } from "@/hooks/useUsageStats.js";
@@ -108,6 +112,8 @@ export function CodingPlanUsagePanel({
   workspacePath?: string;
 }) {
   const { intl } = useZCodeIntl();
+  // XCODE: Native 升级复用现有当前 Provider 入口，不另开支付或授权路径。
+  const upgradeDialog = useOptionalCodingPlanUpgradeDialog();
   const [range, setRange] = useState<CodingPlanUsageTrendRange>("7d");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
@@ -259,6 +265,21 @@ export function CodingPlanUsagePanel({
     );
   }
 
+  // XCODE: 套餐身份与额度都取当前 owner 的既有权益快照，不以额度比例猜授权状态。
+  const nativeSubscription = effectiveEntitlementSnapshot?.subscription?.details[0];
+  const quotaCards = snapshot ? (
+    <CodingPlanQuotaCards
+      quota={effectiveEntitlementSnapshot?.quota ?? snapshot.quota}
+      mcpQuotaLimit={resolveMcpQuotaLimit(effectiveEntitlementSnapshot)}
+      generatedAt={snapshot.generatedAt}
+      sourceKey={effectiveSource?.id}
+      preferredProviderId={effectiveProviderId}
+      accountAccess={effectiveSource?.accountAccess}
+      onEntitlementRefresh={handleResetEntitlementRefresh}
+      onUsageStatsRefresh={handleUsageStatsRefresh}
+    />
+  ) : null;
+
   return (
     <div className="space-y-5">
       <CodingPlanRangeSelector range={range} onRangeChange={setRange} />
@@ -298,16 +319,35 @@ export function CodingPlanUsagePanel({
         />
       ) : snapshot ? (
         <>
-          <CodingPlanQuotaCards
-            quota={effectiveEntitlementSnapshot?.quota ?? snapshot.quota}
-            mcpQuotaLimit={resolveMcpQuotaLimit(effectiveEntitlementSnapshot)}
-            generatedAt={snapshot.generatedAt}
-            sourceKey={effectiveSource?.id}
-            preferredProviderId={effectiveProviderId}
-            accountAccess={effectiveSource?.accountAccess}
-            onEntitlementRefresh={handleResetEntitlementRefresh}
-            onUsageStatsRefresh={handleUsageStatsRefresh}
-          />
+          {nativeSource ? (
+            <NativePlanStatusCard
+              planTitle={
+                nativeSubscription?.productName ?? effectiveEntitlementSnapshot?.quota?.level
+              }
+              authorizationStatus={effectiveEntitlementSnapshot?.authorizationStatus}
+              expiresAt={nativeSubscription?.expireTime}
+              connected={effectiveEntitlementSnapshot?.authenticated ?? true}
+              loading={
+                effectiveEntitlement.loading ||
+                (!effectiveEntitlementSnapshot && !effectiveEntitlement.error)
+              }
+              error={effectiveEntitlement.error}
+              onRetry={() => void handleUsageStatsRefresh()}
+              onOpenPlans={
+                upgradeDialog && effectiveProviderId
+                  ? () => {
+                      upgradeDialog.openCodingPlanUpgrade({
+                        providerId: effectiveProviderId,
+                        initialAudience: "personal",
+                      });
+                    }
+                  : undefined
+              }
+              usageContent={quotaCards}
+            />
+          ) : (
+            quotaCards
+          )}
           <CodingPlanActivitySection snapshot={snapshot} />
           <CodingPlanUsageTrendsSection snapshot={snapshot} />
         </>
@@ -494,10 +534,13 @@ function CodingPlanQuotaCards({
   const quotaCardsLayoutClass = "flex flex-col gap-3 lg:flex-row";
 
   return (
-    <section className="space-y-4">
+    // XCODE: Native 套餐卡内使用与模型设置一致的紧凑额度区，其他来源保留原布局。
+    <section className={nativeLimit ? "space-y-2" : "space-y-4"}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h3 className="text-ui-lg font-medium text-foreground">
+          <h3
+            className={`${nativeLimit ? "text-ui-base" : "text-ui-lg"} font-medium text-foreground`}
+          >
             {intl.formatMessage({ id: "settings.usage.quotaTitle" })}
           </h3>
           {(fiveHourCardVisible && resetUi.entry) || (weeklyCardVisible && resetUi.week.entry) ? (
@@ -532,7 +575,7 @@ function CodingPlanQuotaCards({
         {cards.map((card) => {
           // XCODE: 只替换私有额度项，官方卡片保持上游呈现与重置行为。
           if (card.limit.native) {
-            return <NativePlanQuotaCard key={card.key} quota={card.limit.native} />;
+            return <NativePlanQuotaCard key={card.key} compact quota={card.limit.native} />;
           }
           const percentage = getQuotaRemainingPercentage(card.limit);
           const resetTime = formatUsageStatsQuotaResetTime(locale, card.limit.nextResetTime);
@@ -607,11 +650,7 @@ function CodingPlanQuotaCards({
           );
         })}
       </div>
-      {nativeLimit ? (
-        <p className="text-ui-base text-foreground-subtle">
-          {intl.formatMessage({ id: "settings.usage.nativeAdminReset" })}
-        </p>
-      ) : null}
+      {/* XCODE: 使用统计移除私有额度卡后的管理员说明及其占位。 */}
     </section>
   );
 }
