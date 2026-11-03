@@ -66,6 +66,8 @@ export class ToolExecutorImpl implements ToolExecutor {
       topicResourcePort: options.topicResourcePort,
       sessionStore: options.sessionStore,
       sessionModePort: options.sessionModePort,
+      // XCODE: 归一化和执行共享同一只读资源策略。
+      nativeDirectories: options.nativeDirectories,
       workflowPort: options.workflowPort,
       dynamicWorkflowRunPort: options.dynamicWorkflowRunPort,
       dynamicWorkflowSnippetPort: options.dynamicWorkflowSnippetPort,

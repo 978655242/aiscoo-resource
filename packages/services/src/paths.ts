@@ -4,6 +4,12 @@ import { cp } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { basename, join, win32 } from "node:path";
 import { homedir } from "node:os";
+// XCODE: 用户指令属于原生资源，App 数据与运行时目录继续使用既有路径。
+import {
+  nativeUserResourcePath,
+  resolveNativeResourceDirectoryPolicy,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
 import {
   DATA_BASE_DIR_FORBIDDEN_WINDOWS_INSTALL_DIR_ERROR_CODE,
   ZCODE_AGENT_RUNTIME,
@@ -70,8 +76,15 @@ export function resolveAgentUserInstructionsHomeDir(env: NodeJS.ProcessEnv = pro
 }
 
 /** `{home}/.zcode/AGENTS.md`：用户自定义指令（个性化）的唯一事实源文件。 */
-export function getAgentUserInstructionsFilePath(env: NodeJS.ProcessEnv = process.env): string {
-  return join(resolveAgentUserInstructionsHomeDir(env), ".zcode", "AGENTS.md");
+export function getAgentUserInstructionsFilePath(
+  env: NodeJS.ProcessEnv = process.env,
+  nativeDirectories: NativeResourceDirectoryPolicy = resolveNativeResourceDirectoryPolicy({ env }),
+): string {
+  return nativeUserResourcePath(
+    resolveAgentUserInstructionsHomeDir(env),
+    nativeDirectories,
+    "AGENTS.md",
+  );
 }
 
 function readEnvValue(env: Record<string, string | undefined>, key: string): string | undefined {

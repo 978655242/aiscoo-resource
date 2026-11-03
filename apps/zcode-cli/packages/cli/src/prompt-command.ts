@@ -226,8 +226,9 @@ export const runPrompt = async (
     providerRegistryRuntime = await startProviderRegistryRuntime(
       appEnv,
       deps.skipUserConfig
-        ? {}
+        ? { nativeDirectories: deps.nativeDirectories }
         : {
+            nativeDirectories: deps.nativeDirectories,
             standalone: {
               ...createCliProviderRefreshReporter(ctx.stderr),
               ...(deps.userConfigPath ? { legacyCliUserConfigFilePath: deps.userConfigPath } : {}),
@@ -238,12 +239,18 @@ export const runPrompt = async (
       deps.createProviderEndpointRoutingPort ??
       bootstrapModule?.createDefaultProviderEndpointRoutingPort;
     const providerEndpointRoutingPort = createProviderEndpointRoutingPort?.({
+      nativeDirectories: deps.nativeDirectories,
       appVersion: version,
       env,
       workingDirectory,
     });
     browserRuntime = createCliHeadlessBrowserRuntime(options, deps);
     app = await createApp({
+      // XCODE: 主会话沿用 CLI 入口目录快照。
+      nativeDirectories: deps.nativeDirectories,
+      userConfigPath: deps.userConfigPath,
+      projectConfigPath: deps.projectConfigPath,
+      skipUserConfig: deps.skipUserConfig,
       modelSelectionMode: "cli-default",
       browserControlPort: browserRuntime?.browserControlPort,
       env: appEnv,
@@ -595,21 +602,47 @@ async function listCustomCommandsForPrompt(deps: RunDependencies) {
   const env = deps.env ?? process.env;
   const workingDirectory = (deps.cwd ?? process.cwd)();
   if (deps.listCustomCommands) {
-    return await deps.listCustomCommands({ env, logger: deps.logger, workingDirectory });
+    return await deps.listCustomCommands({
+      env,
+      nativeDirectories: deps.nativeDirectories,
+      userConfigPath: deps.userConfigPath,
+      projectConfigPath: deps.projectConfigPath,
+      skipUserConfig: deps.skipUserConfig,
+      logger: deps.logger,
+      workingDirectory,
+    });
   }
   const bootstrap = await loadBootstrapModule();
-  return await bootstrap.listZCodeCustomCommands({ env, logger: deps.logger, workingDirectory });
+  return await bootstrap.listZCodeCustomCommands({
+    env,
+    nativeDirectories: deps.nativeDirectories,
+    userConfigPath: deps.userConfigPath,
+    projectConfigPath: deps.projectConfigPath,
+    skipUserConfig: deps.skipUserConfig,
+    logger: deps.logger,
+    workingDirectory,
+  });
 }
 
 async function loadCustomCommandForPrompt(deps: RunDependencies, name: string) {
   const env = deps.env ?? process.env;
   const workingDirectory = (deps.cwd ?? process.cwd)();
   if (deps.loadCustomCommand) {
-    return await deps.loadCustomCommand({ env, logger: deps.logger, name, workingDirectory });
+    return await deps.loadCustomCommand({
+      env,
+      nativeDirectories: deps.nativeDirectories,
+      userConfigPath: deps.userConfigPath,
+      projectConfigPath: deps.projectConfigPath,
+      skipUserConfig: deps.skipUserConfig,
+      logger: deps.logger,
+      name,
+      workingDirectory,
+    });
   }
   const bootstrap = await loadBootstrapModule();
   return await bootstrap.loadZCodeCustomCommand({
     env,
+    nativeDirectories: deps.nativeDirectories,
     logger: deps.logger,
     name,
     workingDirectory,
@@ -650,6 +683,7 @@ async function resolveHeadlessWorkspaceHookTrustDiagnostic(input: {
     input.deps.inspectWorkspaceHookTrust ?? input.bootstrapModule?.inspectWorkspaceHookTrust;
   if (!inspect) return undefined;
   const status = await inspect({
+    nativeDirectories: input.deps.nativeDirectories,
     workspacePath: input.workingDirectory,
     ...(input.deps.userConfigPath ? { userConfigPath: input.deps.userConfigPath } : {}),
   });

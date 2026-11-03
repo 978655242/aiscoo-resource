@@ -169,9 +169,14 @@ import { runHostShutdownPhases, type HostShutdownResult } from "./hostShutdownPh
 import { initializeHostApiNetworkTransportOwner } from "./hostInitialization.js";
 // XCODE: Native 回调由构建渠道配置，不用环境变量动态放宽回调地址。
 import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
+// XCODE: Main 已规范化目录名；Host 仅解析该值，并将资源与既有运行时插件库分别注入服务。
+import { resolveNativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
 // XCODE: 只在本地服务注册点追加默认目录包装，不改上游路径与设置实现。
 import { AISCOO_DESKTOP_DEFAULT_DATA_BASE_DIR_ENV } from "@zcode/shared/aiscoo-desktop-identity";
-import { registerAiscooDataDirectoryServices } from "./aiscoo-data-directory/index.js";
+import {
+  registerAiscooDataDirectoryServices,
+  resolveDesktopPluginStorageRoot,
+} from "./aiscoo-data-directory/index.js";
 import { createHostUncaughtExceptionHandler } from "./hostUncaughtExceptionGuard.js";
 import {
   recordCronRunOutcomeBestEffort,
@@ -266,6 +271,9 @@ const remoteMediaRangePreviewEnabled =
 type RemoteAssetDirs = import("./windowRemoteConnectionRegistry.js").WindowRemoteAssetDirs;
 
 const { parentPort } = process;
+// XCODE: 在 setting/资源服务和 Agent 初始化之前校验，整个 Host 生命周期不热切换。
+const nativeDirectories = resolveNativeResourceDirectoryPolicy({ env: process.env });
+const pluginStorageRoot = resolveDesktopPluginStorageRoot(process.env);
 const hostNetworkCapture = createHostNetworkCapture(parentPort);
 
 // 进程检索体验优化：host 由 utilityProcess 拉起时外壳仍是 Electron Helper，
@@ -1950,6 +1958,8 @@ async function ensureSourceServerConnectionManager(): Promise<SourceServerConnec
       throw new Error("Source Server directory 初始化期间 Host 已释放");
     }
     const manager = new SourceServerConnectionManager({
+      // XCODE: 只向新启动的目标 Source 传资源目录名，目标以自身 HOME 解析。
+      nativeResourceDirectoryName: nativeDirectories.directoryName,
       directory,
       admitConnection: createRemoteProjectConnectionAdmission(remoteProjects),
       onProjectChange: notifyProjectChange,
@@ -3973,11 +3983,12 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
         activeSessionRealtimePort = createTaskRealtimeBridgeForHostInit(msg, parentPort);
         // 旧 Team 补组织必须与网络代理读取共用同一个 Setting 实例及写队列。
         // 只注入 service 会跳过默认装配分支，导致缺组织的升级用户永远无法恢复连接。
+        // XCODE: 提前创建的 Setting 与后续服务共享同一资源策略，写队列和设置文件 owner 不变。
         const {
           service: settingService,
           prepareLegacyAccountConnections,
           setWorkspaceProjection,
-        } = createSettingServiceWithMigrations();
+        } = createSettingServiceWithMigrations({ nativeDirectories });
         const hostApiNetworkTransport = createHostApiNetworkTransport(async () => {
           const settings = await settingService.get();
           return {
@@ -3991,6 +4002,9 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
           log: (message, details) => logger.warn(message, details),
           establishOwner: () => {
             const initializedServices = createLocalServices({
+              // XCODE: 资源配置可换根，技能/命令/子代理的插件库存仍由原 Agent storage 根提供。
+              nativeDirectories,
+              ...(pluginStorageRoot ? { pluginStorageRoot } : {}),
               // XCODE: 仅 Desktop Native 注入精确回调，服务默认与 Web/远端保持原有语义。
               newApiRedirectUri: resolveAiscooDesktopIdentity()?.oauthRedirectUri,
               // XCODE: 以渠道身份启用策略，空/非法 origin 由阻断权威投影稳定错误。
@@ -4306,6 +4320,8 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
             options,
           );
         sourceServerConnectionManager = new SourceServerConnectionManager({
+          // XCODE: 与懒初始化路径使用同一策略，不给已运行的共享 daemon 热切换资源。
+          nativeResourceDirectoryName: nativeDirectories.directoryName,
           directory: sourceServerDirectory,
           admitConnection: createRemoteProjectConnectionAdmission(
             services.get(IRemoteProjectService),

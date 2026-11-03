@@ -1,5 +1,10 @@
 // XCODE: 自有静态文案只插入共享产品名，内部协议和存储身份保留。
 import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
+// XCODE: 仅允许原生资源目录这一非敏感启动字段，不开放任意服务环境变量。
+import {
+  NATIVE_RESOURCE_DIRECTORY_ENV,
+  resolveNativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { access } from "node:fs/promises";
 import { basename, join } from "node:path";
@@ -31,6 +36,8 @@ export interface ServiceCommandResult {
 export function createDaemonServiceDescriptor(options: {
   platform: ServicePlatform;
   layout: ServerLayout;
+  // XCODE: 由启动入口显式提供目录名；不从 Server 安装根反推资源策略。
+  nativeResourceDirectoryName?: string;
 }): ServiceDescriptor {
   return createServiceDescriptor({
     platform: options.platform,
@@ -40,6 +47,8 @@ export function createDaemonServiceDescriptor(options: {
     ),
     args: ["serve", "--supervisor", "--service-entry", "--server-root", options.layout.serverRoot],
     name: `com.zhipu.zcode.server.${stablePathId(options.layout.serverRoot)}`,
+    // XCODE: 单 key 启动策略复用现有 descriptor 工厂，默认字段缺省时输出保持不变。
+    nativeResourceDirectoryName: options.nativeResourceDirectoryName,
   });
 }
 
@@ -54,7 +63,15 @@ export function createServiceDescriptor(options: {
   command: string;
   args?: string[];
   name?: string;
+  // XCODE: 只追加目录名，不引入通用 env 控制面；非法值先于服务文件写入失败。
+  nativeResourceDirectoryName?: string;
 }): ServiceDescriptor {
+  const configuredDirectoryName = options.nativeResourceDirectoryName?.trim();
+  const nativeResourceDirectoryName = configuredDirectoryName
+    ? resolveNativeResourceDirectoryPolicy({
+        env: { [NATIVE_RESOURCE_DIRECTORY_ENV]: configuredDirectoryName },
+      }).directoryName
+    : undefined;
   const name = options.name ?? "com.zhipu.zcode.server";
   const args = options.args ?? ["serve", "--daemon"];
   if (options.platform === "darwin") {
@@ -63,14 +80,16 @@ export function createServiceDescriptor(options: {
       name,
       // 正常 stop 会让 Supervisor 以 0 退出；只按异常退出重启，避免 launchd 的无条件
       // KeepAlive 把用户主动停止的 daemon 立即拉起。Supervisor 自身仍负责 Core 崩溃退避。
-      content: `<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict><key>Label</key><string>${name}</string><key>ProgramArguments</key><array>${[options.command, ...args].map((value) => `<string>${escapeXml(value)}</string>`).join("")}</array><key>RunAtLoad</key><true/><key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict></dict></plist>`,
+      // XCODE: launchd 不继承本次 SSH 进程环境，显式单 key 并复用 XML 转义保留 & 等字面量。
+      content: `<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict><key>Label</key><string>${name}</string><key>ProgramArguments</key><array>${[options.command, ...args].map((value) => `<string>${escapeXml(value)}</string>`).join("")}</array>${nativeResourceDirectoryName ? `<key>EnvironmentVariables</key><dict><key>${NATIVE_RESOURCE_DIRECTORY_ENV}</key><string>${escapeXml(nativeResourceDirectoryName)}</string></dict>` : ""}<key>RunAtLoad</key><true/><key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict></dict></plist>`,
     };
   }
   if (options.platform === "linux") {
     return {
       kind: "systemd",
       name,
-      content: `[Unit]\nDescription=${PRODUCT_NAME} Server\n[Service]\nExecStart=${shellQuote(options.command)} ${args.map(shellQuote).join(" ")}\nRestart=on-failure\n[Install]\nWantedBy=default.target\n`,
+      // XCODE: 目录名已排除引号、反斜杠和控制符；整体双引号保留空格，%% 防止 systemd 展开 specifier。
+      content: `[Unit]\nDescription=${PRODUCT_NAME} Server\n[Service]\nExecStart=${shellQuote(options.command)} ${args.map(shellQuote).join(" ")}\n${nativeResourceDirectoryName ? `Environment="${NATIVE_RESOURCE_DIRECTORY_ENV}=${nativeResourceDirectoryName.replaceAll("%", "%%")}"\n` : ""}Restart=on-failure\n[Install]\nWantedBy=default.target\n`,
     };
   }
   return {

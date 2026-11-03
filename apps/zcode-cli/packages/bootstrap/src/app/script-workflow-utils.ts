@@ -6,7 +6,7 @@ import type {
   WorkflowAgentCallInput,
 } from "@zcode/contracts";
 import { homedir } from "node:os";
-import { isAbsolute, join, relative } from "node:path";
+import { isAbsolute, relative } from "node:path";
 
 const STRUCTURED_OUTPUT_PROMPT =
   "Return only JSON that conforms to the provided JSON Schema. Do not wrap it in Markdown.";
@@ -166,12 +166,27 @@ export async function collectScriptWorkflowSessionStats(
   return stats;
 }
 
+// XCODE: 来源分类按实际资源策略，保留 explicit 来源语义。
+import {
+  nativeProjectResourcePath,
+  nativeUserResourcePath,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
+
 export function inferScriptWorkflowScope(
   scriptPath: string,
   workingDirectory: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): "explicit" | "project" | "user" {
-  if (isWithin(scriptPath, join(workingDirectory, ".zcode", "workflows"))) return "project";
-  if (isWithin(scriptPath, join(homedir(), ".zcode", "workflows"))) return "user";
+  if (
+    isWithin(
+      scriptPath,
+      nativeProjectResourcePath(workingDirectory, nativeDirectories, "workflows"),
+    )
+  )
+    return "project";
+  if (isWithin(scriptPath, nativeUserResourcePath(homedir(), nativeDirectories, "workflows")))
+    return "user";
   return "explicit";
 }
 

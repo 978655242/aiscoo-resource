@@ -6,9 +6,9 @@
 
 交互只有一层：点击侧栏「个性化」直接进入编辑器，不经过列表入口 → 二级编辑页的跳转。
 
-## 单一事实源：`~/.zcode/AGENTS.md`
+## 单一事实源：原生用户资源目录中的 `AGENTS.md`
 
-编辑器读写的文件就是 CLI 已有的用户级默认指令文件 `{home}/.zcode/AGENTS.md`，不新增存储：
+编辑器与 CLI 读取同一个 `{home}/<nativeDirectoryName>/AGENTS.md`，不新增存储。原生目录策略见 [Native Resource Directories](../../apps/zcode-cli/docs/design/v2/native-resource-directories.md)：通用默认 `.zcode`，Aiscoo 产品默认 `.aiscoo`，启动环境可覆盖。下文的 `.zcode` 示例表示通用默认布局，Aiscoo 使用所选资源根；App 数据根和 `.agents` 兼容目录不受影响。
 
 - CLI 侧 `apps/zcode-cli/packages/adapters/src/context/index.ts` 的 `resolveUserInstructions` 会把它作为 `scope: "user"` 的指令源，与 workspace `AGENTS.md` 一起注入每个会话的 Request User Context（读取上限 100KB，超出截断）。
 - 因此「保存即生效于后续所有会话」，无需协议或 CLI 改动；文件缺失或内容为空等价于未配置。

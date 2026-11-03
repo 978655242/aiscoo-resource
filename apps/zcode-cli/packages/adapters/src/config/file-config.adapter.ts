@@ -11,6 +11,8 @@ import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import type { RuntimeConfigPatch, UiLocale } from "@zcode/contracts";
+// XCODE: 原生资源路径由入口策略提供，显式文件与 baseDir 继续优先。
+import { nativeUserResourcePath, type NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories/node";
 import { z } from "zod";
 import {
   CANONICAL_CUA_PLUGIN_ID,
@@ -22,6 +24,7 @@ import {
 } from "./schema.js";
 
 interface FileConfigOptions {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   baseDir?: string;
   configFileName?: string;
   scope?: "user" | "project";
@@ -60,7 +63,7 @@ export interface PluginRemovePatchResult {
 }
 
 const DEFAULT_CONFIG_FILE = "config.json";
-const DEFAULT_BASE_DIR = "~/.zcode/cli";
+
 
 /**
  * Resolve path with ~ expansion
@@ -79,7 +82,7 @@ export function loadFileConfig(filePath?: string, options: FileConfigOptions = {
   const resolvedPath = filePath
     ? resolvePath(filePath)
     : join(
-        resolvePath(options.baseDir ?? DEFAULT_BASE_DIR),
+        options.baseDir ? resolvePath(options.baseDir) : nativeUserResourcePath(homedir(), options.nativeDirectories, "cli"),
         options.configFileName ?? DEFAULT_CONFIG_FILE,
       );
 
@@ -441,15 +444,15 @@ export async function removeSuppressedBuiltinInFileConfig(
 /**
  * Get default config file path
  */
-export function getDefaultConfigPath(): string {
-  return join(resolvePath(DEFAULT_BASE_DIR), DEFAULT_CONFIG_FILE);
+export function getDefaultConfigPath(nativeDirectories?: NativeResourceDirectoryPolicy): string {
+  return join(nativeUserResourcePath(homedir(), nativeDirectories, "cli"), DEFAULT_CONFIG_FILE);
 }
 
 /**
  * Check if config file exists at default location
  */
-export function hasDefaultConfigFile(): boolean {
-  return existsSync(getDefaultConfigPath());
+export function hasDefaultConfigFile(nativeDirectories?: NativeResourceDirectoryPolicy): boolean {
+  return existsSync(getDefaultConfigPath(nativeDirectories));
 }
 
 async function readJsonConfigFile(filePath: string): Promise<Record<string, unknown>> {

@@ -39,7 +39,9 @@
     "./conversation-telemetry": "./src/conversation-telemetry/index.ts",
     "./conversation-telemetry/messageTelemetry": "./src/conversation-telemetry/messageTelemetry.ts",
     "./conversation-telemetry/providerTelemetryIdentity": "./src/conversation-telemetry/providerTelemetryIdentity.ts",
-    "./aiscoo-desktop-identity": "./src/aiscoo-desktop-identity/runtime.js"
+    "./aiscoo-desktop-identity": "./src/aiscoo-desktop-identity/runtime.js",
+    "./native-resource-directories": "./src/native-resource-directories/index.ts",
+    "./native-resource-directories/node": "./src/native-resource-directories/node.ts"
   },
   "scripts": {
     "lint": "oxlint",

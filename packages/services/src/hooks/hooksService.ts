@@ -1,7 +1,14 @@
-import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
+// XCODE: 资源路径由 Host 注入，兼容目录与显式 storage.dir 的解析保持原规则。
+import {
+  nativeUserConfigPath,
+  nativeUserResourcePath,
+  nativeProjectResourcePath,
+  nativeProjectConfigPath,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
 import type {
   Hook,
   HookEvent,
@@ -53,17 +60,27 @@ function resolveUserHomeDir(): string {
   return envHome && envHome.length > 0 ? envHome : homedir();
 }
 
-function getRootDir(source: SettingsDirectorySource, workspacePath?: string): string {
+function getRootDir(
+  source: SettingsDirectorySource,
+  workspacePath?: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): string {
   const baseDir = workspacePath ?? resolveUserHomeDir();
   if (source === "zcode") {
-    return workspacePath ? join(baseDir, ".zcode") : join(baseDir, ".zcode", "cli");
+    return workspacePath
+      ? nativeProjectResourcePath(baseDir, nativeDirectories)
+      : nativeUserResourcePath(baseDir, nativeDirectories, "cli");
   }
   return join(baseDir, source === "agents" ? ".agents" : ".claude");
 }
 
-function getConfigPath(source: SettingsDirectorySource, workspacePath?: string): string {
+function getConfigPath(
+  source: SettingsDirectorySource,
+  workspacePath?: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): string {
   return join(
-    getRootDir(source, workspacePath),
+    getRootDir(source, workspacePath, nativeDirectories),
     source === "zcode" ? ZCODE_CONFIG_FILE : SETTINGS_FILE,
   );
 }
@@ -71,11 +88,12 @@ function getConfigPath(source: SettingsDirectorySource, workspacePath?: string):
 function buildLocation(
   source: SettingsDirectorySource,
   workspacePath?: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): SettingsDirectoryLocation {
   return {
     source,
     scope: workspacePath ? "project" : "user",
-    directoryPath: getRootDir(source, workspacePath),
+    directoryPath: getRootDir(source, workspacePath, nativeDirectories),
     ...(workspacePath ? { projectPath: workspacePath } : {}),
   };
 }
@@ -94,7 +112,6 @@ function isNodeError(error: unknown, code: string): error is NodeJS.ErrnoExcepti
 
 async function readJsonFile<T>(filePath: string): Promise<T | null> {
   try {
-    if (!existsSync(filePath)) return null;
     const parsed = JSON.parse(await readFile(filePath, "utf8")) as unknown;
     return isRecord(parsed) ? (parsed as T) : null;
   } catch {
@@ -102,8 +119,10 @@ async function readJsonFile<T>(filePath: string): Promise<T | null> {
   }
 }
 
-async function readUserZCodeSource(): Promise<WorkspaceHookSourceInput | undefined> {
-  const path = getConfigPath("zcode");
+async function readUserZCodeSource(
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<WorkspaceHookSourceInput | undefined> {
+  const path = nativeUserConfigPath(resolveUserHomeDir(), nativeDirectories);
   const config = await readJsonFile<Record<string, unknown>>(path);
   const parsed = workspaceHooksConfigSchema.safeParse(config?.hooks);
   if (!parsed.success) return undefined;
@@ -114,6 +133,7 @@ async function readUserZCodeSource(): Promise<WorkspaceHookSourceInput | undefin
       hooks: parsed.data,
       discoveryOrder: 0,
       explicitProjectConfig: true,
+      nativeDirectories,
     }),
     editable: true,
   };
@@ -154,8 +174,12 @@ async function loadLegacyHooksFromLocation(
 async function readPersistentWorkspaceHookTrustDigests(
   workspaceIdentity: string,
   logger: ServiceLogger,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<{ digests: Set<string>; corrupt: boolean }> {
-  const userConfig = (await readJsonFile<Record<string, unknown>>(getConfigPath("zcode"))) ?? {};
+  const userConfig =
+    (await readJsonFile<Record<string, unknown>>(
+      getConfigPath("zcode", undefined, nativeDirectories),
+    )) ?? {};
   const storage = isRecord(userConfig.storage) ? userConfig.storage : {};
   const configured = typeof storage.dir === "string" ? storage.dir.trim() : "";
   const home = resolveUserHomeDir();
@@ -165,7 +189,7 @@ async function readPersistentWorkspaceHookTrustDigests(
       : isAbsolute(configured)
         ? resolve(configured)
         : resolve(home, configured)
-    : join(home, ".zcode");
+    : nativeUserResourcePath(home, nativeDirectories);
   const trustFilePath = join(storageRoot, "security", "workspace-hook-trust-v1.json");
 
   // 异步读取 + ENOENT 区分：不用 existsSync 预检——同步调用会阻塞服务
@@ -218,6 +242,7 @@ async function loadHooksImpl(
     scope?: "all" | "user";
   },
   logger: ServiceLogger,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<{
   hooks: Hook[];
   hooksEnabled: boolean;
@@ -225,14 +250,14 @@ async function loadHooksImpl(
 }> {
   const workspacePath = resolve(params.workspacePath);
   if (params.scope === "user") {
-    const userSource = await readUserZCodeSource();
+    const userSource = await readUserZCodeSource(nativeDirectories);
     const runtimeRoot = resolveWorkspaceHookRuntimeRoot([userSource?.hooks]);
     const hooks = [
       ...fromUserZCodeSource({
         source: userSource,
         runtimeRoot,
         workspacePath,
-        location: buildLocation("zcode"),
+        location: buildLocation("zcode", undefined, nativeDirectories),
       }),
       ...(await loadLegacyHooksFromLocation("agents")),
       ...(await loadLegacyHooksFromLocation("claude")),
@@ -241,8 +266,8 @@ async function loadHooksImpl(
   }
   const workspaceIdentity = params.workspaceIdentity?.trim() || workspacePath;
   const [{ sources: projectSources }, userSource] = await Promise.all([
-    readWorkspaceHookProjectSources({ workingDirectory: workspacePath }),
-    readUserZCodeSource(),
+    readWorkspaceHookProjectSources({ workingDirectory: workspacePath, nativeDirectories }),
+    readUserZCodeSource(nativeDirectories),
   ]);
   const runtimeRoot = resolveWorkspaceHookRuntimeRoot([
     userSource?.hooks,
@@ -254,7 +279,11 @@ async function loadHooksImpl(
     sources: projectSources,
     runtimeRoot,
   });
-  const persistentTrust = await readPersistentWorkspaceHookTrustDigests(workspaceIdentity, logger);
+  const persistentTrust = await readPersistentWorkspaceHookTrustDigests(
+    workspaceIdentity,
+    logger,
+    nativeDirectories,
+  );
   const persistentTrustedDigests = persistentTrust.digests;
   const hooks = [
     ...fromProjectSnapshot({
@@ -270,7 +299,7 @@ async function loadHooksImpl(
       source: userSource,
       runtimeRoot,
       workspacePath,
-      location: buildLocation("zcode"),
+      location: buildLocation("zcode", undefined, nativeDirectories),
     }),
     ...(await loadLegacyHooksFromLocation("agents")),
     ...(await loadLegacyHooksFromLocation("claude")),
@@ -291,28 +320,37 @@ async function loadHooksImpl(
 async function writeZCodeHooksConfig(
   workspacePath: string | undefined,
   hooks: Hook[],
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<void> {
-  await updateJsonObjectFile(getConfigPath("zcode", workspacePath), (current) => {
-    const existingConfig = current as ZCodeConfigFile;
-    const enabled = resolveNextRootEnabled(existingConfig.hooks?.enabled, hooks);
-    return {
-      ...existingConfig,
-      hooks: {
-        ...existingConfig.hooks,
-        ...(enabled !== undefined ? { enabled } : {}),
-        events: toZCodeHooksEvents(hooks),
-      },
-    };
-  });
+  await updateJsonObjectFile(
+    getConfigPath("zcode", workspacePath, nativeDirectories),
+    (current) => {
+      const existingConfig = current as ZCodeConfigFile;
+      const enabled = resolveNextRootEnabled(existingConfig.hooks?.enabled, hooks);
+      return {
+        ...existingConfig,
+        hooks: {
+          ...existingConfig.hooks,
+          ...(enabled !== undefined ? { enabled } : {}),
+          events: toZCodeHooksEvents(hooks),
+        },
+      };
+    },
+  );
 }
 
-async function saveHooksImpl(params: {
-  workspaceIdentity?: string;
-  workspacePath: string;
-  scope?: "all" | "user";
-  hooks: Hook[];
-}): Promise<void> {
-  const currentProjectConfigPath = resolve(params.workspacePath, ".zcode", "config.json");
+async function saveHooksImpl(
+  params: {
+    workspaceIdentity?: string;
+    workspacePath: string;
+    scope?: "all" | "user";
+    hooks: Hook[];
+  },
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<void> {
+  const currentProjectConfigPath = resolve(
+    nativeProjectConfigPath(params.workspacePath, nativeDirectories),
+  );
   const userHooks = params.hooks.filter(
     (hook) =>
       hook.editable !== false &&
@@ -326,22 +364,23 @@ async function saveHooksImpl(params: {
       (!hook.configuredState ||
         resolve(hook.configuredState.sourcePath) === currentProjectConfigPath),
   );
-  await writeZCodeHooksConfig(undefined, userHooks);
+  await writeZCodeHooksConfig(undefined, userHooks, nativeDirectories);
   if (params.scope !== "user") {
-    await writeZCodeHooksConfig(params.workspacePath, projectHooks);
+    await writeZCodeHooksConfig(params.workspacePath, projectHooks, nativeDirectories);
   }
 }
 
 export function createHooksService(
   options: {
+    nativeDirectories?: NativeResourceDirectoryPolicy;
     logger?: ServiceLogger;
     grantWorkspaceHookTrust?: NonNullable<IHooksService["grantWorkspaceHookTrust"]>;
   } = {},
 ): IHooksService {
   const logger = options.logger ?? createServiceLogger("hooks-service");
   return {
-    loadHooks: (params) => loadHooksImpl(params, logger),
-    saveHooks: saveHooksImpl,
+    loadHooks: (params) => loadHooksImpl(params, logger, options.nativeDirectories),
+    saveHooks: (params) => saveHooksImpl(params, options.nativeDirectories),
     ...(options.grantWorkspaceHookTrust
       ? { grantWorkspaceHookTrust: options.grantWorkspaceHookTrust }
       : {}),

@@ -1,3 +1,9 @@
+// XCODE: inline 插件资源与运行时插件库存保持独立路径。
+import {
+  nativeUserConfigPath,
+  nativeUserResourcePath,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { cp, lstat, mkdir, readFile, readdir, rm } from "node:fs/promises";
@@ -68,11 +74,15 @@ const PLUGIN_MANIFEST_RELATIVE_PATHS = [
 
 export function createPluginSyncService(options?: {
   maxArchiveBytes?: number;
+  nativeDirectories?: NativeResourceDirectoryPolicy;
 }): IPluginSyncService {
   const maxArchiveBytes = options?.maxArchiveBytes ?? DEFAULT_MAX_ARCHIVE_BYTES;
   return {
     // 数据同步：单个 inline 插件目录上限 50MB；marketplace 来源镜像归档也用同一上限。
-    ...createInlinePluginDataSyncMethods({ maxItemBytes: maxArchiveBytes }),
+    ...createInlinePluginDataSyncMethods({
+      maxItemBytes: maxArchiveBytes,
+      nativeDirectories: options?.nativeDirectories,
+    }),
     async exportMarketplaceSourceArchive(params) {
       const result = await exportMarketplaceSourceArchiveInternal(params, maxArchiveBytes);
       if (result.archive.byteLength > maxArchiveBytes) {
@@ -107,7 +117,11 @@ export function createPluginSyncService(options?: {
           `plugin marketplace source archive exceeds limit: ${params.archive.byteLength}/${maxArchiveBytes}`,
         );
       }
-      return await importMarketplaceSourceArchiveInternal(params.archive, maxArchiveBytes);
+      return await importMarketplaceSourceArchiveInternal(
+        params.archive,
+        maxArchiveBytes,
+        options?.nativeDirectories,
+      );
     },
   };
 }
@@ -116,12 +130,12 @@ export function resolveUserHomeDir(): string {
   return process.env.HOME?.trim() || process.env.USERPROFILE?.trim() || homedir();
 }
 
-export function getUserZcodeConfigPath(): string {
-  return join(resolveUserHomeDir(), ".zcode", "cli", "config.json");
+export function getUserZcodeConfigPath(nativeDirectories?: NativeResourceDirectoryPolicy): string {
+  return nativeUserConfigPath(resolveUserHomeDir(), nativeDirectories);
 }
 
-export function getUserZcodePluginRoot(): string {
-  return join(resolveUserHomeDir(), ".zcode", "plugins");
+export function getUserZcodePluginRoot(nativeDirectories?: NativeResourceDirectoryPolicy): string {
+  return nativeUserResourcePath(resolveUserHomeDir(), nativeDirectories, "plugins");
 }
 
 async function exportMarketplaceSourceArchiveInternal(
@@ -217,6 +231,7 @@ async function exportMarketplaceSourceArchiveInternal(
 async function importMarketplaceSourceArchiveInternal(
   archive: Uint8Array,
   maxArchiveBytes: number,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ) {
   const tempRoot = join(tmpdir(), `zcode-plugin-marketplace-source-${randomUUID()}`);
   try {
@@ -232,7 +247,10 @@ async function importMarketplaceSourceArchiveInternal(
         `marketplace source archive id mismatch: ${manifest.name} !== ${metadata.marketplaceId}`,
       );
     }
-    const targetRoot = join(getUserZcodePluginRoot(), MARKETPLACE_SOURCE_ROOT_DIRECTORY);
+    const targetRoot = join(
+      getUserZcodePluginRoot(nativeDirectories),
+      MARKETPLACE_SOURCE_ROOT_DIRECTORY,
+    );
     const targetPath = resolvePluginSyncPathWithin(targetRoot, directoryName);
     if (existsSync(targetPath)) {
       return {
@@ -257,8 +275,10 @@ async function importMarketplaceSourceArchiveInternal(
   }
 }
 
-export async function readUserPluginConfigState(): Promise<UserPluginConfigState> {
-  const parsed = await readJsonFileOrEmpty(getUserZcodeConfigPath());
+export async function readUserPluginConfigState(
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<UserPluginConfigState> {
+  const parsed = await readJsonFileOrEmpty(getUserZcodeConfigPath(nativeDirectories));
   const plugins = isRecord(parsed.plugins) ? parsed.plugins : {};
   const enabledPlugins = isRecord(plugins.enabledPlugins) ? plugins.enabledPlugins : {};
   const enabledOverrides = new Map<string, boolean>();

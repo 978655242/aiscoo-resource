@@ -23,7 +23,11 @@ export interface ResolveProcessProviderEndpointRoutingPortOptions {
   sourceTitle?: ModelProviderSourceTitle;
 }
 
+// XCODE: 默认网络来源消费已解析资源策略。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
+
 export interface CreateDefaultProviderEndpointRoutingPortOptions {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   appVersion?: string;
   env?: NodeJS.ProcessEnv;
   loggerFactory?: LoggerFactory;
@@ -76,6 +80,7 @@ export function createDefaultProviderEndpointRoutingPort(
 ): ProviderEndpointRoutingPort {
   const env = options.env ?? process.env;
   const configResult = createConfig({
+    nativeDirectories: options.nativeDirectories,
     env,
     projectConfigPath: options.projectConfigPath,
     skipUserConfig: options.skipUserConfig,

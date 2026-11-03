@@ -6,6 +6,7 @@ export interface AiscooDesktopIdentity {
   readonly appId: string;
   readonly productName: string;
   readonly dataName: string;
+  readonly nativeResourceDirectoryName: string;
   readonly scheme: string;
   readonly oauthRedirectUri: string;
   readonly macKeychainName: string;

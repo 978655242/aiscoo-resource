@@ -1,5 +1,11 @@
 # Tool Change Chain Spec
 
+## 原生资源目录策略（2026-11-03）
+
+产品配置／启动环境 → 校验后的只读目录策略 → bootstrap／protocol／管理 CLI → 原生配置、技能、命令、子代理与工作流发现及写入 → Host 服务 → UI 实际目录监听。完整合同见 [Native Resource Directories](../native-resource-directories.md)。
+
+通用缺省 `.zcode`，Aiscoo 注入 `.aiscoo`；`.agents`、工具 schema、来源枚举、权限及协议语义不变。草稿 catalog、主会话、冷恢复、父子 Agent 与 workflow 的默认 adapter 共用策略，已有自定义 port 优先。资源目录不改变 App 或独立 CLI 的运行时 storage、DB、log、插件安装库存和执行产物。MCP／Hooks 的实际来源、相对 cwd、审核写入与信任解析同步接入，保持原准入及摘要边界。
+
 ## Aiscoo 模型引用迁移（2026-11-03）
 
 CreateWorkflow / AmendWorkflow 与脚本模型绑定在公共模型引用解析器中复用共享的精确 Provider ID 规范化，旧 run 的显式模型与绑定仍按同一协议、模型和思考档位恢复。工具 schema、权限、确认与事件顺序不变；新引用仅保存规范身份，不批量改写旧 journal。完整映射与验收见 [Provider ID 命名迁移规格](../../../../../../docs/aiscoo/specs/new-api-integration.md#511-provider-id-命名迁移与旧引用兼容)。

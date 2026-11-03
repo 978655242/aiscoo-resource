@@ -21,9 +21,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import {
   SAVED_WORKFLOW_FILE_EXTENSION,
-  SAVED_WORKFLOW_GLOBAL_DIR,
   SAVED_WORKFLOW_MAX_NAME_CHARS,
-  SAVED_WORKFLOW_PROJECT_DIR,
   isValidSavedWorkflowName,
   type SavedWorkflowEntry,
   type SavedWorkflowInvalidEntry,
@@ -31,6 +29,12 @@ import {
   type SavedWorkflowScope,
   type SavedWorkflowShadowing,
 } from "@zcode/contracts";
+// XCODE: 保存定义属于原生资源库，运行时草稿与 run 文件仍走原路径。
+import {
+  nativeProjectResourcePath,
+  nativeUserResourcePath,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
 import { parseSavedWorkflow, serializeSavedWorkflow } from "./frontmatter.js";
 
 /** 一个查找根：作用域标签 + 绝对目录。 */
@@ -45,6 +49,7 @@ export interface SavedWorkflowRoot {
  */
 export interface SavedWorkflowRootsOptions {
   homeDir?: string;
+  nativeDirectories?: NativeResourceDirectoryPolicy;
 }
 
 /**
@@ -58,8 +63,18 @@ export function savedWorkflowRoots(
   options?: SavedWorkflowRootsOptions,
 ): SavedWorkflowRoot[] {
   return [
-    { scope: "project", dir: join(cwd, SAVED_WORKFLOW_PROJECT_DIR) },
-    { scope: "global", dir: join(options?.homeDir ?? homedir(), SAVED_WORKFLOW_GLOBAL_DIR) },
+    {
+      scope: "project",
+      dir: nativeProjectResourcePath(cwd, options?.nativeDirectories, "workflows"),
+    },
+    {
+      scope: "global",
+      dir: nativeUserResourcePath(
+        options?.homeDir ?? homedir(),
+        options?.nativeDirectories,
+        "workflows",
+      ),
+    },
   ];
 }
 
@@ -132,8 +147,9 @@ export function resolveSavedWorkflow(options: {
   name: string;
   scope?: SavedWorkflowScope;
   homeDir?: string;
+  nativeDirectories?: NativeResourceDirectoryPolicy;
 }): SavedWorkflowResolveResult {
-  const { cwd, name, scope, homeDir } = options;
+  const { cwd, name, scope, homeDir, nativeDirectories } = options;
   if (!isValidSavedWorkflowName(name)) {
     return {
       ok: false,
@@ -144,8 +160,8 @@ export function resolveSavedWorkflow(options: {
 
   const roots =
     scope === undefined
-      ? savedWorkflowRoots(cwd, { homeDir })
-      : [savedWorkflowRoot(cwd, scope, { homeDir })];
+      ? savedWorkflowRoots(cwd, { homeDir, nativeDirectories })
+      : [savedWorkflowRoot(cwd, scope, { homeDir, nativeDirectories })];
 
   for (const root of roots) {
     const path = savedWorkflowPath(root, name);
@@ -191,6 +207,7 @@ export function listSavedWorkflows(options: {
   cwd: string;
   scope?: SavedWorkflowScope;
   homeDir?: string;
+  nativeDirectories?: NativeResourceDirectoryPolicy;
 }): SavedWorkflowListResult {
   const entries: SavedWorkflowEntry[] = [];
   const invalid: SavedWorkflowInvalidEntry[] = [];
@@ -198,8 +215,16 @@ export function listSavedWorkflows(options: {
 
   const roots =
     options.scope === undefined
-      ? savedWorkflowRoots(options.cwd, { homeDir: options.homeDir })
-      : [savedWorkflowRoot(options.cwd, options.scope, { homeDir: options.homeDir })];
+      ? savedWorkflowRoots(options.cwd, {
+          homeDir: options.homeDir,
+          nativeDirectories: options.nativeDirectories,
+        })
+      : [
+          savedWorkflowRoot(options.cwd, options.scope, {
+            homeDir: options.homeDir,
+            nativeDirectories: options.nativeDirectories,
+          }),
+        ];
 
   for (const root of roots) {
     let fileNames: string[];
@@ -268,9 +293,11 @@ export function saveSavedWorkflow(options: {
   script: string;
   scope?: SavedWorkflowScope;
   homeDir?: string;
+  nativeDirectories?: NativeResourceDirectoryPolicy;
 }): { path: string; scope: SavedWorkflowScope; overwritten: boolean } {
   const root = savedWorkflowRoot(options.cwd, options.scope ?? "project", {
     homeDir: options.homeDir,
+    nativeDirectories: options.nativeDirectories,
   });
   const path = savedWorkflowPath(root, options.name);
   mkdirSync(root.dir, { recursive: true });
@@ -285,10 +312,12 @@ export function savedWorkflowExists(options: {
   name: string;
   scope?: SavedWorkflowScope;
   homeDir?: string;
+  nativeDirectories?: NativeResourceDirectoryPolicy;
 }): boolean {
   if (!isValidSavedWorkflowName(options.name)) return false;
   const root = savedWorkflowRoot(options.cwd, options.scope ?? "project", {
     homeDir: options.homeDir,
+    nativeDirectories: options.nativeDirectories,
   });
   return fileExists(savedWorkflowPath(root, options.name));
 }
@@ -304,10 +333,14 @@ export function findSavedWorkflowShadowing(options: {
   name: string;
   scope: SavedWorkflowScope;
   homeDir?: string;
+  nativeDirectories?: NativeResourceDirectoryPolicy;
 }): SavedWorkflowShadowing | undefined {
   if (!isValidSavedWorkflowName(options.name)) return undefined;
   const otherScope: SavedWorkflowScope = options.scope === "project" ? "global" : "project";
-  const otherRoot = savedWorkflowRoot(options.cwd, otherScope, { homeDir: options.homeDir });
+  const otherRoot = savedWorkflowRoot(options.cwd, otherScope, {
+    homeDir: options.homeDir,
+    nativeDirectories: options.nativeDirectories,
+  });
   if (!fileExists(savedWorkflowPath(otherRoot, options.name))) return undefined;
   return options.scope === "project" ? "hides_global" : "hidden_by_project";
 }
@@ -335,8 +368,9 @@ export function moveSavedWorkflow(options: {
   cwd: string;
   name: string;
   homeDir?: string;
+  nativeDirectories?: NativeResourceDirectoryPolicy;
 }): SavedWorkflowMoveResult {
-  const { cwd, name, homeDir } = options;
+  const { cwd, name, homeDir, nativeDirectories } = options;
   if (!isValidSavedWorkflowName(name)) {
     return {
       ok: false,
@@ -345,8 +379,8 @@ export function moveSavedWorkflow(options: {
     };
   }
 
-  const fromRoot = savedWorkflowRoot(cwd, "global", { homeDir });
-  const toRoot = savedWorkflowRoot(cwd, "project", { homeDir });
+  const fromRoot = savedWorkflowRoot(cwd, "global", { homeDir, nativeDirectories });
+  const toRoot = savedWorkflowRoot(cwd, "project", { homeDir, nativeDirectories });
   const fromPath = savedWorkflowPath(fromRoot, name);
   const toPath = savedWorkflowPath(toRoot, name);
 

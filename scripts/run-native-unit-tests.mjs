@@ -47,6 +47,9 @@ try {
       "scripts/test/aiscoo-desktop-credential-no-keychain.test.mjs",
       "scripts/test/aiscoo-desktop-deep-link-identity.test.mjs",
       "scripts/test/aiscoo-export-logs-credential-backup.test.mjs",
+      // XCODE: 原生资源策略与运行时目录隔离的独立工程回归。
+      "scripts/test/native-resource-directories.test.mjs",
+      "packages/desktop/test/native-resource-bootstrap.test.mjs",
     ],
     {
       cwd,

@@ -536,6 +536,8 @@ async function executeToolCallImpl(
         topicResourcePort: deps.topicResourcePort,
         sessionStore: deps.sessionStore,
         sessionModePort: deps.sessionModePort,
+        // XCODE: 保存 workflow 的执行目标与审批路径使用相同策略。
+        nativeDirectories: deps.nativeDirectories,
         workflowPort: deps.workflowPort,
         dynamicWorkflowRunPort: deps.dynamicWorkflowRunPort,
         dynamicWorkflowSnippetPort: deps.dynamicWorkflowSnippetPort,

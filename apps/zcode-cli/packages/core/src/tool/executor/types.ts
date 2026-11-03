@@ -1,3 +1,5 @@
+// XCODE: 只读资源策略贯穿运行时与工具归一化，不改变执行产物路径。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
 import type { ToolSearchExecutionContext } from "@zcode/contracts";
 import type {
   AgentExecutionTelemetryPort,
@@ -75,6 +77,7 @@ export type ShouldEnqueueBackgroundTaskNotification = (
 ) => boolean;
 
 export interface ToolExecutorOptions {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   agentTelemetry?: AgentExecutionTelemetryPort;
   agentTelemetryActorKind?: AgentTelemetryActorKind;
   registry: ToolRegistry;
@@ -202,6 +205,7 @@ export interface ToolBatchExecuteOptions extends ToolExecuteOptions {
 }
 
 export interface ToolExecutorDeps {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   agentTelemetry?: AgentExecutionTelemetryPort;
   agentTelemetryActorKind?: AgentTelemetryActorKind;
   registry: ToolRegistry;

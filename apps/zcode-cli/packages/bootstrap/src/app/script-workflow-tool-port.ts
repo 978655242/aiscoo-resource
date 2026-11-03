@@ -25,7 +25,15 @@ const WORKFLOW_SCRIPT_SUFFIX = ".workflow.js";
 const WORKFLOW_NAME_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const BUILTIN_WORKFLOW_ALLOWLIST = new Map<string, string>();
 
+// XCODE: 命名 workflow 属于原生资源库，执行副本仍写原 storageRoot。
+import {
+  nativeProjectResourcePath,
+  nativeUserResourcePath,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
+
 interface ScriptWorkflowToolPortDeps {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   fileSystemPort: FileSystemPort;
   getRuntime: () => ScriptWorkflowRuntime;
   logger?: Logger;
@@ -349,8 +357,8 @@ async function resolveNamedWorkflowPath(
 ): Promise<string> {
   const fileName = workflowFileName(name);
   const candidates = [
-    join(deps.workingDirectory, ".zcode", "workflows", fileName),
-    join(homedir(), ".zcode", "workflows", fileName),
+    nativeProjectResourcePath(deps.workingDirectory, deps.nativeDirectories, "workflows", fileName),
+    nativeUserResourcePath(homedir(), deps.nativeDirectories, "workflows", fileName),
   ];
   const builtIn = BUILTIN_WORKFLOW_ALLOWLIST.get(name);
   if (builtIn) candidates.push(builtIn);

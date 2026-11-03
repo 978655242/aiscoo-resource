@@ -12,6 +12,8 @@ import {
   ZCODE_REMOTE_NO_PROXY_ENV_KEY,
   ZCODE_REMOTE_RUNTIME_NETWORK_AUTHORITY_ENV_KEY,
 } from "@zcode/shared";
+// XCODE: remoteRuntimeEnv 仅追加目录名，远端仍以自身 HOME 解析资源，安装/运行根保持原路径。
+import { NATIVE_RESOURCE_DIRECTORY_ENV } from "@zcode/shared/native-resource-directories";
 import type { IRemoteBackend } from "./backend.js";
 import { wrapStdioStream } from "./stdio-socket.js";
 import { performHandshake } from "./handshake.js";
@@ -76,6 +78,8 @@ const REMOTE_RUNTIME_ENV_KEYS = [
   // 同上：本地覆盖由 Desktop Main 按构建档位写定（buildHostProcessEnv），
   // 透传后 SSH/WSL/Docker 远端 Host 与本地 Host 得到同一档位。
   ZCODE_DYNAMIC_WORKFLOW_MODE_ENV,
+  // XCODE: 透传非敏感资源目录名，不传本地绝对路径。
+  NATIVE_RESOURCE_DIRECTORY_ENV,
 ] as const;
 
 export type RemoteRuntimeEnvKey = (typeof REMOTE_RUNTIME_ENV_KEYS)[number];

@@ -13,6 +13,12 @@ import {
   type SubagentConfigLoadContext,
 } from "#src/subagents/subagentConfigScope.js";
 
+// XCODE: 项目监听和实际配置读取使用同一原生资源目录。
+import {
+  nativeProjectResourcePath,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
+
 const logger = createServiceLogger("subagentRuntimeConfig");
 const INITIAL_LOAD_WAIT_MS = 5000;
 interface Workspace {
@@ -86,7 +92,10 @@ const profiles = (documents: Profiles) =>
     .flatMap(([, parsed]) => (parsed.profile ? [parsed.profile] : []));
 
 /** Host 是解析结果的唯一 owner；每个父 turn 的 RPC 只复制已完成的内存 snapshot。 */
-export function createSubagentRuntimeConfigCache(reader: ConfigReader) {
+export function createSubagentRuntimeConfigCache(
+  reader: ConfigReader,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+) {
   let disposed = false;
   let user: { path: string; scope: Scope<Profiles> } | undefined;
   let state: { path: string; scope: Scope<SubagentRuntimeState> } | undefined;
@@ -197,7 +206,10 @@ export function createSubagentRuntimeConfigCache(reader: ConfigReader) {
       if (workspace) {
         const workspaceKey = key(workspace);
         workspaces.get(workspaceKey)?.dispose();
-        const project = documentScope(join(workspace.workspacePath, ".zcode", "agents"), "project");
+        const project = documentScope(
+          nativeProjectResourcePath(workspace.workspacePath, nativeDirectories, "agents"),
+          "project",
+        );
         workspaces.set(workspaceKey, project);
         initializing.push(project);
       }

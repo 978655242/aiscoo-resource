@@ -1,3 +1,5 @@
+// XCODE: 只读资源策略贯穿运行时与工具归一化，不改变执行产物路径。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
 import type { ToolSearchExecutionContext, ModelCallWrapper } from "@zcode/contracts";
 import type { McpToolUiDescriptor } from "@zcode/shared/mcp-apps";
 // ============================================================
@@ -139,6 +141,7 @@ export interface BackgroundTaskControlPort {
 }
 
 export interface ToolExecutionContext {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   toolSearch?: ToolSearchExecutionContext;
   toolCallId: string;
   /**
@@ -269,6 +272,7 @@ export type ToolInputValidationResult = { result: true } | ToolHandlerFailure;
  * 的东西住在哪」的唯一入口，再多给就会把一个归一化钩子变成第二个执行入口。
  */
 export interface ToolInputResolutionContext {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   workingDirectory?: string;
   runtimeTaskRegistry?: RuntimeTaskRegistry;
   /**

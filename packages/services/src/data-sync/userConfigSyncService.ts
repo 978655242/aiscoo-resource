@@ -1,3 +1,5 @@
+// XCODE: 同步枚举、安全检查与落盘复用当前 Host 的原生资源策略。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
 import type { UserConfigSyncCategory, UserConfigSyncPayloadMap } from "@zcode/shared";
 import { createCommandDataSyncMethods } from "./commandDataSync.js";
 import type { IDataSyncCategoryService, IUserConfigSyncService } from "./contract.js";
@@ -12,11 +14,13 @@ type CategoryMethods = {
  * 用户配置同步通道：按 category 分派到各分类的实现（新分类在 categories 中追加一项）。
  * category 来自 RPC，运行时校验；未知值直接报错，不回退到任何分类。
  */
-export function createUserConfigSyncService(): IUserConfigSyncService {
+export function createUserConfigSyncService(
+  options: { nativeDirectories?: NativeResourceDirectoryPolicy } = {},
+): IUserConfigSyncService {
   const categories: CategoryMethods = {
-    subagents: createSubagentDataSyncMethods(),
-    commands: createCommandDataSyncMethods(),
-    hooks: createHookDataSyncMethods(),
+    subagents: createSubagentDataSyncMethods(options),
+    commands: createCommandDataSyncMethods(options),
+    hooks: createHookDataSyncMethods(options),
   };
 
   function resolve<C extends UserConfigSyncCategory>(category: C): CategoryMethods[C] {

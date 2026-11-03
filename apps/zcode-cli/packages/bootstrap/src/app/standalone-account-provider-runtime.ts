@@ -195,15 +195,25 @@ export async function hasStandaloneCodingPlanAccess(
     );
 }
 
+// XCODE: 网络配置只消费入口资源策略，保持显式 resolver 优先。
+import {
+  resolveNativeResourceDirectoryPolicy,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories";
+
 export function createStandaloneProviderRuntimeHeadersPort(
   credentialStore: Pick<SharedZCodeCredentialStore, "load" | "loadMany" | "save" | "delete">,
   env: Readonly<Record<string, string | undefined>>,
   injectedResolver?: ReturnType<typeof createCodingPlanApiKeyResolver>,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): ProviderRuntimeHeadersPort & {
   clearProjectTokens(): void;
   invalidateChangedCredentials(): Promise<void>;
 } {
-  const config = createConfig({ env }).config;
+  const config = createConfig({
+    env,
+    nativeDirectories: nativeDirectories ?? resolveNativeResourceDirectoryPolicy({ env }),
+  }).config;
   const resolver =
     injectedResolver ??
     createCodingPlanApiKeyResolver({

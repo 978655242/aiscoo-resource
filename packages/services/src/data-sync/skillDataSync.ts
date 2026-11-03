@@ -1,3 +1,6 @@
+// XCODE: 同步枚举、安全检查与落盘复用当前 Host 的原生资源策略。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
+import { nativeUserConfigPath } from "@zcode/shared/native-resource-directories/node";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, realpath, rename, rm } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
@@ -51,8 +54,8 @@ interface ResolvedUserSkill {
   isSymlink: boolean;
 }
 
-function getCliConfigPath(): string {
-  return join(resolveUserHomeDir(), ".zcode", "cli", "config.json");
+function getCliConfigPath(nativeDirectories?: NativeResourceDirectoryPolicy): string {
+  return nativeUserConfigPath(resolveUserHomeDir(), nativeDirectories);
 }
 
 function normalizeSkillConfigPath(path: string): string {
@@ -60,10 +63,12 @@ function normalizeSkillConfigPath(path: string): string {
 }
 
 /** 按归一化 name 对齐的用户级技能；同名时保留候选排序中的第一项（`.zcode` 优先）。 */
-async function resolveUserSkills(): Promise<Map<string, ResolvedUserSkill>> {
-  const zcodeRoot = getUserZcodeSkillRoot();
+async function resolveUserSkills(
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<Map<string, ResolvedUserSkill>> {
+  const zcodeRoot = getUserZcodeSkillRoot(nativeDirectories);
   const result = new Map<string, ResolvedUserSkill>();
-  for (const candidate of await collectUserSkillCandidates()) {
+  for (const candidate of await collectUserSkillCandidates(nativeDirectories)) {
     const key = normalizeSkillNameKey(candidate.name);
     if (result.has(key)) continue;
     const directoryPath = dirname(candidate.path);
@@ -83,9 +88,13 @@ async function resolveUserSkills(): Promise<Map<string, ResolvedUserSkill>> {
 }
 
 /** 只读展示：config.json 损坏时按空配置处理。写入走 updateJsonObjectFile。 */
-async function readSkillEnabledOverrides(): Promise<Record<string, unknown>> {
+async function readSkillEnabledOverrides(
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<Record<string, unknown>> {
   try {
-    const parsed = JSON.parse(await readFile(getCliConfigPath(), "utf-8")) as unknown;
+    const parsed = JSON.parse(
+      await readFile(getCliConfigPath(nativeDirectories), "utf-8"),
+    ) as unknown;
     const skills =
       parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>).skills : undefined;
     return skills && typeof skills === "object" ? (skills as Record<string, unknown>) : {};
@@ -166,6 +175,7 @@ function findParentSkill(
 
 export function createSkillDataSyncMethods(options: {
   maxItemBytes: number;
+  nativeDirectories?: NativeResourceDirectoryPolicy;
 }): IDataSyncCategoryService<SkillDataSyncPayload> {
   const { maxItemBytes } = options;
 
@@ -323,8 +333,8 @@ export function createSkillDataSyncMethods(options: {
   return {
     async listSyncItems() {
       const [skills, overrides] = await Promise.all([
-        resolveUserSkills(),
-        readSkillEnabledOverrides(),
+        resolveUserSkills(options.nativeDirectories),
+        readSkillEnabledOverrides(options.nativeDirectories),
       ]);
       const all = [...skills.values()];
       return {
@@ -336,7 +346,7 @@ export function createSkillDataSyncMethods(options: {
     },
 
     async getSyncContentHashes(params) {
-      const skills = await resolveUserSkills();
+      const skills = await resolveUserSkills(options.nativeDirectories);
       const hashes: Record<string, string> = {};
       await Promise.all(
         params.keys.map(async (key) => {
@@ -350,15 +360,15 @@ export function createSkillDataSyncMethods(options: {
 
     async checkSyncWriteAccess() {
       return await checkRemoteSyncDirectoriesWriteAccess([
-        getUserZcodeSkillRoot(),
-        dirname(getCliConfigPath()),
+        getUserZcodeSkillRoot(options.nativeDirectories),
+        dirname(getCliConfigPath(options.nativeDirectories)),
       ]);
     },
 
     async exportSyncItems(params) {
       const [skills, overrides] = await Promise.all([
-        resolveUserSkills(),
-        readSkillEnabledOverrides(),
+        resolveUserSkills(options.nativeDirectories),
+        readSkillEnabledOverrides(options.nativeDirectories),
       ]);
       const selected = params.keys.map((key) => {
         const skill = skills.get(key);
@@ -415,7 +425,7 @@ export function createSkillDataSyncMethods(options: {
           phase: "archive",
         });
       }
-      const targetRoot = getUserZcodeSkillRoot();
+      const targetRoot = getUserZcodeSkillRoot(options.nativeDirectories);
       await mkdir(targetRoot, { recursive: true });
       // 临时目录放在技能根内，保证与目标同盘，rename 是原子替换。点目录不会被技能扫描读到。
       const tempRoot = join(targetRoot, `.sync-tmp-${randomUUID()}`);
@@ -425,7 +435,7 @@ export function createSkillDataSyncMethods(options: {
         await extractSkillSyncArchive(params.payload.archive, incomingRoot, {
           maxExtractedBytes: maxItemBytes,
         });
-        const current = await resolveUserSkills();
+        const current = await resolveUserSkills(options.nativeDirectories);
         const payloadByKey = new Map(params.payload.items.map((item) => [item.key, item]));
         const results: Array<DataSyncImportResultItem & { createdPath?: string }> = [];
         // 修复（F2）：每项原来按传入顺序各自从同一棵解压树 rename 走自己的子树。来源嵌套
@@ -467,7 +477,7 @@ export function createSkillDataSyncMethods(options: {
             placed.push({ directoryName: payloadItem.directoryName, path: placedPath });
           }
         }
-        await applyCreatedEnabledState(results, payloadByKey);
+        await applyCreatedEnabledState(results, payloadByKey, options.nativeDirectories);
         return { results: results.map(({ createdPath: _createdPath, ...result }) => result) };
       } finally {
         if (!keepTempRoot) await rm(tempRoot, { recursive: true, force: true });
@@ -489,8 +499,9 @@ export function createSkillDataSyncMethods(options: {
 async function applyCreatedEnabledState(
   results: Array<DataSyncImportResultItem & { createdPath?: string }>,
   payloadByKey: Map<string, SkillDataSyncPayload["items"][number]>,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<void> {
-  const overrides = await readSkillEnabledOverrides();
+  const overrides = await readSkillEnabledOverrides(nativeDirectories);
   const entries = results.flatMap((result) => {
     if (result.status !== "created" || !result.createdPath) return [];
     const skillFilePath = join(result.createdPath, SKILL_FILE_NAME);
@@ -501,7 +512,7 @@ async function applyCreatedEnabledState(
   });
   if (entries.length === 0) return;
   try {
-    await updateJsonObjectFile(getCliConfigPath(), (config) => {
+    await updateJsonObjectFile(getCliConfigPath(nativeDirectories), (config) => {
       const next = { ...config };
       const skills =
         config.skills && typeof config.skills === "object" && !Array.isArray(config.skills)

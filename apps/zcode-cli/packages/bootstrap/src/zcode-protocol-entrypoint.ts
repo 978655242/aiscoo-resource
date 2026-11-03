@@ -1,3 +1,8 @@
+// XCODE: 目录策略只在进程入口解析。
+import {
+  NATIVE_RESOURCE_DIRECTORY_ENV,
+  resolveNativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { createMcpTransportFetch } from "@zcode/adapters";
 import { createConfig, resolvePath } from "@zcode/adapters/config";
@@ -93,8 +98,20 @@ export function applyProtocolProviderRegistry(
 export async function runZCodeProtocolAgent(
   options: RunZCodeProtocolAgentOptions = {},
 ): Promise<void> {
+  // XCODE: 在资源初始化前校验并冻结目录策略。
+  const nativeDirectories =
+    options.nativeDirectories ??
+    resolveNativeResourceDirectoryPolicy({ env: options.env ?? process.env });
+  options = {
+    ...options,
+    nativeDirectories,
+    env: {
+      ...(options.env ?? process.env),
+      [NATIVE_RESOURCE_DIRECTORY_ENV]: nativeDirectories.directoryName,
+    },
+  };
   if (options.prepareStorageOnly) {
-    const config = createConfig({ env: options.env });
+    const config = createConfig({ env: options.env, nativeDirectories: options.nativeDirectories });
     await prepareProtocolStartupStorage({
       dbPath: getSessionDbPath(config, options.cwd),
       input: options.input ?? process.stdin,
@@ -147,7 +164,10 @@ export async function runZCodeProtocolAgent(
     | undefined;
   try {
     // 数据库准备先于账号、Registry 和遥测，不把远端材料等待混进迁移门禁。
-    const configResult = createConfig({ env: options.env });
+    const configResult = createConfig({
+      env: options.env,
+      nativeDirectories: options.nativeDirectories,
+    });
     sessionStore = await acquireProtocolStartupResource({
       signal: options.lifecycle?.signal,
       logger,
@@ -168,7 +188,10 @@ export async function runZCodeProtocolAgent(
     providerRegistryRuntime = await acquireProtocolStartupResource({
       signal: options.lifecycle?.signal,
       logger,
-      create: () => startProcessProviderRegistryRuntime(runtimeEnv),
+      create: () =>
+        startProcessProviderRegistryRuntime(runtimeEnv, {
+          nativeDirectories: options.nativeDirectories,
+        }),
       disposeLate: (runtime) => runtime.dispose(),
     });
     options.lifecycle?.signal.throwIfAborted();
@@ -304,6 +327,7 @@ export async function runZCodeProtocolAgent(
     );
     options.lifecycle?.signal.throwIfAborted();
     const server = (serverForCleanup = new ZCodeProtocolAgentServer({
+      nativeDirectories: options.nativeDirectories,
       createZCodeApp: (appOptions = {}) =>
         createZCodeApp({
           ...applyProtocolProviderRegistry(

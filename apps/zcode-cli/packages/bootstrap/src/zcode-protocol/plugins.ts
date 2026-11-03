@@ -137,11 +137,14 @@ function createPluginConfigView(
   workspacePath: string,
   configScope: "user" | "workspace" | undefined,
 ): ConfigResult {
+  // XCODE: 旧嵌入上下文可仅提供 logger；新增资源依赖沿用可选读取和既有默认值。
   // Settings 的 User 与 Workspace 现在是同一批 Host Plugin 的两个配置视图。
   // User 视图若继续加载 project config，会把 Workspace override 投影成 User 当前值；
   // 不传 workingDirectory 可保留 User/default 层，同时仍由调用方的 workspacePath 决定
   // package storage 和相对执行上下文。
   return createConfig({
+    // XCODE: 设置配置来源与协议固定资源策略一致。
+    nativeDirectories: context.deps?.nativeDirectories,
     env: context.deps?.env,
     ...(configScope === "user" ? {} : { workingDirectory: workspacePath }),
   });
@@ -220,6 +223,9 @@ export async function listPlugins(
   );
   const outcome = resolveZCodePlugins({
     configResult,
+    // XCODE: 资源配置走原生策略，库存使用既有运行时 storage 环境。
+    nativeDirectories: context.deps?.nativeDirectories,
+    env: context.deps?.env,
     logger: context.logger,
     workingDirectory: params.workspace.workspacePath,
   });
@@ -247,6 +253,9 @@ export async function setPluginEnabled(
   abortSignal?.throwIfAborted();
   const result = await setZCodePluginEnabled({
     enabled: params.enabled,
+    // XCODE: 资源配置走原生策略，库存使用既有运行时 storage 环境。
+    nativeDirectories: context.deps?.nativeDirectories,
+    env: context.deps?.env,
     logger: context.logger,
     plugin: params.pluginId,
     scope: params.scope,
@@ -269,6 +278,9 @@ export async function getPluginsOverview(
 ): Promise<ZCodePluginsOverviewResult> {
   const params = parseParams(zcodePluginsOverviewParamsSchema, rawParams);
   enrichCachedClaudeMarketplaceIconsForOverview({
+    // XCODE: 资源配置走原生策略，库存使用既有运行时 storage 环境。
+    nativeDirectories: context.deps?.nativeDirectories,
+    env: context.deps?.env,
     logger: context.logger,
     workingDirectory: params.workspace.workspacePath,
   });
@@ -278,6 +290,9 @@ export async function getPluginsOverview(
       params.workspace.workspacePath,
       params.configScope,
     ),
+    // XCODE: 资源配置走原生策略，库存使用既有运行时 storage 环境。
+    nativeDirectories: context.deps?.nativeDirectories,
+    env: context.deps?.env,
     logger: context.logger,
     workingDirectory: params.workspace.workspacePath,
   });
@@ -297,12 +312,15 @@ export async function addPluginMarketplace(
   abortSignal?: AbortSignal,
 ): Promise<ZCodePluginsMarketplaceMutationResult> {
   const params = parseParams(zcodePluginsMarketplaceAddParamsSchema, rawParams);
-  const pluginStorageRoot = resolvePluginStorageRoot(params.workspace.workspacePath);
+  const pluginStorageRoot = resolvePluginStorageRoot(params.workspace.workspacePath, context);
   const marketplace = await withPluginStorageLock(pluginStorageRoot, async () =>
     addZCodePluginMarketplace({
       abortSignal,
       dryRun: params.dryRun,
-      logger: context.logger,
+      // XCODE: 资源配置走原生策略，库存使用既有运行时 storage 环境。
+    nativeDirectories: context.deps?.nativeDirectories,
+    env: context.deps?.env,
+    logger: context.logger,
       source: params.source,
       workingDirectory: params.workspace.workspacePath,
     }),
@@ -315,10 +333,13 @@ export async function removePluginMarketplace(
   rawParams: unknown,
 ): Promise<ZCodePluginsMarketplaceMutationResult> {
   const params = parseParams(zcodePluginsMarketplaceRemoveParamsSchema, rawParams);
-  const pluginStorageRoot = resolvePluginStorageRoot(params.workspace.workspacePath);
+  const pluginStorageRoot = resolvePluginStorageRoot(params.workspace.workspacePath, context);
   await withPluginStorageLock(pluginStorageRoot, async () =>
     removeZCodePluginMarketplace({
-      logger: context.logger,
+      // XCODE: 资源配置走原生策略，库存使用既有运行时 storage 环境。
+    nativeDirectories: context.deps?.nativeDirectories,
+    env: context.deps?.env,
+    logger: context.logger,
       marketplace: params.marketplace,
       workingDirectory: params.workspace.workspacePath,
     }),
@@ -332,11 +353,14 @@ export async function updatePluginMarketplace(
   abortSignal?: AbortSignal,
 ): Promise<ZCodePluginsMarketplaceMutationResult> {
   const params = parseParams(zcodePluginsMarketplaceUpdateParamsSchema, rawParams);
-  const pluginStorageRoot = resolvePluginStorageRoot(params.workspace.workspacePath);
+  const pluginStorageRoot = resolvePluginStorageRoot(params.workspace.workspacePath, context);
   const result = await withPluginStorageLock(pluginStorageRoot, async () =>
     updateZCodePluginMarketplace({
       abortSignal,
-      logger: context.logger,
+      // XCODE: 资源配置走原生策略，库存使用既有运行时 storage 环境。
+    nativeDirectories: context.deps?.nativeDirectories,
+    env: context.deps?.env,
+    logger: context.logger,
       marketplace: params.marketplace,
       workingDirectory: params.workspace.workspacePath,
     }),
@@ -353,12 +377,15 @@ export async function installPlugin(
   abortSignal?: AbortSignal,
 ): Promise<ZCodePluginsInstallResult> {
   const params = parseParams(zcodePluginsInstallParamsSchema, rawParams);
-  const pluginStorageRoot = resolvePluginStorageRoot(params.workspace.workspacePath);
+  const pluginStorageRoot = resolvePluginStorageRoot(params.workspace.workspacePath, context);
   const result = await withPluginStorageLock(pluginStorageRoot, async () =>
     installZCodeMarketplacePlugin({
       abortSignal,
       dryRun: params.dryRun,
-      logger: context.logger,
+      // XCODE: 资源配置走原生策略，库存使用既有运行时 storage 环境。
+    nativeDirectories: context.deps?.nativeDirectories,
+    env: context.deps?.env,
+    logger: context.logger,
       marketplace: params.marketplace,
       pluginName: params.pluginName,
       scope: params.scope,
@@ -378,6 +405,9 @@ export async function uninstallPlugin(
 ): Promise<ZCodePluginsUninstallResult> {
   const params = parseParams(zcodePluginsUninstallParamsSchema, rawParams);
   const removed = await uninstallZCodeMarketplacePlugin({
+    // XCODE: 资源配置走原生策略，库存使用既有运行时 storage 环境。
+    nativeDirectories: context.deps?.nativeDirectories,
+    env: context.deps?.env,
     logger: context.logger,
     marketplace: params.marketplace,
     pluginId: params.pluginId,
@@ -396,7 +426,7 @@ export async function updatePlugin(
   rawParams: unknown,
 ): Promise<ZCodePluginsInstallResult> {
   const params = parseParams(zcodePluginsUpdateParamsSchema, rawParams);
-  const pluginStorageRoot = resolvePluginStorageRoot(params.workspace.workspacePath);
+  const pluginStorageRoot = resolvePluginStorageRoot(params.workspace.workspacePath, context);
   const installed = listInstalledPluginRecords(pluginStorageRoot).filter((record) => {
     if (params.pluginId) return record.id === params.pluginId;
     if (params.marketplace) return record.marketplace === params.marketplace;
@@ -414,7 +444,10 @@ export async function updatePlugin(
     const diagnostics: ZCodePluginDiagnostic[] = [];
     for (const record of installed) {
       const result = await installZCodeMarketplacePlugin({
-        logger: context.logger,
+        // XCODE: 资源配置走原生策略，库存使用既有运行时 storage 环境。
+    nativeDirectories: context.deps?.nativeDirectories,
+    env: context.deps?.env,
+    logger: context.logger,
         marketplace: record.marketplace,
         pluginName: record.name,
         scope: record.scope,
@@ -436,6 +469,9 @@ export async function restoreBuiltinPlugin(
 ): Promise<ZCodePluginsRestoreBuiltinResult> {
   const params = parseParams(zcodePluginsRestoreBuiltinParamsSchema, rawParams);
   await restoreBuiltinPluginCore({
+    // XCODE: 资源配置走原生策略，库存使用既有运行时 storage 环境。
+    nativeDirectories: context.deps?.nativeDirectories,
+    env: context.deps?.env,
     logger: context.logger,
     pluginId: params.pluginId,
     workingDirectory: params.workspace.workspacePath,
@@ -451,6 +487,9 @@ export async function configurePlugin(
   await configureZCodePlugin({
     clearOptionKeys: params.clearOptionKeys,
     dryRun: params.dryRun,
+    // XCODE: 资源配置走原生策略，库存使用既有运行时 storage 环境。
+    nativeDirectories: context.deps?.nativeDirectories,
+    env: context.deps?.env,
     logger: context.logger,
     options: params.options,
     pluginId: params.pluginId,
@@ -466,6 +505,9 @@ export async function resetPluginConfig(
 ): Promise<ZCodePluginsConfigureResult> {
   const params = parseParams(zcodePluginsResetConfigParamsSchema, rawParams);
   await resetZCodePluginConfig({
+    // XCODE: 资源配置走原生策略，库存使用既有运行时 storage 环境。
+    nativeDirectories: context.deps?.nativeDirectories,
+    env: context.deps?.env,
     logger: context.logger,
     pluginId: params.pluginId,
     scope: params.scope,
@@ -479,10 +521,13 @@ export async function validatePlugin(
   rawParams: unknown,
 ): Promise<ZCodePluginsValidateResult> {
   const params = parseParams(zcodePluginsValidateParamsSchema, rawParams);
-  const pluginStorageRoot = resolvePluginStorageRoot(params.workspace.workspacePath);
+  const pluginStorageRoot = resolvePluginStorageRoot(params.workspace.workspacePath, context);
   const diagnostics = await withPluginStorageLock(pluginStorageRoot, async () =>
     validateZCodePlugin({
-      logger: context.logger,
+      // XCODE: 资源配置走原生策略，库存使用既有运行时 storage 环境。
+    nativeDirectories: context.deps?.nativeDirectories,
+    env: context.deps?.env,
+    logger: context.logger,
       marketplace: params.marketplace,
       pluginName: params.pluginName,
       source: params.source,
@@ -505,9 +550,12 @@ export async function describePlugin(
   rawParams: unknown,
 ): Promise<ZCodePluginsDescribeResult> {
   const params = parseParams(zcodePluginsDescribeParamsSchema, rawParams);
-  const pluginStorageRoot = resolvePluginStorageRoot(params.workspace.workspacePath);
+  const pluginStorageRoot = resolvePluginStorageRoot(params.workspace.workspacePath, context);
   // 已安装目录、已缓存 manifest 与临时 source 解析都不持锁；只有懒加载 manifest 写入进锁。
   const result = await describeZCodePlugin({
+    // XCODE: 资源配置走原生策略，库存使用既有运行时 storage 环境。
+    nativeDirectories: context.deps?.nativeDirectories,
+    env: context.deps?.env,
     logger: context.logger,
     marketplace: params.marketplace,
     pluginName: params.pluginName,
@@ -609,8 +657,8 @@ function toInstalledPluginSummary(input: {
   };
 }
 
-function resolvePluginStorageRoot(workingDirectory: string): string {
-  const config = createConfig({ workingDirectory });
+function resolvePluginStorageRoot(workingDirectory: string, context: ZCodeProtocolAgentServerContext): string {
+  const config = createConfig({ workingDirectory, env: context.deps?.env, nativeDirectories: context.deps?.nativeDirectories });
   const storageRoot = resolvePath(config.config.storage.dir);
   return getPluginStorageRoot(getCliStorageRoot(storageRoot));
 }

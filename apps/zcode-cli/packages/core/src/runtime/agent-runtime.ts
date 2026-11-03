@@ -200,6 +200,8 @@ export class AgentRuntime {
   private memoryExtractionScheduler?: ProjectMemoryExtractionScheduler;
   private memoryDreamLastScanAtMs = 0;
   private pendingMemoryUpdate?: ProjectMemoryUpdate;
+  // XCODE: 保存工作流和子代理共用启动时资源策略。
+  private nativeDirectories?: AgentRuntimeDeps["nativeDirectories"];
   private contextSourcePort?: ContextSourcePort;
   private skillPort?: SkillPort;
   private mcpPort?: McpPort;
@@ -345,6 +347,7 @@ export class AgentRuntime {
     this.memoryRecallState = createMemoryRecallState();
     this.runtimeCommandQueue = createRuntimeCommandQueue();
     this.workingDirectory = config.workingDirectory ?? ".";
+    this.nativeDirectories = deps.nativeDirectories;
     this.contextSourcePort = deps.contextSourcePort;
     this.skillPort = deps.skillPort;
     this.mcpPort = deps.mcpPort;

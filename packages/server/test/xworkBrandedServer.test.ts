@@ -1,5 +1,11 @@
 import { PassThrough } from "node:stream";
+import { execFile } from "node:child_process";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
 import { Emitter } from "@zcode/rpc";
+import type { RemoteTarget } from "@zcode/shared";
 import type { IRemoteBackend, StdioStream } from "../src/remote/backend.js";
 import { detectRemoteAssetTools } from "../src/remote/remoteAssetPreflight.js";
 import { createSourceServerTransportAdapter } from "../src/source-server/transportAdapter.js";
@@ -102,4 +108,204 @@ describe("Aiscoo server display diagnostics", () => {
     ).rejects.toMatchObject({ message });
     expect(backend.exec).toHaveBeenCalledWith(expect.stringContaining("__ZCODE_PROBE_PLATFORM__"));
   });
+});
+
+// XCODE: 扩展现有下游回归，仅用合成 transport 验证目录策略，不连接真实远端或读取用户配置。
+const nativeDirectoryTargets: Exclude<RemoteTarget, { kind: "server" }>[] = [
+  { kind: "ssh", host: "example.invalid", username: "synthetic" },
+  { kind: "wsl", distro: "synthetic" },
+  { kind: "docker", container: "synthetic" },
+];
+
+describe("Source Server native resource directory startup", () => {
+  it.each(nativeDirectoryTargets)(
+    "passes only the directory name on $kind startup and restart",
+    async (target) => {
+      const backend = backendFor('{"state":"ready","port":4123}\n');
+      backend.readFile = vi.fn(async () => "synthetic-ingress-token\n");
+      const adapter = createSourceServerTransportAdapter(target.kind, {
+        createBackend: async () => backend,
+        nativeResourceDirectoryName: ".aiscoo",
+      });
+
+      await expect(adapter.ensureDaemon(target, {})).resolves.toEqual({
+        port: 4123,
+        ingressToken: "synthetic-ingress-token",
+      });
+      await adapter.exec(target, ["restart", "--json"], {});
+      const commands = vi.mocked(backend.exec).mock.calls.map(([command]) => command);
+      expect(commands).toHaveLength(2);
+      for (const command of commands) {
+        expect(command).toContain("ZCODE_NATIVE_RESOURCE_DIR_NAME='.aiscoo' ");
+        expect(command).toContain('"$HOME/.zcode/server/bin/zcode"');
+        expect(command).toContain('--server-root "$HOME/.zcode/server"');
+        expect(command.includes("ZCODE_SERVER_SKIP_SERVICE_REGISTRATION=1")).toBe(
+          target.kind !== "ssh",
+        );
+      }
+      expect(backend.readFile).toHaveBeenCalledExactlyOnceWith("~/.zcode/server/run/ingress-token");
+
+      await adapter.exec(target, ["status", "--json"], {});
+      expect(vi.mocked(backend.exec).mock.lastCall?.[0]).not.toContain(
+        "ZCODE_NATIVE_RESOURCE_DIR_NAME",
+      );
+    },
+  );
+
+  it.each(nativeDirectoryTargets)(
+    "leaves an already running $kind daemon on its own startup policy",
+    async (target) => {
+      const backend = backendFor("");
+      backend.readFile = vi.fn(async () => "synthetic-ingress-token");
+      const adapter = createSourceServerTransportAdapter(target.kind, {
+        createBackend: async () => backend,
+        nativeResourceDirectoryName: ".aiscoo",
+      });
+      await expect(
+        adapter.ensureDaemon(target, {}, { observedStatus: { state: "ready", port: 4123 } }),
+      ).resolves.toEqual({
+        port: 4123,
+        ingressToken: "synthetic-ingress-token",
+        reusedProbeStatus: true,
+      });
+      expect(backend.exec).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(nativeDirectoryTargets)(
+    "preserves the unconfigured $kind startup command",
+    async (target) => {
+      const backend = backendFor("");
+      const adapter = createSourceServerTransportAdapter(target.kind, {
+        createBackend: async () => backend,
+      });
+      await adapter.exec(target, ["serve", "--daemon", "--json"], {});
+      expect(backend.exec).toHaveBeenCalledExactlyOnceWith(
+        `${target.kind === "ssh" ? "" : "ZCODE_SERVER_SKIP_SERVICE_REGISTRATION=1 "}"$HOME/.zcode/server/bin/zcode" 'serve' '--daemon' '--json' --server-root "$HOME/.zcode/server"`,
+      );
+    },
+  );
+
+  it.each(["", "  "])(
+    "does not invent an override for an empty directory option %j",
+    async (nativeResourceDirectoryName) => {
+      const backend = backendFor("");
+      const target = nativeDirectoryTargets[0]!;
+      const adapter = createSourceServerTransportAdapter(target.kind, {
+        createBackend: async () => backend,
+        nativeResourceDirectoryName,
+      });
+      await adapter.exec(target, ["restart", "--json"], {});
+      expect(vi.mocked(backend.exec).mock.lastCall?.[0]).not.toContain(
+        "ZCODE_NATIVE_RESOURCE_DIR_NAME",
+      );
+    },
+  );
+
+  it.each([
+    ".",
+    "..",
+    "/synthetic/.aiscoo",
+    ".a/b",
+    ".a\\b",
+    "C:\\synthetic",
+    ".bad\u0000name",
+    ".bad:name",
+  ])("rejects invalid directory %j before creating a backend", (nativeResourceDirectoryName) => {
+    const createBackend = vi.fn(async () => backendFor(""));
+    expect(() =>
+      createSourceServerTransportAdapter("ssh", { createBackend, nativeResourceDirectoryName }),
+    ).toThrow("ZCODE_NATIVE_RESOURCE_DIR_NAME");
+    expect(createBackend).not.toHaveBeenCalled();
+  });
+
+  it.each(
+    nativeDirectoryTargets.flatMap((target) =>
+      [undefined, ".aiscoo"].map((nativeResourceDirectoryName) => ({
+        target,
+        nativeResourceDirectoryName,
+      })),
+    ),
+  )(
+    "preserves $target.kind installation paths with directory option $nativeResourceDirectoryName",
+    async ({ target, nativeResourceDirectoryName }) => {
+      const backend = backendFor("");
+      backend.upload = vi.fn(async () => {});
+      vi.mocked(backend.exec).mockImplementation(async (command) =>
+        completedStream(command.includes("tar_tool=") ? "tar=tar\n" : '{"applied":true}\n'),
+      );
+      const adapter = createSourceServerTransportAdapter(target.kind, {
+        createBackend: async () => backend,
+        nativeResourceDirectoryName,
+      });
+      await adapter.installOrUpdate(
+        target,
+        {
+          localArchivePath: "/synthetic/zcode-server.tar.gz",
+          target: "linux-x64",
+          version: "3.17.1",
+          sha256: "a".repeat(64),
+          sizeBytes: 1,
+          urls: [],
+        },
+        {},
+      );
+      const commands = vi.mocked(backend.exec).mock.calls.map(([command]) => command);
+      const installer = commands.find((command) => command.includes("update --from-archive"));
+      if (nativeResourceDirectoryName) {
+        expect(installer).toContain("ZCODE_NATIVE_RESOURCE_DIR_NAME='.aiscoo' ");
+      } else {
+        expect(installer).not.toContain("ZCODE_NATIVE_RESOURCE_DIR_NAME");
+      }
+      expect(installer).toContain('"$HOME/.zcode/server"/.bootstrap-');
+      expect(installer).toContain('--server-root "$HOME/.zcode/server"');
+      expect(installer).not.toContain(".aiscoo/server");
+      expect(backend.upload).toHaveBeenCalledWith(
+        "/synthetic/zcode-server.tar.gz",
+        expect.stringMatching(/^~\/\.zcode\/server\/\.bootstrap-/u),
+        expect.any(Object),
+      );
+      expect(
+        commands.filter((command) => command.includes("ZCODE_NATIVE_RESOURCE_DIR_NAME")),
+      ).toHaveLength(nativeResourceDirectoryName ? 1 : 0);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "quotes the directory literally and leaves HOME resolution to the target",
+    async () => {
+      const home = await mkdtemp(join(tmpdir(), "source-native-directory-"));
+      try {
+        const binDir = join(home, ".zcode", "server", "bin");
+        await mkdir(binDir, { recursive: true });
+        await writeFile(
+          join(binDir, "zcode"),
+          '#!/bin/sh\nprintf "%s\\n" "$HOME/$ZCODE_NATIVE_RESOURCE_DIR_NAME" "$@"\n',
+          { mode: 0o700 },
+        );
+        const directoryName = ".team's $HOME;literal";
+        const backend = backendFor("");
+        const adapter = createSourceServerTransportAdapter("ssh", {
+          createBackend: async () => backend,
+          nativeResourceDirectoryName: directoryName,
+        });
+        await adapter.exec(nativeDirectoryTargets[0]!, ["serve", "--daemon", "--json"], {});
+        const command = vi.mocked(backend.exec).mock.lastCall![0];
+        const result = await promisify(execFile)("/bin/sh", ["-c", command], {
+          env: { HOME: home, PATH: "/usr/bin:/bin" },
+        });
+        expect(result.stderr).toBe("");
+        expect(result.stdout.trim().split("\n")).toEqual([
+          join(home, directoryName),
+          "serve",
+          "--daemon",
+          "--json",
+          "--server-root",
+          join(home, ".zcode", "server"),
+        ]);
+      } finally {
+        await rm(home, { recursive: true, force: true });
+      }
+    },
+  );
 });

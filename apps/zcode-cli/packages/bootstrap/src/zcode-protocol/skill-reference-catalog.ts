@@ -28,6 +28,8 @@ export async function getSkillReferenceCatalog(
   // Skill 后，新建对话仍停在旧快照。草稿请求在 Agent 侧复用 CLI 正式发现配置，
   // 每次新打开引用面板都读取当前 workspace catalog。
   const outcome = await listZCodeSkills({
+    // XCODE: 草稿 catalog 与实际会话使用同一资源目录快照。
+    nativeDirectories: context.deps.nativeDirectories,
     env: context.deps.env,
     includeVisualize: true,
     logger: context.logger,

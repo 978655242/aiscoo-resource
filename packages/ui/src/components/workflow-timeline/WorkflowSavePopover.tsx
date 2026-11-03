@@ -38,6 +38,8 @@ export interface WorkflowSavePopoverHost {
     overwrite?: boolean;
   }) => Promise<ZCodeWorkflowsSaveResult>;
   checkNameTaken: (name: string, scope: ZCodeSavedWorkflowScope) => Promise<boolean>;
+  /** XCODE: 真实宿主从 list 返回落点；静态渲染未接服务时只展示文件名。 */
+  resolveSaveDirectory?: (scope: ZCodeSavedWorkflowScope) => Promise<string>;
   /**
    * 把那条用户消息发出去（宿主各有各的发送路径：卡在本会话，侧板在父会话）。
    * 缺席即这条路不可达——弹层只剩细线之下的那一半。
@@ -117,6 +119,27 @@ function WorkflowSaveForm({
 
   const { checkNameTaken, directSaveUnsupported, scopeLocked } = host;
   const { scope } = draft;
+  const [saveDirectory, setSaveDirectory] = useState<{
+    scope: ZCodeSavedWorkflowScope;
+    dir: string;
+  }>();
+  const { resolveSaveDirectory } = host;
+  // XCODE: 每个 scope 的目录由目标 Host 解析；切 scope 或换服务后丢弃迟到的旧结果。
+  useEffect(() => {
+    if (!resolveSaveDirectory || directSaveUnsupported) return;
+    let disposed = false;
+    void resolveSaveDirectory(scope).then(
+      (dir) => {
+        if (!disposed) setSaveDirectory({ scope, dir });
+      },
+      () => {
+        if (!disposed) setSaveDirectory(undefined);
+      },
+    );
+    return () => {
+      disposed = true;
+    };
+  }, [directSaveUnsupported, resolveSaveDirectory, scope]);
   // 占用探测：合并 320 ms，两个作用域一起问——目标那个决定「覆盖」，另一个决定「遮蔽」。
   // 名字或作用域一变先把结论作废，免得旧答案留在新名字上。
   useEffect(() => {
@@ -191,8 +214,13 @@ function WorkflowSaveForm({
   };
 
   const pathPreview = useMemo(
-    () => savedWorkflowPathPreview(scope, name.length > 0 ? name : "…"),
-    [name, scope],
+    () =>
+      savedWorkflowPathPreview(
+        scope,
+        name.length > 0 ? name : "…",
+        saveDirectory?.scope === scope ? saveDirectory.dir : undefined,
+      ),
+    [name, saveDirectory, scope],
   );
   const submitLabel = host.saving
     ? format("chat.toolCall.workflow.saveRun.submit.saving")

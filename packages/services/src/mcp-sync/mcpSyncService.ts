@@ -12,6 +12,12 @@ import type {
   SettingsDirectoryLocation,
   SettingsDirectorySource,
 } from "@zcode/shared";
+// XCODE: MCP 配置的读取、同步与写回共享入口注入的资源目录。
+import {
+  nativeUserConfigPath,
+  nativeProjectConfigPath,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
 import type { IMcpSyncService } from "./mcpSync.js";
 import { createMcpDataSyncMethods } from "../data-sync/node.js";
 import { createServiceLogger } from "../logger/serviceLogger.js";
@@ -67,6 +73,7 @@ const DIRECTORY_MCP_DESCRIPTORS: readonly DirectoryMcpDescriptor[] = [
 ];
 
 export interface McpSyncServiceDependencies {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   setWorkspaceMcpTrust?: IMcpSyncService["setWorkspaceMcpTrust"];
   /**
    * MCP server 运行态状态检查的执行面。真实 connect/listTools 必须发生在
@@ -80,9 +87,9 @@ export function createMcpSyncService(
   dependencies: McpSyncServiceDependencies = {},
 ): IMcpSyncService {
   return {
-    ...createMcpDataSyncMethods(),
+    ...createMcpDataSyncMethods({ nativeDirectories: dependencies.nativeDirectories }),
     async loadMcpFromUserDirectory(request) {
-      return loadMcpFromUserDirectory(request);
+      return loadMcpFromUserDirectory(request, dependencies.nativeDirectories);
     },
     async listWorkspaceMcpServerStatuses(params) {
       if (!dependencies.listMcpServerStatuses) {
@@ -95,7 +102,7 @@ export function createMcpSyncService(
       return dependencies.setWorkspaceMcpTrust(params);
     },
     async saveMcpToUserDirectory(payload) {
-      await saveMcpToUserDirectory(payload);
+      await saveMcpToUserDirectory(payload, dependencies.nativeDirectories);
     },
   };
 }
@@ -108,6 +115,7 @@ function buildDirectoryConfigPath(
   descriptor: DirectoryMcpDescriptor,
   scope: Exclude<McpScope, "common">,
   workspacePath?: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): string {
   const baseDir = scope === "user" ? resolveUserHomeDir() : workspacePath;
   if (!baseDir) {
@@ -115,25 +123,36 @@ function buildDirectoryConfigPath(
       `Missing workspace path for ${descriptor.directorySource} workspace MCP config`,
     );
   }
+  if (descriptor.source === "zcode") {
+    return scope === "user"
+      ? nativeUserConfigPath(baseDir, nativeDirectories)
+      : nativeProjectConfigPath(baseDir, nativeDirectories);
+  }
   const segments =
     scope === "user" ? descriptor.userConfigDirSegments : descriptor.workspaceConfigDirSegments;
   return join(baseDir, ...segments, descriptor.fileName);
 }
 
-function buildUserConfigPath(descriptor: DirectoryMcpDescriptor): string {
-  return buildDirectoryConfigPath(descriptor, "user");
+function buildUserConfigPath(
+  descriptor: DirectoryMcpDescriptor,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): string {
+  return buildDirectoryConfigPath(descriptor, "user", undefined, nativeDirectories);
 }
 
-export function getUserZcodeMcpConfigPath(): string {
-  return buildUserConfigPath(ZCODE_MCP_DESCRIPTOR);
+export function getUserZcodeMcpConfigPath(
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): string {
+  return buildUserConfigPath(ZCODE_MCP_DESCRIPTOR, nativeDirectories);
 }
 
 function buildDirectoryMcpLocation(
   descriptor: DirectoryMcpDescriptor,
   scope: Exclude<McpScope, "common">,
   workspacePath?: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): SettingsDirectoryLocation {
-  const filePath = buildDirectoryConfigPath(descriptor, scope, workspacePath);
+  const filePath = buildDirectoryConfigPath(descriptor, scope, workspacePath, nativeDirectories);
   return {
     source: descriptor.directorySource,
     scope: scope === "workspace" ? "project" : "user",
@@ -152,28 +171,44 @@ function findDescriptorByLocation(location: SettingsDirectoryLocation): Director
   return descriptor;
 }
 
-export async function collectEffectiveUserMcpRecords(): Promise<UserMcpRecord[]> {
-  const zcodeRecords = await readUserMcpRecordsFromFile(ZCODE_MCP_DESCRIPTOR);
+export async function collectEffectiveUserMcpRecords(
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<UserMcpRecord[]> {
+  const zcodeRecords = await readUserMcpRecordsFromFile(ZCODE_MCP_DESCRIPTOR, nativeDirectories);
   if (zcodeRecords.length > 0) {
     return sortMcpRecords(zcodeRecords);
   }
-  return sortMcpRecords(await readUserMcpRecordsFromFile(AGENTS_MCP_DESCRIPTOR));
+  return sortMcpRecords(await readUserMcpRecordsFromFile(AGENTS_MCP_DESCRIPTOR, nativeDirectories));
 }
 
 async function loadMcpFromUserDirectory(
   request?: LoadCliMcpFromUserDirectoryRequest,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<LoadCliMcpFromUserDirectoryResult> {
   const servers: NativeMcpServerRecord[] = [];
   if (request?.workspacePath) {
     servers.push(
-      ...(await readDirectoryServersFromPreferredSources("workspace", request.workspacePath)),
+      ...(await readDirectoryServersFromPreferredSources(
+        "workspace",
+        request.workspacePath,
+        nativeDirectories,
+      )),
     );
   }
-  servers.push(...(await readDirectoryServersFromPreferredSources("user", request?.workspacePath)));
+  servers.push(
+    ...(await readDirectoryServersFromPreferredSources(
+      "user",
+      request?.workspacePath,
+      nativeDirectories,
+    )),
+  );
   return { servers };
 }
 
-async function saveMcpToUserDirectory(payload: SaveCliMcpToUserDirectoryRequest): Promise<void> {
+async function saveMcpToUserDirectory(
+  payload: SaveCliMcpToUserDirectoryRequest,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<void> {
   if (payload.action === "set-enabled") {
     if (typeof payload.enabled !== "boolean") {
       throw new Error("Missing enabled value for MCP set-enabled action");
@@ -181,14 +216,20 @@ async function saveMcpToUserDirectory(payload: SaveCliMcpToUserDirectoryRequest)
     const scope: Exclude<McpScope, "common"> = payload.projectPath ? "workspace" : "user";
     const location =
       payload.location ??
-      buildDirectoryMcpLocation(ZCODE_MCP_DESCRIPTOR, scope, payload.projectPath);
+      buildDirectoryMcpLocation(
+        ZCODE_MCP_DESCRIPTOR,
+        scope,
+        payload.projectPath,
+        nativeDirectories,
+      );
     await writeServerEnabledToFile(
       findDescriptorByLocation(location),
       location,
       payload.name,
       payload.enabled,
+      nativeDirectories,
     );
-    await cleanupLegacyMcpEnabledOverride(location, payload.name);
+    await cleanupLegacyMcpEnabledOverride(location, payload.name, nativeDirectories);
     return;
   }
 
@@ -197,6 +238,7 @@ async function saveMcpToUserDirectory(payload: SaveCliMcpToUserDirectoryRequest)
     ZCODE_MCP_DESCRIPTOR,
     scope,
     payload.projectPath,
+    nativeDirectories,
   );
   const nextServers = Object.fromEntries(
     existingServers.map((server) => [server.name, server.config as Record<string, unknown>]),
@@ -211,7 +253,7 @@ async function saveMcpToUserDirectory(payload: SaveCliMcpToUserDirectoryRequest)
     delete nextServers[payload.name];
   }
 
-  await writeZCodeServersToFile(scope, nextServers, payload.projectPath);
+  await writeZCodeServersToFile(scope, nextServers, payload.projectPath, nativeDirectories);
 }
 
 function sortMcpRecords(records: UserMcpRecord[]): UserMcpRecord[] {
@@ -221,24 +263,32 @@ function sortMcpRecords(records: UserMcpRecord[]): UserMcpRecord[] {
 async function readDirectoryServersFromPreferredSources(
   scope: Exclude<McpScope, "common">,
   workspacePath?: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<NativeMcpServerRecord[]> {
   const zcodeServers = await readDirectoryServersFromFile(
     ZCODE_MCP_DESCRIPTOR,
     scope,
     workspacePath,
+    nativeDirectories,
   );
   if (zcodeServers.length > 0) {
     return zcodeServers;
   }
-  return readDirectoryServersFromFile(AGENTS_MCP_DESCRIPTOR, scope, workspacePath);
+  return readDirectoryServersFromFile(
+    AGENTS_MCP_DESCRIPTOR,
+    scope,
+    workspacePath,
+    nativeDirectories,
+  );
 }
 
 async function readDirectoryServersFromFile(
   descriptor: DirectoryMcpDescriptor,
   scope: Exclude<McpScope, "common">,
   workspacePath?: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<NativeMcpServerRecord[]> {
-  const filePath = buildDirectoryConfigPath(descriptor, scope, workspacePath);
+  const filePath = buildDirectoryConfigPath(descriptor, scope, workspacePath, nativeDirectories);
   const parsed = await readJsonObject(filePath);
   if (!parsed) {
     return [];
@@ -248,7 +298,7 @@ async function readDirectoryServersFromFile(
     parsed,
     descriptor.configKeyName,
   );
-  const location = buildDirectoryMcpLocation(descriptor, scope, workspacePath);
+  const location = buildDirectoryMcpLocation(descriptor, scope, workspacePath, nativeDirectories);
   return Object.entries(serverMap).map(([name, config]) => ({
     source: "zcodeagentmcp",
     scope,
@@ -268,19 +318,33 @@ async function writeZCodeServersToFile(
   scope: Exclude<McpScope, "common">,
   servers: Record<string, Record<string, unknown>>,
   workspacePath?: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<void> {
-  const filePath = buildDirectoryConfigPath(ZCODE_MCP_DESCRIPTOR, scope, workspacePath);
+  const filePath = buildDirectoryConfigPath(
+    ZCODE_MCP_DESCRIPTOR,
+    scope,
+    workspacePath,
+    nativeDirectories,
+  );
   const current = (await readJsonObject(filePath)) ?? {};
   const next = writeServerMapToJson(current, ZCODE_MCP_DESCRIPTOR.configKeyName, servers);
   await writeTextAtomic(filePath, `${JSON.stringify(next, null, 2)}\n`);
 }
 
-async function readUserCliConfig(): Promise<Record<string, unknown>> {
-  return (await readJsonObject(getUserZcodeMcpConfigPath())) ?? {};
+async function readUserCliConfig(
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<Record<string, unknown>> {
+  return (await readJsonObject(getUserZcodeMcpConfigPath(nativeDirectories))) ?? {};
 }
 
-async function writeUserCliConfig(config: Record<string, unknown>): Promise<void> {
-  await writeTextAtomic(getUserZcodeMcpConfigPath(), `${JSON.stringify(config, null, 2)}\n`);
+async function writeUserCliConfig(
+  config: Record<string, unknown>,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<void> {
+  await writeTextAtomic(
+    getUserZcodeMcpConfigPath(nativeDirectories),
+    `${JSON.stringify(config, null, 2)}\n`,
+  );
 }
 
 function removeLegacyMcpEnabledOverride(
@@ -319,11 +383,12 @@ function removeLegacyMcpEnabledOverride(
 async function cleanupLegacyMcpEnabledOverride(
   location: SettingsDirectoryLocation,
   name: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<void> {
-  const userConfig = await readUserCliConfig();
+  const userConfig = await readUserCliConfig(nativeDirectories);
   const result = removeLegacyMcpEnabledOverride(userConfig, location, name);
   if (result.changed) {
-    await writeUserCliConfig(result.config);
+    await writeUserCliConfig(result.config, nativeDirectories);
   }
 }
 
@@ -332,10 +397,11 @@ async function writeServerEnabledToFile(
   location: SettingsDirectoryLocation,
   name: string,
   enabled: boolean,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<void> {
   const scope: Exclude<McpScope, "common"> = location.scope === "project" ? "workspace" : "user";
   const workspacePath = scope === "workspace" ? location.projectPath : undefined;
-  const filePath = buildDirectoryConfigPath(descriptor, scope, workspacePath);
+  const filePath = buildDirectoryConfigPath(descriptor, scope, workspacePath, nativeDirectories);
   const current = (await readJsonObject(filePath)) ?? {};
   const serverMap = readServerMapFromJson(current, descriptor.configKeyName);
   const currentServer = serverMap[name];
@@ -358,8 +424,9 @@ async function writeServerEnabledToFile(
 
 async function readUserMcpRecordsFromFile(
   descriptor: DirectoryMcpDescriptor,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<UserMcpRecord[]> {
-  const filePath = buildUserConfigPath(descriptor);
+  const filePath = buildUserConfigPath(descriptor, nativeDirectories);
   const parsed = await readJsonObject(filePath);
   if (!parsed) {
     return [];

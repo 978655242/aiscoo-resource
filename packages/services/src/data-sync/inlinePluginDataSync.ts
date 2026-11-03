@@ -1,3 +1,5 @@
+// XCODE: 同步枚举、安全检查与落盘复用当前 Host 的原生资源策略。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
 import { randomUUID } from "node:crypto";
 import { mkdir, readdir, realpath, rename, rm } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
@@ -70,9 +72,11 @@ function inlinePluginKey(manifest: PluginManifestInfo): string {
  * 按 `name@inline`（小写）对齐 plugins.dirs 中登记的 inline 插件；目录名只表示位置。
  * 同 id 重复时保留第一项，与 CLI 运行时「重复插件忽略」一致。
  */
-async function resolveInlinePlugins(): Promise<Map<string, ResolvedInlinePlugin>> {
-  const config = await readUserPluginConfigState();
-  const pluginRoot = getUserZcodePluginRoot();
+async function resolveInlinePlugins(
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<Map<string, ResolvedInlinePlugin>> {
+  const config = await readUserPluginConfigState(nativeDirectories);
+  const pluginRoot = getUserZcodePluginRoot(nativeDirectories);
   const result = new Map<string, ResolvedInlinePlugin>();
   for (const rawDir of config.dirs) {
     const configuredPath = resolve(rawDir);
@@ -103,6 +107,7 @@ async function resolveInlinePlugins(): Promise<Map<string, ResolvedInlinePlugin>
 
 export function createInlinePluginDataSyncMethods(options: {
   maxItemBytes: number;
+  nativeDirectories?: NativeResourceDirectoryPolicy;
 }): IDataSyncCategoryService<PluginDataSyncPayload> {
   const { maxItemBytes } = options;
 
@@ -273,7 +278,7 @@ export function createInlinePluginDataSyncMethods(options: {
 
   return {
     async listSyncItems() {
-      const plugins = await resolveInlinePlugins();
+      const plugins = await resolveInlinePlugins(options.nativeDirectories);
       return {
         items: await Promise.all([...plugins.values()].map((plugin) => listItem(plugin))),
         homeDir: resolveUserHomeDir(),
@@ -281,7 +286,7 @@ export function createInlinePluginDataSyncMethods(options: {
     },
 
     async getSyncContentHashes(params) {
-      const plugins = await resolveInlinePlugins();
+      const plugins = await resolveInlinePlugins(options.nativeDirectories);
       const hashes: Record<string, string> = {};
       await Promise.all(
         params.keys.map(async (key) => {
@@ -296,13 +301,13 @@ export function createInlinePluginDataSyncMethods(options: {
     async checkSyncWriteAccess() {
       // 新建要写插件目录和 config.json 的 plugins.dirs。
       return await checkRemoteSyncDirectoriesWriteAccess([
-        getUserZcodePluginRoot(),
-        dirname(getUserZcodeConfigPath()),
+        getUserZcodePluginRoot(options.nativeDirectories),
+        dirname(getUserZcodeConfigPath(options.nativeDirectories)),
       ]);
     },
 
     async exportSyncItems(params) {
-      const plugins = await resolveInlinePlugins();
+      const plugins = await resolveInlinePlugins(options.nativeDirectories);
       const usedDirectoryNames = new Set<string>();
       const selected = await Promise.all(
         params.keys.map(async (key) => {
@@ -373,7 +378,7 @@ export function createInlinePluginDataSyncMethods(options: {
           `plugin sync archive exceeds limit: ${params.payload.archive.byteLength}/${maxItemBytes}`,
         );
       }
-      const targetRoot = getUserZcodePluginRoot();
+      const targetRoot = getUserZcodePluginRoot(options.nativeDirectories);
       await mkdir(targetRoot, { recursive: true });
       // 临时目录放在插件根内，保证与目标同盘，rename 是原子替换。插件只按 plugins.dirs 发现，点目录不会被读到。
       const tempRoot = join(targetRoot, `.sync-tmp-${randomUUID()}`);
@@ -383,7 +388,7 @@ export function createInlinePluginDataSyncMethods(options: {
         await extractPluginSyncArchive(params.payload.archive, incomingRoot, {
           maxExtractedBytes: maxItemBytes,
         });
-        const current = await resolveInlinePlugins();
+        const current = await resolveInlinePlugins(options.nativeDirectories);
         const payloadByKey = new Map(params.payload.items.map((item) => [item.key, item]));
         const results: Array<DataSyncImportResultItem & { created?: CreatedPlugin }> = [];
         for (const [index, item] of params.items.entries()) {
@@ -402,7 +407,7 @@ export function createInlinePluginDataSyncMethods(options: {
             }),
           );
         }
-        await registerCreatedPlugins(results);
+        await registerCreatedPlugins(results, options.nativeDirectories);
         return { results: results.map(({ created: _created, ...result }) => result) };
       } finally {
         if (!keepTempRoot) await rm(tempRoot, { recursive: true, force: true });
@@ -424,11 +429,12 @@ interface CreatedPlugin {
  */
 async function registerCreatedPlugins(
   results: Array<DataSyncImportResultItem & { created?: CreatedPlugin }>,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<void> {
   const created = results.filter((result) => result.status === "created" && result.created);
   if (created.length === 0) return;
   try {
-    await updateJsonObjectFile(getUserZcodeConfigPath(), (config) => {
+    await updateJsonObjectFile(getUserZcodeConfigPath(nativeDirectories), (config) => {
       const plugins: Record<string, unknown> = isRecord(config.plugins) ? config.plugins : {};
       const dirs = Array.isArray(plugins.dirs)
         ? plugins.dirs.filter((dir): dir is string => typeof dir === "string")

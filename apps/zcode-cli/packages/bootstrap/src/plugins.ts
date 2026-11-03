@@ -1,5 +1,5 @@
 import { rm } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, resolve, sep, win32 } from "node:path";
+import { basename, dirname, isAbsolute, resolve, sep, win32 } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import {
   addSuppressedBuiltinInFileConfig,
@@ -60,7 +60,16 @@ import {
 import { getCliStorageRoot, getPluginStorageRoot } from "./app/paths.js";
 import { withPluginStorageLock } from "./lib/plugin-storage-lock.js";
 
+// XCODE: 原生项目配置可切换，已安装插件库存仍由独立 storageRoot 决定。
+import {
+  nativeProjectConfigPath,
+  getNativeResourceDirectoryName,
+  resolveNativeResourceDirectoryPolicy,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
+
 export interface ResolveZCodePluginsOptions {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   configResult?: ConfigResult;
   env?: NodeJS.ProcessEnv;
   logger?: Logger;
@@ -457,6 +466,9 @@ export async function setZCodePluginEnabled(
   const configResult =
     options.configResult ??
     createConfig({
+      nativeDirectories:
+        options.nativeDirectories ??
+        resolveNativeResourceDirectoryPolicy({ env: options.env ?? process.env }),
       env: options.env,
       projectConfigPath: options.projectConfigPath,
       workingDirectory,
@@ -1038,6 +1050,9 @@ function resolvePluginContext(options: ResolveZCodePluginsOptions): {
   const configResult =
     options.configResult ??
     createConfig({
+      nativeDirectories:
+        options.nativeDirectories ??
+        resolveNativeResourceDirectoryPolicy({ env: options.env ?? process.env }),
       env: options.env,
       projectConfigPath: options.projectConfigPath,
       workingDirectory,
@@ -1312,7 +1327,10 @@ function resolvePluginConfigPath(
   // Workspace Plugin 配置固定落在当前 `<workspace>/.zcode/config.json`。嵌套 workspace
   // 可能同时发现仓库根与自身的配置，读取端 innermost 优先；写入端也必须锁定当前
   // workspace，不能用 project discovery 的第一个 outermost 文件。
-  const workspaceConfigPath = join(workingDirectory, ".zcode", "config.json");
+  const workspaceConfigPath = nativeProjectConfigPath(
+    workingDirectory,
+    configResult.nativeDirectories ?? options.nativeDirectories,
+  );
   const projectConfigPaths = [
     ...(options.projectConfigPath ? [options.projectConfigPath] : []),
     ...configResult.sources.project.paths,
@@ -1337,14 +1355,19 @@ function normalizePluginConfigPathForComparison(
 export function isWorkspacePluginConfigPath(
   path: string,
   platform: NodeJS.Platform = process.platform,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): boolean {
   if (platform === "win32") {
     return (
       win32.basename(path).toLowerCase() === "config.json" &&
-      win32.basename(win32.dirname(path)).toLowerCase() === ".zcode"
+      win32.basename(win32.dirname(path)).toLowerCase() ===
+        getNativeResourceDirectoryName(nativeDirectories).toLowerCase()
     );
   }
-  return basename(path) === "config.json" && basename(dirname(path)) === ".zcode";
+  return (
+    basename(path) === "config.json" &&
+    basename(dirname(path)) === getNativeResourceDirectoryName(nativeDirectories)
+  );
 }
 
 export function resolveMarketplaceRefreshTargetIds(input: {

@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "caseName": "native-resource-directories",
+  "spec": "./test/e2e/conversation-session/native-resource-directories.test.ts",
+  "fixtures": [
+    {
+      "id": "ncr-title",
+      "description": "原生目录冷恢复验收的合成任务标题。",
+      "metadata": {
+        "kind": "common",
+        "source": "synthetic",
+        "timingPolicy": "fast-text",
+        "syntheticReason": "固定任务标题，不访问真实模型。"
+      },
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Generate a concise title", "E2E_NCR_"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "ncr-title",
+          "inputTokens": 64,
+          "outputTokens": 8,
+          "text": "{\"title\":\"Native Resource Acceptance\"}"
+        }
+      }
+    },
+    {
+      "id": "ncr-before-main",
+      "description": "真实只读工具完成后保存冷恢复前会话。",
+      "metadata": {
+        "kind": "main",
+        "source": "synthetic",
+        "timingPolicy": "fast-text",
+        "syntheticReason": "复用 common 的真实 Read，返回结果后才完成首轮。"
+      },
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "E2E_NCR_BEFORE",
+          "toolu_e2e_conversation_readonly_read",
+          "tool_result",
+          "E2E_READONLY_TOOL_FILE_CONTENT"
+        ],
+        "bodyExcludes": ["Generate a concise title", "E2E_NCR_AFTER"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "ncr-before-main",
+          "inputTokens": 128,
+          "outputTokens": 8,
+          "text": "NCR_BEFORE_DONE"
+        }
+      }
+    },
+    {
+      "id": "ncr-after-main",
+      "description": "完整冷重启后验证原会话历史并继续发送。",
+      "metadata": {
+        "kind": "main",
+        "source": "synthetic",
+        "timingPolicy": "fast-text",
+        "syntheticReason": "必须携带旧 assistant 和实际工具结果，避免空库产生假恢复证据。"
+      },
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "lastUserMessageIncludes": ["E2E_NCR_AFTER"],
+        "bodyIncludes": ["NCR_BEFORE_DONE", "E2E_READONLY_TOOL_FILE_CONTENT"],
+        "bodyExcludes": ["Generate a concise title"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "ncr-after-main",
+          "inputTokens": 192,
+          "outputTokens": 8,
+          "text": "NCR_AFTER_DONE"
+        }
+      }
+    }
+  ]
+}

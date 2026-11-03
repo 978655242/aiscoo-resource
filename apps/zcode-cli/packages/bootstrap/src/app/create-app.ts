@@ -5,7 +5,15 @@ import { createWorkspaceMcpTrust } from "../workspace-mcp-trust/index.js";
 import { subagentProfilesFromSnapshot } from "../runtime-subagents/index.js";
 import { CliDefaultSelection } from "./cli-default-selection.js";
 import { isAbsolute, join, resolve } from "node:path";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
+// XCODE: 启动时冻结目录策略，后续 adapter 不再读取环境变量选择资源根。
+import {
+  DEFAULT_NATIVE_RESOURCE_DIRECTORY_NAME,
+  getNativeResourceDirectoryName,
+  nativeUserResourcePath,
+  NATIVE_RESOURCE_DIRECTORY_ENV,
+  resolveNativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
 import {
   createInMemorySessionEventStore,
   createNodeToolArtifactStore,
@@ -173,6 +181,17 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
   if (!options?.providerRegistry) {
     throw new Error("createZCodeApp requires a Provider Registry");
   }
+  const nativeDirectories =
+    options.nativeDirectories ??
+    resolveNativeResourceDirectoryPolicy({ env: options.env ?? process.env });
+  options = {
+    ...options,
+    nativeDirectories,
+    env: {
+      ...(options.env ?? process.env),
+      [NATIVE_RESOURCE_DIRECTORY_ENV]: nativeDirectories.directoryName,
+    },
+  };
   const startupStartedAt = startupNow();
   const appVersion = options.version ?? "0.0.0";
   const sessionId = options.sessionId ?? createSessionId();
@@ -180,6 +199,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
   const workingDirectory = resolve(options.runtimeConfig?.workingDirectory ?? process.cwd());
   const configResult = resolveEffectiveConfigResult(
     createConfig({
+      nativeDirectories: options.nativeDirectories,
       env: options.env,
       projectConfigPath: options.projectConfigPath,
       workingDirectory,
@@ -240,7 +260,15 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
       ? subagentProfilesFromSnapshot(hostSubagentSnapshot)
       : await loadZCodeAgentProfiles({
           logger,
-          storageRoot,
+          nativeDirectories: options.nativeDirectories,
+          // XCODE: .zcode 先保留上游合并 storageRoot 的环境覆盖；raw 用户根只用于其他原生目录。
+          storageRoot:
+            getNativeResourceDirectoryName(options.nativeDirectories) ===
+            DEFAULT_NATIVE_RESOURCE_DIRECTORY_NAME
+              ? storageRoot
+              : configResult.sources.user.storageDir
+                ? resolvePath(configResult.sources.user.storageDir)
+                : nativeUserResourcePath(homedir(), options.nativeDirectories),
           workingDirectory,
           additionalDirectories: options.additionalDirectories,
         });
@@ -345,6 +373,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
     const workspaceHookRuntimeSecurity = createWorkspaceHookRuntimeSecurity({
       appVersion,
       logger,
+      nativeDirectories: options.nativeDirectories,
       projectConfigPath: options.projectConfigPath,
       policy: options.workspaceHookPolicy,
       policyProvider: options.workspaceHookPolicyProvider,
@@ -439,6 +468,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
           })));
     const mcpPort = rawMcpPort
       ? createWorkspaceMcpTrust({
+          nativeDirectories: options.nativeDirectories,
           workingDirectory,
           workspaceIdentity: options.runtimeConfig?.memory?.workspaceIdentity,
           userConfigPath: options.userConfigPath,
@@ -858,6 +888,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
       currentSelection: () => getRuntime().getSessionModelSelection(),
     });
     runtime = new AgentRuntime(sessionId, runtimeConfig, {
+      nativeDirectories: options.nativeDirectories,
       ...(options.readSubagentRuntimeConfig
         ? {
             loadAgentDefinitions: async (input) => {
@@ -913,11 +944,16 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
       pdfDocumentPort,
       artifactStore,
       contextSourcePort:
-        options.contextSourcePort ?? createNodeContextSourceAdapter({ env: options.env }),
+        options.contextSourcePort ??
+        createNodeContextSourceAdapter({
+          env: options.env,
+          nativeDirectories: options.nativeDirectories,
+        }),
       skillPort:
         configResult.config.features.skill && configResult.config.skills.enabled
           ? (options.skillPort ??
             createNodeSkillAdapter({
+              nativeDirectories: options.nativeDirectories,
               additionalDirectories: options.additionalDirectories,
               extraRoots: configResult.config.skills.roots,
               extraResolvedRoots: [...pluginOutcome.skillRoots, ...bundledSkillRoots],
@@ -974,6 +1010,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
           // 剔除，但用户仍可手打命令名，两条路径必须给出同一个结论。独立 CLI 的 TUI 与 headless
           // 按 --workflow-mode 显式取值；缺席（进程内嵌入方）不设门禁，见 runtimeConfig 字段注释。
           dynamicWorkflowEnabled: runtimeConfig.dynamicWorkflowEnabled,
+          nativeDirectories: options.nativeDirectories,
           workingDirectory,
         });
         if (builtin !== undefined) {
@@ -995,6 +1032,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
           return builtin.prompt;
         }
         return await resolveZCodeCustomCommandPrompt(text, {
+          nativeDirectories: options.nativeDirectories,
           additionalDirectories: options.additionalDirectories,
           env: options.env,
           executionPort,

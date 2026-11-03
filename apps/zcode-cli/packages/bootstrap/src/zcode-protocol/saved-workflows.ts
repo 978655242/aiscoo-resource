@@ -49,7 +49,7 @@ function scopeOf(params: { scope?: ZCodeSavedWorkflowScope }): ZCodeSavedWorkflo
 }
 
 export async function listSavedWorkflowsOp(
-  _context: ZCodeProtocolAgentServerContext,
+  context: ZCodeProtocolAgentServerContext,
   rawParams: unknown,
 ): Promise<ZCodeWorkflowsListResult> {
   const params = parseParams(zcodeWorkflowsListParamsSchema, rawParams);
@@ -57,22 +57,28 @@ export async function listSavedWorkflowsOp(
   const scope = scopeOf(params);
   // 中枢的 PROJECT 组只列本项目那一份，全局组只列全局那一份——**永远**传定向 scope，绝不走
   // 无向变体（两根 first-wins 会把 global 混进 project 组，把被遮蔽的 global 从全局组里藏掉）。
-  const listed = listSavedWorkflows({ cwd, scope });
+  // XCODE: 返回实际资源目录供 UI 监听，不从路径反推品牌。
+  const listed = listSavedWorkflows({
+    cwd,
+    scope,
+    nativeDirectories: context.deps.nativeDirectories,
+  });
   // 扫过的目录（即使不存在也回）：GUI 的文件监听靠它 watch。
   return {
     workflows: listed.entries,
     invalid: listed.invalid,
-    dir: savedWorkflowRoot(cwd, scope).dir,
+    dir: savedWorkflowRoot(cwd, scope, { nativeDirectories: context.deps.nativeDirectories }).dir,
   };
 }
 
 export async function getSavedWorkflowOp(
-  _context: ZCodeProtocolAgentServerContext,
+  context: ZCodeProtocolAgentServerContext,
   rawParams: unknown,
 ): Promise<ZCodeWorkflowsGetResult> {
   const params = parseParams(zcodeWorkflowsGetParamsSchema, rawParams);
   // 定向 scope：`global` 只查全局根、不做遮蔽——中枢的全局组要看到被项目档遮蔽的那份。
   const resolved = resolveSavedWorkflow({
+    nativeDirectories: context.deps.nativeDirectories,
     cwd: params.workspace.workspacePath,
     name: params.name,
     scope: scopeOf(params),
@@ -93,7 +99,7 @@ export async function getSavedWorkflowOp(
  * 读-改-写在同一次调用内完成；不做三方合并（文件小、单机、用户自己在改）。
  */
 export async function updateSavedWorkflowMetaOp(
-  _context: ZCodeProtocolAgentServerContext,
+  context: ZCodeProtocolAgentServerContext,
   rawParams: unknown,
 ): Promise<ZCodeWorkflowsUpdateMetaResult> {
   const params = parseParams(zcodeWorkflowsUpdateMetaParamsSchema, rawParams);
@@ -101,6 +107,7 @@ export async function updateSavedWorkflowMetaOp(
   // 让「两边漂移」在这里炸成 -32602 而不是写出一个自己读不回来的文件。
   const meta = SavedWorkflowMetaSchema.parse(params.meta);
   const resolved = resolveSavedWorkflow({
+    nativeDirectories: context.deps.nativeDirectories,
     cwd: params.workspace.workspacePath,
     name: params.name,
     scope: scopeOf(params),
@@ -116,14 +123,16 @@ export async function updateSavedWorkflowMetaOp(
  * `global` 删本机全局根那一份。同名的 legacy `.workflow.js` 是另一套解析器的文件，不在视野里。
  */
 export async function deleteSavedWorkflowOp(
-  _context: ZCodeProtocolAgentServerContext,
+  context: ZCodeProtocolAgentServerContext,
   rawParams: unknown,
 ): Promise<ZCodeWorkflowsDeleteResult> {
   const params = parseParams(zcodeWorkflowsDeleteParamsSchema, rawParams);
   if (!isValidSavedWorkflowName(params.name)) {
     return { ok: false, reason: "invalid_name" };
   }
-  const root = savedWorkflowRoot(params.workspace.workspacePath, scopeOf(params));
+  const root = savedWorkflowRoot(params.workspace.workspacePath, scopeOf(params), {
+    nativeDirectories: context.deps.nativeDirectories,
+  });
   const path = savedWorkflowPath(root, params.name);
   try {
     await unlink(path);
@@ -228,11 +237,15 @@ function savedWorkflowRunArtifacts(
  * `workspace` 既是载体也是目标项目：core 据它的 cwd 与本机 home 算出两个根。
  */
 export async function moveSavedWorkflowOp(
-  _context: ZCodeProtocolAgentServerContext,
+  context: ZCodeProtocolAgentServerContext,
   rawParams: unknown,
 ): Promise<ZCodeWorkflowsMoveResult> {
   const params = parseParams(zcodeWorkflowsMoveParamsSchema, rawParams);
-  const result = moveSavedWorkflow({ cwd: params.workspace.workspacePath, name: params.name });
+  const result = moveSavedWorkflow({
+    cwd: params.workspace.workspacePath,
+    name: params.name,
+    nativeDirectories: context.deps.nativeDirectories,
+  });
   if (result.ok) {
     return { ok: true, from: result.from, to: result.to };
   }

@@ -2,10 +2,20 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 
+// XCODE: 资源根与运行时库存根分离；显式用户 storage.dir 仍沿用既有展开规则。
+import {
+  nativeUserConfigPath,
+  nativeUserResourcePath,
+  nativeProjectResourcePath,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
+
 const HOME_PREFIX = "~/";
 
 export interface SubagentStorageOptions {
   homeDir?: string;
+  nativeDirectories?: NativeResourceDirectoryPolicy;
+  pluginStorageRoot?: string;
 }
 
 export function resolveUserHomeDir(options?: SubagentStorageOptions): string {
@@ -17,15 +27,27 @@ export function resolveUserHomeDir(options?: SubagentStorageOptions): string {
 }
 
 export async function resolveUserSubagentRoot(options?: SubagentStorageOptions): Promise<string> {
-  return join(await resolveZCodeStorageRoot(options), "agents");
+  return join(await resolveSubagentResourceRoot(options), "agents");
 }
 
-export function resolveWorkspaceSubagentRoot(workspacePath: string): string {
-  return join(workspacePath, ".zcode", "agents");
+export function resolveWorkspaceSubagentRoot(
+  workspacePath: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): string {
+  return nativeProjectResourcePath(workspacePath, nativeDirectories, "agents");
 }
 
 export async function resolveSubagentStateFile(options?: SubagentStorageOptions): Promise<string> {
-  return join(await resolveZCodeStorageRoot(options), "v2", "agents-state.json");
+  return join(await resolveSubagentResourceRoot(options), "v2", "agents-state.json");
+}
+
+async function resolveSubagentResourceRoot(options?: SubagentStorageOptions): Promise<string> {
+  const config = await readUserCliConfig(options);
+  const storage = isObjectRecord(config.storage) ? config.storage : {};
+  const configured = typeof storage.dir === "string" ? storage.dir.trim() : "";
+  return configured
+    ? resolveConfigPath(configured, options)
+    : nativeUserResourcePath(resolveUserHomeDir(options), options?.nativeDirectories);
 }
 
 export async function resolveZCodeStorageRoot(options?: SubagentStorageOptions): Promise<string> {
@@ -50,7 +72,7 @@ async function readUserCliConfig(
 ): Promise<Record<string, unknown>> {
   try {
     const raw = await readFile(
-      join(resolveUserHomeDir(options), ".zcode", "cli", "config.json"),
+      nativeUserConfigPath(resolveUserHomeDir(options), options?.nativeDirectories),
       "utf8",
     );
     const parsed = JSON.parse(raw) as unknown;

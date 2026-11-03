@@ -129,6 +129,13 @@ export function useWorkflowRunSave(host: WorkflowRunSaveHost): WorkflowRunSaveCo
     [agentService, target],
   );
 
+  // XCODE: 复用保存所在 Host 的 list 协议取得目录，避免在 Renderer 重复选择资源根。
+  const resolveSaveDirectory = useCallback(
+    async (scope: ZCodeSavedWorkflowScope) =>
+      (await agentService.listSavedWorkflows({ ...target, scope })).dir,
+    [agentService, target],
+  );
+
   const launcher = useSavedWorkflowLauncher({
     agentService,
     ...(onNavigateToRun === undefined ? {} : { onNavigate: onNavigateToRun }),
@@ -172,6 +179,7 @@ export function useWorkflowRunSave(host: WorkflowRunSaveHost): WorkflowRunSaveCo
     saving,
     save,
     checkNameTaken,
+    resolveSaveDirectory,
     launching: launcher.pending,
     launchError: launcher.error,
     clearLaunchError: launcher.clearError,

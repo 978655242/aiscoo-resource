@@ -1,5 +1,7 @@
 # Script Workflow Runtime
 
+Saved native user/project workflows follow the optional [Native Resource Directories](native-resource-directories.md) policy. List, save, scope classification, named resolution and UI directory watches use the same resolved location. Session execution artifacts and workflow runtime storage retain their existing paths.
+
 ## Goal
 
 `/workflow` will let users create and run deterministic workflow scripts that orchestrate child

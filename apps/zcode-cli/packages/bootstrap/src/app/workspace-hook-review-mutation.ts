@@ -15,7 +15,14 @@ import {
 } from "@zcode/shared/workspace-hook-mutation";
 import type { WorkspaceHookReviewMutationPort } from "./workspace-hook-review-controller.js";
 
+// XCODE: 发现、审核锁与写入目标共用选中的原生配置路径。
+import {
+  nativeProjectConfigPath,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
+
 export interface WorkspaceHookReviewMutationPortOptions {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   workingDirectory: string;
   workspaceIdentity: string;
   projectConfigPath?: string;
@@ -28,7 +35,7 @@ export function createWorkspaceHookReviewMutationPort(
   options: WorkspaceHookReviewMutationPortOptions,
 ): WorkspaceHookReviewMutationPort {
   const workingDirectory = resolve(options.workingDirectory);
-  const editableConfigPath = resolve(workingDirectory, ".zcode", "config.json");
+  const editableConfigPath = nativeProjectConfigPath(workingDirectory, options.nativeDirectories);
   const lockKey = editableConfigPath;
 
   return {
@@ -57,6 +64,7 @@ export function createWorkspaceHookReviewMutationPort(
         }
 
         await writeWorkspaceHookConfiguredToggle({
+          nativeDirectories: options.nativeDirectories,
           configPath: editableConfigPath,
           snapshot: current,
           reviewItemId: input.reviewItemId,
@@ -74,6 +82,7 @@ async function rebuildSnapshot(
 ): Promise<WorkspaceHookBundleSnapshot> {
   const discovery = await readWorkspaceHookProjectSources({
     workingDirectory: options.workingDirectory,
+    nativeDirectories: options.nativeDirectories,
     ...(options.projectConfigPath ? { explicitProjectConfigPath: options.projectConfigPath } : {}),
   });
   if (discovery.errors.length > 0) {

@@ -96,6 +96,8 @@ export async function saveSavedWorkflowFromRunOp(
   rawParams: unknown,
 ): Promise<ZCodeWorkflowsSaveResult> {
   const params = parseParams(zcodeWorkflowsSaveParamsSchema, rawParams);
+  // XCODE: GUI 保存、查找与模型工具使用同一资源库策略。
+  const nativeDirectories = context.deps.nativeDirectories;
   const cwd = params.workspace.workspacePath;
   const scope = scopeOf(params);
   // 名字先验后拼路径：这条顺序是路径穿越的防线本身（store.ts 的同一论证）。
@@ -110,9 +112,12 @@ export async function saveSavedWorkflowFromRunOp(
   // scriptText 落库始于 workflow-live-run；更早的记录没有可保存的脚本原文。
   if (script === undefined) return { ok: false, reason: "script_missing" };
 
-  const path = savedWorkflowPath(savedWorkflowRoot(cwd, scope), params.name);
+  const path = savedWorkflowPath(savedWorkflowRoot(cwd, scope, { nativeDirectories }), params.name);
   // 覆盖是用户的决定，不是一次保存的副作用：没说要覆盖就拒绝，由调用方把警告摆出来再来一次。
-  if (params.overwrite !== true && savedWorkflowExists({ cwd, name: params.name, scope })) {
+  if (
+    params.overwrite !== true &&
+    savedWorkflowExists({ cwd, name: params.name, scope, nativeDirectories })
+  ) {
     return { ok: false, reason: "target_exists", path };
   }
 
@@ -126,9 +131,21 @@ export async function saveSavedWorkflowFromRunOp(
     };
   }
 
-  const shadowing = findSavedWorkflowShadowing({ cwd, name: params.name, scope });
+  const shadowing = findSavedWorkflowShadowing({
+    cwd,
+    name: params.name,
+    scope,
+    nativeDirectories,
+  });
   try {
-    const written = saveSavedWorkflow({ cwd, name: params.name, meta, script, scope });
+    const written = saveSavedWorkflow({
+      cwd,
+      name: params.name,
+      meta,
+      script,
+      scope,
+      nativeDirectories,
+    });
     return {
       ok: true,
       name: params.name,
@@ -161,6 +178,8 @@ export async function findSavedWorkflowForRunOp(
   rawParams: unknown,
 ): Promise<ZCodeWorkflowsForRunResult> {
   const params = parseParams(zcodeWorkflowsForRunParamsSchema, rawParams);
+  // XCODE: GUI 保存、查找与模型工具使用同一资源库策略。
+  const nativeDirectories = context.deps.nativeDirectories;
   const cwd = params.workspace.workspacePath;
   const record = runRecordOf(context, params.runId);
   // 实参与命中与否无关：它服务的是「再次运行」的实参窗预填，run 在就给。
@@ -170,6 +189,7 @@ export async function findSavedWorkflowForRunOp(
     if (!isValidSavedWorkflowName(candidate.name)) continue;
     const resolved = resolveSavedWorkflow({
       cwd,
+      nativeDirectories,
       name: candidate.name,
       ...(candidate.scope === undefined ? {} : { scope: candidate.scope }),
     });
@@ -180,9 +200,9 @@ export async function findSavedWorkflowForRunOp(
   if (script !== undefined) {
     // 项目档先于全局档：同名遮蔽的方向就是这个方向，内容相同时也该报本项目那一份。
     for (const scope of ["project", "global"] as const) {
-      const listed = listSavedWorkflows({ cwd, scope });
+      const listed = listSavedWorkflows({ cwd, scope, nativeDirectories });
       for (const entry of listed.entries.slice(0, SCRIPT_MATCH_SCAN_LIMIT)) {
-        const resolved = resolveSavedWorkflow({ cwd, name: entry.name, scope });
+        const resolved = resolveSavedWorkflow({ cwd, name: entry.name, scope, nativeDirectories });
         if (resolved.ok && resolved.script === script) {
           return { entry: entryOf(resolved), match: "script", ...runArgs };
         }
@@ -193,7 +213,7 @@ export async function findSavedWorkflowForRunOp(
   const name = record?.name;
   if (name !== undefined && isValidSavedWorkflowName(name)) {
     // 不定向：项目档 first-wins，与中枢之外的所有按名查找同规。
-    const resolved = resolveSavedWorkflow({ cwd, name });
+    const resolved = resolveSavedWorkflow({ cwd, name, nativeDirectories });
     if (resolved.ok) return { entry: entryOf(resolved), match: "name", ...runArgs };
   }
 

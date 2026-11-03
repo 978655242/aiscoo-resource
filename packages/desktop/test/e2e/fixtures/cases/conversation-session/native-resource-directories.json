@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "caseName": "native-resource-directories",
+  "spec": "./test/e2e/conversation-session/native-resource-directories.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/native-resource-directories.json"
+  ],
+  "fileFixtures": [],
+  "requests": [
+    {
+      "id": "ncr-title",
+      "description": "原生目录冷恢复验收的合成任务标题。",
+      "kind": "common",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "固定任务标题，不访问真实模型。"
+    },
+    {
+      "id": "ncr-before-main",
+      "description": "真实只读工具完成后保存冷恢复前会话。",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "复用 common 的真实 Read，返回结果后才完成首轮。"
+    },
+    {
+      "id": "ncr-after-main",
+      "description": "完整冷重启后验证原会话历史并继续发送。",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "必须携带旧 assistant 和实际工具结果，避免空库产生假恢复证据。"
+    }
+  ]
+}

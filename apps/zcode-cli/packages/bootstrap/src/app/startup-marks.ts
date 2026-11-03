@@ -15,7 +15,11 @@ export function resolveStartupPlugins(input: {
   configResult: ConfigResult;
   env?: NodeJS.ProcessEnv;
   logger?: Logger;
-  options: Pick<ZCodeAppOptions, "officialPluginRoots" | "pluginStorageRoot" | "includeVisualize">;
+  // XCODE: 允许调用方沿现有 app options 传递只读目录策略。
+  options: Pick<
+    ZCodeAppOptions,
+    "officialPluginRoots" | "pluginStorageRoot" | "includeVisualize" | "nativeDirectories"
+  >;
   startupTimer: StartupTimer;
   workingDirectory: string;
 }): PluginLoadOutcome {

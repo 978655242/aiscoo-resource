@@ -1,3 +1,8 @@
+// XCODE: 目录解析只在入口执行，adapter 不读取目录环境。
+import {
+  NATIVE_RESOURCE_DIRECTORY_ENV,
+  resolveNativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories";
 import { ToolSearchModeSchema } from "@zcode/contracts";
 import {
   STORAGE_MIGRATION_COMMAND,
@@ -282,6 +287,7 @@ const runZCodeProtocolCommand = async (
     const runProtocolAgent =
       deps.runZCodeProtocolAgent ?? (await loadBootstrapModule()).runZCodeProtocolAgent;
     await runProtocolAgent({
+      nativeDirectories: deps.nativeDirectories,
       lifecycle: deps.protocolLifecycle,
       cwd: workingDirectory,
       env,
@@ -312,7 +318,12 @@ export const run = async (ctx: RunContext, deps: RunDependencies = {}): Promise<
           // 复用正常启动的配置解析与存储入口，不初始化 Provider/MCP/Agent 运行态。
           const { createConfig, resolvePath } = await import("@zcode/adapters/config");
           const { openStartupSqliteSessionStore } = await import("@zcode/adapters/storage");
-          const config = createConfig({ env: deps.env ?? process.env });
+          const config = createConfig({
+            env: deps.env ?? process.env,
+            nativeDirectories:
+              deps.nativeDirectories ??
+              resolveNativeResourceDirectoryPolicy({ env: deps.env ?? process.env }),
+          });
           const store = await openStartupSqliteSessionStore({
             dbPath: resolvePath(config.config.storage.sessionDbPath),
           });
@@ -351,6 +362,24 @@ export const run = async (ctx: RunContext, deps: RunDependencies = {}): Promise<
   // 自 re-exec，argv 末位是入口文件路径——交给严格 parseArgs 只会报未知参数。
   if (isDwfChildInvocation(ctx.argv)) {
     return await runDwfChildCommand(ctx, ctx.argv.slice(1));
+  }
+
+  // XCODE: 在管理命令、日志或资源 IO 前校验目录；不改变 storage 环境。
+  try {
+    const nativeDirectories =
+      deps.nativeDirectories ??
+      resolveNativeResourceDirectoryPolicy({ env: deps.env ?? process.env });
+    deps = {
+      ...deps,
+      nativeDirectories,
+      env: {
+        ...(deps.env ?? process.env),
+        [NATIVE_RESOURCE_DIRECTORY_ENV]: nativeDirectories.directoryName,
+      },
+    };
+  } catch (error) {
+    ctx.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    return 1;
   }
 
   if (ctx.argv[0] === "hooks") {

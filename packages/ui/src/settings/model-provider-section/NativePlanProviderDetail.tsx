@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { NewApiCatalogIssue } from "@zcode/shared";
+import type { NewApiCatalogIssue, NewApiEntitlements } from "@zcode/shared";
 import { ModelRowIdentity } from "./ProviderFormControls.js";
 import { InfoIcon, Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
@@ -52,15 +52,6 @@ export function NativePlanProviderDetail({
   const snapshot = read.snapshot;
   const subscription = snapshot?.entitlement.subscription;
   const quota = snapshot?.entitlement.quota;
-  const statusId = !read.connected
-    ? "settings.modelProvider.codingPlan.status.loginRequired"
-    : read.loading
-      ? "settings.modelProvider.codingPlan.status.checking"
-      : read.error
-        ? "settings.modelProvider.codingPlan.status.unavailable"
-        : snapshot?.entitlement.status === "unassigned"
-          ? "settings.modelProvider.codingPlan.status.notPurchased"
-          : `settings.usage.nativeAuthorization.${snapshot?.entitlement.status ?? "unassigned"}`;
   const offers = getNativePlanReferenceOffers(snapshot?.plans ?? []);
   // XCODE: 目录授权决定设置成员；个人禁用或能力校验失败不能隐藏最后一行及其恢复开关。
   const modelsVisible =
@@ -101,54 +92,15 @@ export function NativePlanProviderDetail({
         <h3 className="truncate text-ui-lg font-medium text-foreground">{provider.providerName}</h3>
       </div>
       <div className="space-y-3">
-        <PlanStatusCardSurface
-          planTitle={
-            subscription?.plan_title ||
-            intl.formatMessage({ id: "settings.modelProvider.planCard.codingPlan" })
-          }
-          statusMeta={
-            <>
-              {read.loading ? (
-                <Loader2Icon className="size-3.5 animate-spin text-foreground-subtle" />
-              ) : (
-                <InfoIcon className="size-3.5 text-foreground-subtle" />
-              )}
-              <span
-                className="text-ui-base text-foreground-subtle"
-                role={read.error ? "alert" : "status"}
-              >
-                {intl.formatMessage({ id: statusId })}
-              </span>
-              {subscription?.end_time != null ? (
-                <span className="text-ui-caption text-foreground-subtle">
-                  {intl.formatMessage(
-                    { id: "settings.modelProvider.native.expiresAt" },
-                    {
-                      time: new Intl.DateTimeFormat(locale, {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      }).format(subscription.end_time),
-                    },
-                  )}
-                </span>
-              ) : null}
-              {read.error ? (
-                <Button variant="ghost" size="sm" onClick={() => void read.refresh()}>
-                  {intl.formatMessage({ id: "common.retry" })}
-                </Button>
-              ) : null}
-            </>
-          }
-          trailingAction={
-            <Button disabled={!read.connected} onClick={onOpenPlans}>
-              {intl.formatMessage({
-                id:
-                  snapshot?.entitlement.status === "active"
-                    ? "settings.modelProvider.codingPlan.upgrade"
-                    : "settings.modelProvider.codingPlan.subscribe",
-              })}
-            </Button>
-          }
+        <NativePlanStatusCard
+          planTitle={subscription?.plan_title}
+          authorizationStatus={snapshot?.entitlement.status}
+          expiresAt={subscription?.end_time}
+          connected={read.connected}
+          loading={read.loading}
+          error={read.error}
+          onRetry={() => void read.refresh()}
+          onOpenPlans={onOpenPlans}
           usageContent={
             quota ? (
               <div className="space-y-2">
@@ -242,6 +194,90 @@ export function NativePlanProviderDetail({
   );
 }
 
+// XCODE: 模型设置和使用统计共用套餐摘要，只接收各自既有 owner 的权益投影。
+export function NativePlanStatusCard({
+  planTitle,
+  authorizationStatus,
+  expiresAt,
+  connected = true,
+  loading = false,
+  error,
+  onRetry,
+  onOpenPlans,
+  usageContent,
+}: {
+  planTitle?: string | null;
+  authorizationStatus?: NewApiEntitlements["status"];
+  expiresAt?: string | number | null;
+  connected?: boolean;
+  loading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
+  onOpenPlans?: () => void;
+  usageContent?: ReactNode;
+}) {
+  const { intl, locale } = useZCodeIntl();
+  const statusId = !connected
+    ? "settings.modelProvider.codingPlan.status.loginRequired"
+    : loading
+      ? "settings.modelProvider.codingPlan.status.checking"
+      : error
+        ? "settings.modelProvider.codingPlan.status.unavailable"
+        : authorizationStatus === "unassigned"
+          ? "settings.modelProvider.codingPlan.status.notPurchased"
+          : `settings.usage.nativeAuthorization.${authorizationStatus ?? "unassigned"}`;
+  return (
+    <div data-native-plan-status-card="true">
+      <PlanStatusCardSurface
+        planTitle={
+          planTitle || intl.formatMessage({ id: "settings.modelProvider.planCard.codingPlan" })
+        }
+        statusMeta={
+          <>
+            {loading ? (
+              <Loader2Icon className="size-3.5 animate-spin text-foreground-subtle" />
+            ) : (
+              <InfoIcon className="size-3.5 text-foreground-subtle" />
+            )}
+            <span className="text-ui-base text-foreground-subtle" role={error ? "alert" : "status"}>
+              {intl.formatMessage({ id: statusId })}
+            </span>
+            {expiresAt != null ? (
+              <span className="text-ui-caption text-foreground-subtle">
+                {intl.formatMessage(
+                  { id: "settings.modelProvider.native.expiresAt" },
+                  {
+                    time: new Intl.DateTimeFormat(locale, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    }).format(new Date(expiresAt)),
+                  },
+                )}
+              </span>
+            ) : null}
+            {error && onRetry ? (
+              <Button variant="ghost" size="sm" onClick={onRetry}>
+                {intl.formatMessage({ id: "common.retry" })}
+              </Button>
+            ) : null}
+          </>
+        }
+        trailingAction={
+          <Button disabled={!connected || !onOpenPlans} onClick={onOpenPlans}>
+            {intl.formatMessage({
+              id:
+                authorizationStatus === "active"
+                  ? "settings.modelProvider.codingPlan.upgrade"
+                  : "settings.modelProvider.codingPlan.subscribe",
+            })}
+          </Button>
+        }
+        usageContent={usageContent}
+      />
+    </div>
+  );
+}
+
 // XCODE: 私有单周期复用源版卡片布局，只展示后端实际支持的重置窗口。
 export function NativePlanQuotaCard({
   quota,
@@ -251,7 +287,13 @@ export function NativePlanQuotaCard({
   compact?: boolean;
 }) {
   const { intl, locale } = useZCodeIntl();
-  const label = intl.formatMessage({ id: `settings.usage.nativeRemaining.${quota.period}` });
+  // XCODE: 不重置订阅已有外层“剩余额度”，两处设置页不再重复显示“订阅剩余”。
+  const hasPeriodTitle = quota.period !== "never";
+  const label = intl.formatMessage({
+    id: hasPeriodTitle
+      ? `settings.usage.nativeRemaining.${quota.period}`
+      : "settings.usage.quotaTitle",
+  });
   const limit = {
     type: "NATIVE_QUOTA",
     percentage: quota.usedPercentage ?? undefined,
@@ -268,14 +310,18 @@ export function NativePlanQuotaCard({
       aria-label={label}
       className={`min-w-0 flex-1 ${compact ? "rounded-lg bg-surface p-3" : "rounded-xl bg-surface/70 p-4"}`}
     >
-      <div className={`flex ${compact ? "min-h-6" : "min-h-5"} min-w-0 items-center`}>
-        <span
-          className={`min-w-0 truncate text-ui-base text-foreground ${compact ? "font-medium" : ""}`}
-        >
-          {label}
-        </span>
-      </div>
-      <div className={`${compact ? "mt-2" : "mt-1"} flex min-w-0 items-baseline gap-1.5`}>
+      {hasPeriodTitle ? (
+        <div className={`flex ${compact ? "min-h-6" : "min-h-5"} min-w-0 items-center`}>
+          <span
+            className={`min-w-0 truncate text-ui-base text-foreground ${compact ? "font-medium" : ""}`}
+          >
+            {label}
+          </span>
+        </div>
+      ) : null}
+      <div
+        className={`${hasPeriodTitle ? (compact ? "mt-2" : "mt-1") : ""} flex min-w-0 items-baseline gap-1.5`}
+      >
         <span
           className={`${compact ? "text-ui-lg leading-none" : "text-ui-xl"} font-semibold text-foreground`}
         >

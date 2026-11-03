@@ -25,6 +25,8 @@ export function resolveTuiStartupLocale({
   workingDirectory,
 }: ResolveTuiStartupLocaleInput): SupportedLocale {
   const configResult = createConfig({
+    // XCODE: 登录前 TUI 也读取入口选中的用户资源配置。
+    nativeDirectories: deps.nativeDirectories,
     cliOverrides: localeCliOverrides(options.locale),
     env: deps.env ?? process.env,
     projectConfigPath: deps.projectConfigPath,
