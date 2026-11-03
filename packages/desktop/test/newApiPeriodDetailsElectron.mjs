@@ -284,8 +284,9 @@ async function run() {
         await observe(
           '[...document.querySelectorAll("button")].find(button => button.textContent === "Upgrade").click()',
         );
+        // XCODE: #62 已迁移托管 Provider 身份；合入旧额度回归时须校验当前身份，不能期待旧 new-api 前缀。
         assert.deepEqual(await observe("window.planOpenTargets"), [
-          { providerId: "account:new-api-anthropic-messages", initialAudience: "personal" },
+          { providerId: "account:aiscoo-anthropic-messages", initialAudience: "personal" },
         ]);
         const reads = await observe("window.usageRefreshes");
         await observe('document.querySelector("button[aria-label=Refresh]").click()');
