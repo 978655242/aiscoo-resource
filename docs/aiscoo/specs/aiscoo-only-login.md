@@ -58,7 +58,7 @@ sequenceDiagram
 
 退出、取消、换号、过期、迟到回调继续沿原 owner 的同步失效、异步撤销和一次消费规则；不恢复旧官方 identity。冷启动尚未发布 active provider、授权仍 pending 或恢复请求未返回时，退出也必须立即委托同一 owner 失效，不能因 UI 前置查询为空而跳过或延迟失效。Desktop `desktop-continuous` 与手机 `web-remote-replayable` 维持原含义，手机不新建 Agent 或 Host。
 
-凭据端口在判断退役命名空间和读取 manual 来源前，使用与底层一致的规范化 key。首尾空白不能绕过旧官方读取/写入/删除限制，也不能绕过 CLI 手工 API Key 来源判定；批量接口同样在任何 IO 前检查每个 key。
+凭据端口在判断退役命名空间和读取 manual 来源前，使用与底层一致的规范化 key。首尾空白不能绕过旧官方读取/写入/删除限制，也不能绕过 CLI 手工 API Key 来源判定；批量接口同样在任何 IO 前检查每个 key。读取与写入分开处理：单个与批量读取对旧官方 key 一律逐项返回空值，不读取 backing，也不让同批其他 key 失败；写入、删除和旧官方登录写入入口仍整批拒绝并返回 `AISCOO_ACCOUNT_LOGIN_UNSUPPORTED`。这样上游批量读取只要混入一个旧官方 key（例如并发写入使 auth-source 变为 oauth），也不会让同批的 Zen 与自配凭据一起失效。
 
 ## 4. 验收
 

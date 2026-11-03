@@ -73,9 +73,20 @@ describe("Zen account model authorization", () => {
       for (const variant of [key, ` ${key}`, `${key} `, `\t ${key} \r\n`]) {
         calls.length = 0;
         expect(await store.load(variant)).toBeNull();
+        // 批量读取与 load 一致：官方 key 逐项为 null，不读取 backing，也不连累同批其他 key。
+        for (const batch of [
+          [allowed, variant],
+          [variant, allowed],
+        ]) {
+          calls.length = 0;
+          expect(await store.loadMany(batch)).toEqual({
+            [allowed]: "third-party-credentials",
+            [key]: null,
+          });
+          expect(calls).toEqual([`load:${allowed}`]);
+        }
+        calls.length = 0;
         const blocked = [
-          () => store.loadMany([allowed, variant]),
-          () => store.loadMany([variant, allowed]),
           () => store.save(variant, "replacement"),
           () => store.saveMany({ [allowed]: "safe", [variant]: "replacement" }),
           () => store.saveMany({ [variant]: "replacement", [allowed]: "safe" }),
@@ -135,6 +146,56 @@ describe("Zen account model authorization", () => {
     ]);
     expect(values["oauth:zai:access_token"]).toBe("old-official");
     expect(values.zcodejwttoken).toBe("old-jwt");
+  });
+
+  it("磁盘上的旧官方登录不会经上游快照恢复为已授权 Provider", async () => {
+    const { createAiscooProductCredentialStore } =
+      await import("../src/zen/product-credentials.js");
+    const { readStandaloneAccountProviderConfigSnapshot } =
+      await import("../src/app/standalone-account-provider-runtime.js");
+    const { ProviderConfig, ProviderConfigMap, ZhipuAccountAccessConfig } =
+      await import("@zcode/provider");
+    const providerId = "account:bigmodel-individual-coding-plan";
+    // 模拟旧版官方登录留下的 auth-source=oauth 与官方 token；backing 原样返回，不做策略。
+    const values = new Map<string, string>([
+      [`account-provider:${providerId}:identity`, "official-user"],
+      [`account-provider:${providerId}:auth-source`, "oauth"],
+      ["oauth:bigmodel:access_token", "old-official"],
+    ]);
+    const backing = {
+      load: async (key: string) => values.get(key.trim()) ?? null,
+    };
+    const store = createAiscooProductCredentialStore({}, backing as never);
+    const snapshot = await readStandaloneAccountProviderConfigSnapshot(
+      store,
+      {},
+      {
+        revision: "builtin",
+        providers: new ProviderConfigMap([
+          [
+            providerId,
+            new ProviderConfig({
+              access: new ZhipuAccountAccessConfig({
+                accountType: "bigmodel",
+                mode: "individual-coding-plan",
+              }),
+              builtinModelIds: ["glm"],
+            }),
+          ],
+        ]),
+      },
+    );
+    expect(snapshot.providers.get(providerId)?.access).toMatchObject({ entitled: false });
+    // 混合批次（官方 key 与其他 key）逐项返回，不再整批失败。
+    expect(
+      await store.loadMany([
+        "oauth:bigmodel:access_token",
+        `account-provider:${providerId}:auth-source`,
+      ]),
+    ).toEqual({
+      "oauth:bigmodel:access_token": null,
+      [`account-provider:${providerId}:auth-source`]: null,
+    });
   });
   it.each([
     {},
