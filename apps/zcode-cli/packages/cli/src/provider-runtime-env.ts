@@ -50,6 +50,8 @@ interface PrepareCliProviderRuntimeEnvOptions {
   readonly sea?: SeaProviderConfigAssets;
   readonly appVersion?: string;
   readonly platform?: string;
+  /** XCODE: 产品装配共享缓存与下载的源；null 仅使用 bundle，未注入保留上游默认。 */
+  readonly resolveBuiltinEndpointOrigin?: () => string | null;
 }
 
 /** 为运行 Core 或写入模型选择的 CLI Entry 定位同一 Environment 的 Provider Config。 */
@@ -79,7 +81,16 @@ export async function prepareCliProviderRuntimeEnv(
     explicitPersonal ?? join(dataBaseDir, ".zcode", "v2", PERSONAL_PROVIDER_CONFIG_FILE_NAME);
   const appVersion = options.appVersion ?? ZCODE_VERSION;
   const platform = options.platform ?? resolveZCodeBuiltinClientPlatform();
-  const zcodeEndpointOrigin = resolveRuntimeZCodeEndpointOrigin(options.env);
+  // XCODE: 缓存必须按实际下载源隔离；无远端源时不恢复任何旧站点缓存。
+  const zcodeEndpointOrigin = options.resolveBuiltinEndpointOrigin
+    ? options.resolveBuiltinEndpointOrigin()
+    : resolveRuntimeZCodeEndpointOrigin(options.env);
+  if (zcodeEndpointOrigin === null) {
+    return {
+      [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: zcodeBuiltinFilePath,
+      [ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: personalFilePath,
+    };
+  }
   const cachePaths = resolveZCodeBuiltinCachePaths({
     environmentConfigRoot: join(dataBaseDir, ".zcode", "v2"),
     platform,

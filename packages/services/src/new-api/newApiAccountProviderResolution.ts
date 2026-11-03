@@ -6,9 +6,8 @@ import {
   ProviderConfigMap,
   type AccountProviderResolver,
   type AccountProviderStates,
-  type AccountModelConfigs,
+  type AccountModelPresentation,
 } from "@zcode/provider";
-import { completeModelConfigDataSchema } from "@zcode/shared/model-config";
 import {
   NEW_API_MODEL_PROVIDER_IDS,
   type NewApiCatalog,
@@ -34,37 +33,34 @@ export function resolveNewApiAccountProviders(input: {
     throw new Error("Native authorization revision mismatch");
   const entitled =
     owner !== null && entitlements?.status === "active" && entitlements.subscription !== null;
-  const modelConfigs: Record<string, Record<string, AccountModelConfigs[string][string]>> = {};
+  const modelPresentation: Record<
+    string,
+    Record<string, AccountModelPresentation[string][string]>
+  > = {};
   const catalogIssues: NewApiCatalogIssue[] = [];
   const seen = new Set<string>();
   const ids: Record<string, string[]> = {};
   for (const id of Object.values(NEW_API_MODEL_PROVIDER_IDS)) {
     ids[id] = [];
-    modelConfigs[id] = Object.create(null);
+    modelPresentation[id] = Object.create(null);
   }
   for (const model of owner ? (catalog?.models ?? []) : []) {
     if (seen.has(model.model_id)) throw new Error("Native duplicate catalog model");
     seen.add(model.model_id);
-    const parsed = completeModelConfigDataSchema.safeParse(model.model_config);
-    if (!model.api_type || !parsed.success || !model.enabled || !parsed.data.enabled) {
+    if (!model.api_type || !model.enabled) {
       catalogIssues.push({
         source: "new-api",
         modelId: model.model_id,
         displayName: model.display_name,
         code:
           model.disabled_reason?.trim() ||
-          (!model.enabled || (parsed.success && !parsed.data.enabled)
-            ? "XCODE_MODEL_DISABLED"
-            : model.model_config === null || model.api_type === null
-              ? "XCODE_MODEL_CONFIG_MISSING"
-              : "XCODE_MODEL_CONFIG_INVALID"),
+          (!model.enabled ? "XCODE_MODEL_DISABLED" : "XCODE_MODEL_CONFIG_MISSING"),
       });
       continue;
     }
     const providerId = NEW_API_MODEL_PROVIDER_IDS[model.api_type];
     ids[providerId]!.push(model.model_id);
-    modelConfigs[providerId]![model.model_id] = {
-      ...parsed.data,
+    modelPresentation[providerId]![model.model_id] = {
       displayName: model.display_name,
       ...(model.icon ? { icon: model.icon } : {}),
     };
@@ -94,7 +90,7 @@ export function resolveNewApiAccountProviders(input: {
     providers,
     states,
     owner,
-    modelConfigs,
+    modelPresentation,
     catalogIssues,
     catalogRevision: catalog?.catalog_revision,
     authorizationRevision: entitlements?.authorization_revision,

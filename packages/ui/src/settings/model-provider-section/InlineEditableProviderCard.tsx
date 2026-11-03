@@ -23,6 +23,7 @@ import {
   ProviderCardHeader,
   ProviderConnectionSection,
   ProviderModelsSection,
+  type ProviderModelRowPolicy,
 } from "./ProviderCardSections.js";
 import { resolveModelProviderDisplayName } from "./constants.js";
 import { useProviderDetailFeedback } from "./ProviderDetailFeedback.js";
@@ -156,6 +157,7 @@ export function InlineEditableProviderCard({
   headerActionsVisible,
   settingsRevision,
   modelListFooter,
+  modelRowPolicy,
 }: {
   provider: ProviderSettingsFormProvider;
   onSave: (config: ProviderSettingsFormProvider) => void | Promise<void>;
@@ -185,6 +187,8 @@ export function InlineEditableProviderCard({
   settingsRevision?: number;
   // XCODE: 可选列表插槽只传递展示内容，默认编辑、排序与写入路径保持不变。
   modelListFooter?: ReactNode;
+  // XCODE: 可选行策略由下游装配，默认保持上游操作与展示行为。
+  modelRowPolicy?: ProviderModelRowPolicy;
 }) {
   const { intl } = useZCodeIntl();
   const { dismissFeedback, showFeedback } = useProviderDetailFeedback();
@@ -852,6 +856,7 @@ export function InlineEditableProviderCard({
           providerAccess={provider.config.access}
           models={models}
           modelListFooter={modelListFooter}
+          modelRowPolicy={modelRowPolicy}
           onTestModel={onTestModel ? handleTestModel : undefined}
           onModelCommit={handleModelCommit}
           onModelEnabledChange={handleModelEnabledChange}

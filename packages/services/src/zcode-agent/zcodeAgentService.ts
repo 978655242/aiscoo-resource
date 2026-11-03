@@ -1944,7 +1944,7 @@ export function createZCodeAgentService(
               ),
               states: snapshot.states ?? {},
               owner: snapshot.owner,
-              modelConfigs: snapshot.modelConfigs,
+              modelPresentation: snapshot.modelPresentation,
               catalogIssues: snapshot.catalogIssues,
               catalogRevision: snapshot.catalogRevision,
               authorizationRevision: snapshot.authorizationRevision,

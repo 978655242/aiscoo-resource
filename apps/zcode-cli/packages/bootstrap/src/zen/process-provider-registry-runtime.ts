@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { AccountProviderService, ProviderConfigMap } from "@zcode/provider";
 import type { ProviderRuntimeHeadersPort } from "@zcode/core";
 import { ZenClient } from "@zcode/adapters/auth";
+import { normalizeNewApiOrigin } from "@zcode/shared";
 import {
   startProcessProviderRegistryRuntime as startUpstreamRuntime,
   type ProcessAccountResolution,
@@ -71,6 +72,11 @@ export async function startProcessProviderRegistryRuntime(
 ) {
   const standalone = options.standalone && {
     ...options.standalone,
+    // 只切换 Built-in 源；配置缺失或非法时不回退官方，也不影响其他上游 endpoint。
+    resolveBuiltinEndpointOrigin: () => {
+      if (!env.AISCOO_ADMIN_BASE_URL?.trim()) throw new Error("AISCOO_ACCOUNT_CONFIG_UNAVAILABLE");
+      return normalizeNewApiOrigin(env.AISCOO_ADMIN_BASE_URL.trim());
+    },
     credentialStore: createAiscooProductCredentialStore(env, options.standalone.credentialStore),
   };
   const productOptions = { ...options, ...(standalone ? { standalone } : {}) };
@@ -128,22 +134,26 @@ export async function startProcessProviderRegistryRuntime(
       const access = input.accountAccess;
       const owner = zenAccount.getOwner();
       const snapshot = await accountService.read();
-      const provider = snapshot.providers.get(input.providerId);
-      if (
-        !owner ||
-        !access.owner ||
-        !zenAccount.isCurrent(access.owner) ||
-        snapshot.authorizationRevision !== access.authorizationRevision ||
-        !provider?.builtinModelIds?.includes(input.modelId) ||
-        provider.access?.type !== "new-api-account" ||
-        provider.access.entitled !== true
-      )
-        throw new Error("XCODE_STALE_OWNER");
-      const credential = await zenAccount.getRelayCredential(owner);
+      const assertAuthorized = (current: typeof snapshot) => {
+        const provider = current.providers.get(input.providerId);
+        if (
+          !owner ||
+          !access.owner ||
+          !zenAccount.isCurrent(access.owner) ||
+          !current.owner ||
+          !zenAccount.isCurrent(current.owner) ||
+          current.authorizationRevision !== access.authorizationRevision ||
+          current.states?.[input.providerId]?.current !== true ||
+          !provider?.builtinModelIds?.includes(input.modelId) ||
+          provider.access?.type !== "new-api-account" ||
+          provider.access.entitled !== true
+        ) throw new Error("XCODE_STALE_OWNER");
+      };
+      assertAuthorized(snapshot);
+      const credential = await zenAccount.getRelayCredential(owner!);
       input.abortSignal?.throwIfAborted();
-      const current = await accountService.read();
-      if (!zenAccount.isCurrent(owner) || current.revision !== snapshot.revision)
-        throw new Error("XCODE_STALE_OWNER");
+      // 能力/展示更新不撤销已冻结 turn；凭据 IO 后只复核 owner、授权与真实成员资格。
+      assertAuthorized(await accountService.read());
       return { headersApplied: true, requestAuth: { apiKey: credential.token } };
     },
   };

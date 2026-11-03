@@ -5,12 +5,13 @@ import { setImmediate } from "node:timers/promises";
 import { ZCodeProtocolNdjsonConnection } from "../../../apps/zcode-cli/packages/bootstrap/src/zcode-protocol/transport.js";
 import { parseProcessAccountProviderConfigSnapshot } from "../../../apps/zcode-cli/packages/bootstrap/src/app/process-provider-registry-runtime.js";
 import {
+  AISCOO_MODEL_PROVIDER_IDS,
   zcodeProtocolMessageSchema,
   zcodeProtocolMethods,
   zcodeProviderUpdateAccountConfigParamsSchema,
   type ZCodeProtocolMessage,
 } from "@zcode/shared";
-import { modelConfig, owner } from "./newApiRegistryFixtures.js";
+import { modelConfig, builtinModelRules, owner } from "./newApiRegistryFixtures.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -45,7 +46,7 @@ import { AiSdkModelAdapter } from "../../../apps/zcode-cli/packages/adapters/src
 // XCODE: test/tsconfig.json 将测试与 SDK 绑定同一份源码契约/调用上下文，避免 CLI dist 身份分裂。
 import { runWithModelInvocationContext, type ModelRequest } from "@zcode/contracts";
 
-const providerId = "account:aiscoo-openai-responses";
+const providerId = AISCOO_MODEL_PROVIDER_IDS["openai-responses"];
 function envelope() {
   return {
     revision: "revision-1",
@@ -71,7 +72,7 @@ function envelope() {
         connectionKey: "opaque",
       },
     },
-    modelConfigs: { [providerId]: { "real-model": modelConfig } },
+    modelPresentation: { [providerId]: { "real-model": { displayName: "Real", icon: "OpenAI" } } },
     catalogIssues: [
       {
         source: "new-api",
@@ -83,44 +84,39 @@ function envelope() {
   };
 }
 
-test("worker preserves complete Native model configuration and issues under one owner", () => {
+test("worker preserves only Native presentation and issues under one owner", () => {
   const wire = zcodeProviderUpdateAccountConfigParamsSchema.parse(envelope());
   const result = parseProcessAccountProviderConfigSnapshot(wire);
-  assert.deepEqual(result.modelConfigs?.[providerId]?.["real-model"], modelConfig);
+  assert.deepEqual(result.modelPresentation?.[providerId]?.["real-model"], {
+    displayName: "Real",
+    icon: "OpenAI",
+  });
+  assert.equal("modelConfigs" in result, false);
   assert.deepEqual(result.owner, owner);
   assert.equal(result.catalogIssues?.[0]?.modelId, "missing");
   assert.equal(JSON.stringify(wire).includes("apiKey"), false);
 });
 
-test("worker cannot execute Native membership without complete capabilities and current owner", () => {
+test("worker requires current owner and rejects capabilities in the presentation extension", () => {
   const valid = envelope();
   for (const patch of [
-    { modelConfigs: undefined },
     { owner: undefined },
     { catalogIssues: undefined },
-    {
-      modelConfigs: {
-        [providerId]: {
-          "real-model": {
-            ...modelConfig,
-            optionSpecs: {
-              ...modelConfig.optionSpecs,
-              reasoningLevel: { values: ["none"], map: "bad (" },
-            },
-          },
-        },
-      },
-    },
-    { modelConfigs: { [providerId]: { "real-model": { ...modelConfig, apiKey: "sk-secret" } } } },
-  ]) {
+    { states: { [providerId]: { ...valid.states[providerId], current: false } } },
+    { modelPresentation: { [providerId]: { "real-model": modelConfig } } },
+    { modelPresentation: { [providerId]: { "real-model": { apiKey: "sk-secret" } } } },
+    { modelConfigs: { [providerId]: { "real-model": modelConfig } } },
+  ])
     assert.throws(() => parseProcessAccountProviderConfigSnapshot({ ...valid, ...patch }));
-  }
+  assert.doesNotThrow(() =>
+    parseProcessAccountProviderConfigSnapshot({ ...valid, modelPresentation: undefined }),
+  );
   assert.throws(() =>
     zcodeProviderUpdateAccountConfigParamsSchema.parse({ ...valid, relay: "sk-secret" }),
   );
 });
 
-test("Host catalog display names and complete capabilities survive the worker Registry", () => {
+test("Host catalog display names and Built-in capabilities survive the worker Registry", () => {
   const native = resolveNewApiAccountProviders({
     owner,
     entitlements,
@@ -142,11 +138,11 @@ test("Host catalog display names and complete capabilities survive the worker Re
   const resolution = new ProviderConfigResolver().resolve({
     zcodeBuiltinProviders: createNewApiProviderAnchors(owner.origin),
     personalProviders: ProviderConfigMap.empty(),
-    zcodeBuiltinModelRules: ModelConfigRules.empty(),
+    zcodeBuiltinModelRules: builtinModelRules(),
     personalModels: ModelConfigRules.empty(),
     accountProviders: worker.providers,
     accountStates: worker.states,
-    accountModelConfigs: worker.modelConfigs,
+    accountModelPresentation: worker.modelPresentation,
     accountOwner: worker.owner,
     accountRevision: worker.revision,
     accountAuthorizationRevision: worker.authorizationRevision,
@@ -266,10 +262,13 @@ test("Native relay resolution rejects non-Native access and snapshot or owner ch
     source.replace({
       ...snapshot,
       revision: "model-disabled",
-      modelConfigs: {
-        ...snapshot.modelConfigs,
-        [providerId]: { "real-model": ModelConfig.fromData({ ...modelConfig, enabled: false }) },
-      },
+      providers: snapshot.providers.set(
+        providerId,
+        new ProviderConfig({
+          access: snapshot.providers.get(providerId)!.access,
+          builtinModelIds: [],
+        }),
+      ),
     });
   };
   await assert.rejects(resolver.resolveCurrent(input));
@@ -359,19 +358,25 @@ test("Native typed auth accepts exact legacy selections without accepting incomp
   );
   source.replace({
     ...snapshot,
-    revision: `${snapshot.revision}:missing-capabilities`,
-    modelConfigs: {},
+    revision: `${snapshot.revision}:missing-membership`,
+    providers: snapshot.providers.set(
+      providerId,
+      new ProviderConfig({
+        access: snapshot.providers.get(providerId)!.access,
+        builtinModelIds: [],
+      }),
+    ),
   });
   await assert.rejects(
     auth.resolveCurrent(input),
-    "legacy ID compatibility cannot bypass missing worker capabilities",
+    "legacy ID compatibility cannot bypass missing catalog membership",
   );
   source.replace({
     ...snapshot,
     revision: `${snapshot.revision}:legacy-snapshot`,
     providers: new ProviderConfigMap([[legacyId, snapshot.providers.get(providerId)!]]),
     states: { [legacyId]: snapshot.states[providerId]! },
-    modelConfigs: { [legacyId]: snapshot.modelConfigs![providerId]! },
+    modelPresentation: { [legacyId]: snapshot.modelPresentation![providerId]! },
   });
   await assert.rejects(
     auth.resolveCurrent(input),
@@ -532,7 +537,7 @@ test(
   "Native invalidation aborts active SDK streams without cancelling custom execution or reviving late auth",
   { timeout: 10_000 },
   async () => {
-    const nativeId = "account:aiscoo-openai-chat-completions";
+    const nativeId = AISCOO_MODEL_PROVIDER_IDS["openai-chat-completions"];
     const native = resolveNewApiAccountProviders({
       owner,
       entitlements,
@@ -542,38 +547,42 @@ test(
       },
       configRevision: "builtin-1",
     });
-    const resolution = new ProviderConfigResolver().resolve({
-      zcodeBuiltinProviders: createNewApiProviderAnchors(owner.origin),
-      personalProviders: new ProviderConfigMap([
-        [
-          "custom",
-          new ProviderConfig({
-            group: "standard-personal",
-            access: new ApiKeyAccessConfig({ apiKey: "sk-custom-test" }),
-            api: new ProviderApiConfig({
-              type: "openai-chat-completions",
-              baseUrl: "https://custom.invalid/v1",
-            }),
-            personalModelIds: ["custom-model"],
+    const personalProviders = new ProviderConfigMap([
+      [
+        "custom",
+        new ProviderConfig({
+          group: "standard-personal",
+          access: new ApiKeyAccessConfig({ apiKey: "sk-custom-test" }),
+          api: new ProviderApiConfig({
+            type: "openai-chat-completions",
+            baseUrl: "https://custom.invalid/v1",
           }),
-        ],
-      ]),
-      zcodeBuiltinModelRules: ModelConfigRules.empty(),
-      personalModels: new ModelConfigRules([
-        {
-          type: "provider-model",
-          providerId: "custom",
-          modelId: "custom-model",
-          config: ModelConfig.fromData(modelConfig),
-        },
-      ]),
-      accountProviders: native.providers,
-      accountStates: native.states,
-      accountModelConfigs: native.modelConfigs,
-      accountOwner: owner,
-      accountRevision: native.revision,
-      accountAuthorizationRevision: native.authorizationRevision,
-    });
+          personalModelIds: ["custom-model"],
+        }),
+      ],
+    ]);
+    const personalModels = new ModelConfigRules([
+      {
+        type: "provider-model",
+        providerId: "custom",
+        modelId: "custom-model",
+        config: ModelConfig.fromData(modelConfig),
+      },
+    ]);
+    const resolve = (account: typeof native, builtins: ModelConfigRules) =>
+      new ProviderConfigResolver().resolve({
+        zcodeBuiltinProviders: createNewApiProviderAnchors(owner.origin),
+        personalProviders,
+        zcodeBuiltinModelRules: builtins,
+        personalModels,
+        accountProviders: account.providers,
+        accountStates: account.states,
+        accountModelPresentation: account.modelPresentation,
+        accountOwner: owner,
+        accountRevision: account.revision,
+        accountAuthorizationRevision: account.authorizationRevision,
+      });
+    const resolution = resolve(native, builtinModelRules());
     const registry = new ProviderRegistry(resolution.registryProviders);
     const runtime = new ApiProviderModelRuntime({
       registry,
@@ -667,14 +676,41 @@ test(
         nativeStarted.promise,
         customStarted.promise,
       ]);
-      registry.replace(
-        resolution.registryProviders.map((provider) =>
-          provider.providerId === nativeId
-            ? { ...provider, accountRevision: `${native.revision}:capability-refresh` }
-            : provider,
-        ),
-        "native-capability-change",
+      const updatedAccount = resolveNewApiAccountProviders({
+        owner,
+        entitlements,
+        catalog: {
+          ...catalog,
+          models: [{ ...catalog.models[0]!, api_type: "openai-chat-completions" }],
+        },
+        configRevision: "builtin-2",
+      });
+      assert.equal(updatedAccount.catalogRevision, native.catalogRevision);
+      const updated = resolve(
+        updatedAccount,
+        builtinModelRules({
+          ...modelConfig,
+          properties: { ...modelConfig.properties, contextWindow: 16384 },
+          optionSpecs: {
+            ...modelConfig.optionSpecs,
+            reasoningLevel: {
+              values: ["none", "high"],
+              map: '{"reasoning_effort":reasoningLevel}',
+            },
+          },
+        }),
       );
+      registry.replace(updated.registryProviders, "builtin-capability-change");
+      assert.equal(nativeModel.properties.contextWindow, 8192);
+      const nextModel = runtime.modelFactory({
+        selection: {
+          providerId: nativeId,
+          modelId: "real-model",
+          options: { reasoningLevel: "high" },
+        },
+      });
+      assert.equal(nextModel.properties.contextWindow, 16384);
+      assert.equal(nextModel.optionSpecs.reasoningLevel.map, '{"reasoning_effort":reasoningLevel}');
       assert.equal(
         nativeSignal.aborted,
         false,

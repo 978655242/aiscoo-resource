@@ -11,6 +11,7 @@ import {
   ProviderSettingsFacade,
 } from "@zcode/provider";
 import { createNewApiProviderAnchors, createNodeModelSelectionFacade } from "@zcode/provider-node";
+import { AISCOO_MODEL_PROVIDER_IDS } from "@zcode/shared";
 import { resolveNewApiAccountProviders } from "../../services/src/new-api/newApiAccountProviderResolution.ts";
 import {
   owner,
@@ -22,6 +23,29 @@ import {
 export async function createCapabilityHost(ipcMain, getWindow) {
   let valuesA = ["disabled", "low", "high", "max"];
   let catalogReads = 0;
+  const entries = () => [
+    ["capability-a", "Capability A", valuesA, 64],
+    ["capability-b", "Capability B", ["disabled", "high"], 32],
+    ["capability-single", "Capability single", ["disabled"], 16],
+  ];
+  const rules = () =>
+    new ModelConfigRules(
+      entries().map(([modelId, _name, values, max]) => ({
+        type: "provider-model",
+        providerId: AISCOO_MODEL_PROVIDER_IDS["openai-chat-completions"],
+        modelId,
+        config: ModelConfig.fromData({
+          ...modelConfig,
+          optionSpecs: {
+            reasoningLevel: {
+              values,
+              map: 'reasoningLevel == "disabled" ? {"thinking":{"type":"disabled"},"reasoning_effort":null} : {"thinking":{"type":"enabled"},"reasoning_effort":reasoningLevel}',
+            },
+            maxOutputTokens: { max, map: '{"max_tokens":maxOutputTokens}' },
+          },
+        }),
+      })),
+    );
   const config = {
     revision: "config-1",
     zcodeBuiltinRevision: "builtin-1",
@@ -43,7 +67,7 @@ export async function createCapabilityHost(ipcMain, getWindow) {
         }),
       },
     ]),
-    zcodeBuiltinModelRules: ModelConfigRules.empty(),
+    zcodeBuiltinModelRules: rules(),
     personalModels: new ModelConfigRules([
       {
         type: "provider-model",
@@ -72,25 +96,11 @@ export async function createCapabilityHost(ipcMain, getWindow) {
           ...catalog,
           catalog_revision: `capabilities-${catalogReads}`,
           models: [
-            ...[
-              ["capability-a", "Capability A", valuesA, 64],
-              ["capability-b", "Capability B", ["disabled", "high"], 32],
-              ["capability-single", "Capability single", ["disabled"], 16],
-            ].map(([model_id, display_name, values, max]) => ({
+            ...entries().map(([model_id, display_name]) => ({
               ...catalog.models[0],
               model_id,
               display_name,
               api_type: "openai-chat-completions",
-              model_config: {
-                ...modelConfig,
-                optionSpecs: {
-                  reasoningLevel: {
-                    values,
-                    map: 'reasoningLevel == "disabled" ? {"thinking":{"type":"disabled"},"reasoning_effort":null} : {"thinking":{"type":"enabled"},"reasoning_effort":reasoningLevel}',
-                  },
-                  maxOutputTokens: { max, map: '{"max_tokens":maxOutputTokens}' },
-                },
-              },
             })),
             ...catalog.models.slice(1),
           ],
@@ -115,6 +125,10 @@ export async function createCapabilityHost(ipcMain, getWindow) {
       valuesA = next;
     });
     ipcMain.handle("capability-refresh", async () => {
+      // 配置更新通过同一 Built-in revision fence，目录只提供授权和展示。
+      config.zcodeBuiltinModelRules = rules();
+      config.zcodeBuiltinRevision = `builtin-${catalogReads + 1}`;
+      config.revision = `config-${catalogReads + 1}`;
       await account.refresh("model-settings-refresh");
       await registry.refresh("model-settings-refresh");
       return facade.getView();

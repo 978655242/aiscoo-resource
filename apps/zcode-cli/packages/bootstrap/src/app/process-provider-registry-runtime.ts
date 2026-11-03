@@ -48,6 +48,8 @@ export interface ProcessProviderRegistryRuntimeOptions {
       resolved: ProcessAccountResolution,
       configRevision: string,
     ) => Promise<ProcessAccountResolution>;
+    /** XCODE: 产品在装配点选择 Built-in 地址，未注入保留上游 endpoint。 */
+    readonly resolveBuiltinEndpointOrigin?: () => string | Promise<string>;
     readonly request?: typeof fetch;
     readonly onBuiltinRefreshError?: (error: unknown) => void;
     readonly onBuiltinRefreshResult?: (event: ZCodeBuiltinRefreshEvent) => void;
@@ -83,7 +85,10 @@ export async function startProcessProviderRegistryRuntime(
               dirname(paths.zcodeBuiltinFilePath),
               "zcode-builtin-refresh.json",
             ),
-            resolveEndpointKey: () => resolveRuntimeZCodeEndpointOrigin(env),
+            // XCODE: 复用原下载、缓存和 revision 逻辑，仅开放配置源装配端口。
+            resolveEndpointKey:
+              options.standalone?.resolveBuiltinEndpointOrigin ??
+              (() => resolveRuntimeZCodeEndpointOrigin(env)),
             fetchRelease: (endpointOrigin, signal) =>
               downloadZCodeBuiltinRelease({
                 endpointOrigin,
@@ -240,14 +245,11 @@ export function parseProcessAccountProviderConfigSnapshot(
   const providers = parseAccountProviderConfigMap(input.providers);
   for (const [providerId, provider] of providers.entries()) {
     if (provider.access?.type === "new-api-account") {
-      if (input.owner === undefined || !input.modelConfigs || !input.catalogIssues)
-        throw new Error(`Native Account snapshot missing complete fields: ${providerId}`);
+      // XCODE: 展示可缺省；执行资格仅来自当前 owner、授权与真实目录成员。
+      if (input.owner === undefined || !input.catalogIssues)
+        throw new Error(`Native Account snapshot missing authorization fields: ${providerId}`);
       if (provider.access.entitled && (!input.owner || input.states[providerId]?.current !== true))
         throw new Error(`Native Account owner/current missing: ${providerId}`);
-      for (const modelId of provider.builtinModelIds ?? []) {
-        if (!input.modelConfigs[providerId]?.[modelId])
-          throw new Error(`Native complete model config missing: ${providerId}/${modelId}`);
-      }
     }
     // 仅约束托管 Worker 的普通账号信封；独立 CLI、API 和闲时不需要 current。
     if (
@@ -266,7 +268,7 @@ export function parseProcessAccountProviderConfigSnapshot(
     // 与 Overlay 属于同一快照；不能只更新 revision 却丢掉当前连接事实。
     ...(input.states ? { states: input.states } : {}),
     ...(input.owner !== undefined ? { owner: input.owner } : {}),
-    ...(input.modelConfigs ? { modelConfigs: input.modelConfigs } : {}),
+    ...(input.modelPresentation ? { modelPresentation: input.modelPresentation } : {}),
     ...(input.catalogIssues ? { catalogIssues: input.catalogIssues } : {}),
     ...(input.catalogRevision ? { catalogRevision: input.catalogRevision } : {}),
     ...(input.authorizationRevision ? { authorizationRevision: input.authorizationRevision } : {}),

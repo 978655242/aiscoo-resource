@@ -3,6 +3,8 @@
  * 本模块只处理 Aiscoo 专属命令（目前为 Aiscoo Zen Plan）并在上游输出后追加内容，不改写上游文案。
  */
 
+export { prepareAiscooProviderRuntimeEnv } from "./provider-runtime-env.js";
+
 /** TUI 命令中心需要的 Zen 账号能力；业务 owner 是 bootstrap 的 ZenAccountRuntime，本层不保存账号状态。 */
 export interface AiscooZenCommandDeps {
   loginZen(options: {

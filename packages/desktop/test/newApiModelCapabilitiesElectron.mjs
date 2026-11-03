@@ -1,17 +1,18 @@
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, ipcMain } from "electron";
 import { build } from "esbuild";
+import { AISCOO_MODEL_PROVIDER_IDS } from "@zcode/shared";
 import { createCapabilityHost } from "./newApiModelCapabilitiesHost.mjs";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const requireRoot = createRequire(new URL("../../../package.json", import.meta.url));
 const requireDesktop = createRequire(new URL("../package.json", import.meta.url));
-const nativeId = "account:aiscoo-openai-chat-completions";
+const nativeId = AISCOO_MODEL_PROVIDER_IDS["openai-chat-completions"];
 const modelTrigger = '[data-testid="chat-model-select-trigger"]';
 const thoughtSlider = '[data-testid="composer-thought-slider"]';
 const providerTrigger = '[data-testid="composer-provider-trigger"]';
@@ -435,10 +436,8 @@ window.bannerAppearance=(theme,locale,product,native)=>{
     }
     await chooseLevel("high");
     stage = "original styled light/dark Chinese/English and narrow layout";
-    const evidence = resolve(
-      root,
-      ".superpowers/sdd/2026-10-12-new-api-model-capability-optimization",
-    );
+    const evidence = resolve(root, "packages/desktop/.e2e-artifacts/composer-capabilities");
+    await mkdir(evidence, { recursive: true });
     for (const [theme, locale, width] of [
       ["light", "zh-CN", 1000],
       ["dark", "en-US", 1000],

@@ -13,6 +13,7 @@ import {
   ProviderRegistry,
 } from "@zcode/provider";
 import { createNewApiProviderAnchors } from "@zcode/provider-node";
+import { AISCOO_MODEL_PROVIDER_IDS } from "@zcode/shared";
 import {
   runWithModelInvocationContext,
   type ModelInputMessage,
@@ -22,7 +23,13 @@ import {
 import { ApiProviderModelRuntime } from "../../../apps/zcode-cli/packages/bootstrap/src/app/provider-registry-model-runtime.js";
 import { AiSdkModelAdapter } from "../../../apps/zcode-cli/packages/adapters/src/model/runner.js";
 import { resolveNewApiAccountProviders } from "../src/new-api/newApiAccountProviderResolution.js";
-import { owner, catalog, entitlements, modelConfig } from "./newApiRegistryFixtures.js";
+import {
+  owner,
+  catalog,
+  entitlements,
+  modelConfig,
+  builtinModelRules,
+} from "./newApiRegistryFixtures.js";
 
 const reasoningMap =
   'reasoningLevel == "disabled" ? {"thinking":{"type":"disabled"},"reasoning_effort":null} : {"thinking":{"type":"enabled"},"reasoning_effort":reasoningLevel}';
@@ -143,34 +150,18 @@ test(
     const address = peer.address();
     assert.ok(address && typeof address !== "string");
     const currentOwner = { ...owner, origin: `http://127.0.0.1:${address.port}` };
-    const nativeId = "account:aiscoo-openai-chat-completions";
+    const nativeId = AISCOO_MODEL_PROVIDER_IDS["openai-chat-completions"];
     const resolve = (next: boolean, map = next ? defaultEnabledMap : reasoningMap) => {
       const native = resolveNewApiAccountProviders({
         owner: currentOwner,
         entitlements,
-        configRevision: "builtin-1",
+        configRevision: next ? "builtin-2" : "builtin-1",
         catalog: {
           ...catalog,
-          catalog_revision: next ? "capabilities-B" : "capabilities-A",
           models: [
             {
               ...catalog.models[0]!,
               api_type: "openai-chat-completions",
-              model_config: {
-                ...modelConfig,
-                properties: {
-                  ...modelConfig.properties,
-                  contextWindow: next ? 4096 : 8192,
-                  supportsToolCall: true,
-                },
-                optionSpecs: {
-                  reasoningLevel: {
-                    values: next ? ["disabled", "high", "max"] : ["disabled", "low", "high", "max"],
-                    map,
-                  },
-                  maxOutputTokens: { max: next ? 32 : 64, map: '{"max_tokens":maxOutputTokens}' },
-                },
-              },
             },
           ],
         },
@@ -179,10 +170,24 @@ test(
         zcodeBuiltinProviders: createNewApiProviderAnchors(currentOwner.origin),
         personalProviders: ProviderConfigMap.empty(),
         personalModels: ModelConfigRules.empty(),
-        zcodeBuiltinModelRules: ModelConfigRules.empty(),
+        zcodeBuiltinModelRules: builtinModelRules({
+          ...modelConfig,
+          properties: {
+            ...modelConfig.properties,
+            contextWindow: next ? 4096 : 8192,
+            supportsToolCall: true,
+          },
+          optionSpecs: {
+            reasoningLevel: {
+              values: next ? ["disabled", "high", "max"] : ["disabled", "low", "high", "max"],
+              map,
+            },
+            maxOutputTokens: { max: next ? 32 : 64, map: '{"max_tokens":maxOutputTokens}' },
+          },
+        }),
         accountProviders: native.providers,
         accountStates: native.states,
-        accountModelConfigs: native.modelConfigs,
+        accountModelPresentation: native.modelPresentation,
         accountOwner: currentOwner,
         accountRevision: native.revision,
         accountAuthorizationRevision: native.authorizationRevision,

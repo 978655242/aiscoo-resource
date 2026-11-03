@@ -348,7 +348,7 @@ test("origin normalization rejects non-loopback HTTP and URL parser loopback ali
     assert.throws(() => normalizeNewApiOrigin(bad));
 });
 
-test("catalog keeps structurally valid model metadata with bad CEL for per-model issue projection", async () => {
+test("catalog discards legacy capability payloads while retaining actual directory fields", async () => {
   const catalog = await clientFor({
     schema_version: 1,
     server_time: now,
@@ -396,7 +396,7 @@ test("catalog keeps structurally valid model metadata with bad CEL for per-model
     ],
   }).getModels("control");
   assert.equal(catalog.catalog_revision, "sha256:content-digest");
-  assert.equal(catalog.models[0]?.model_config?.optionSpecs.reasoningLevel.map, "invalid CEL (");
+  assert.equal("model_config" in catalog.models[0]!, false);
   assert.equal(catalog.models[1]?.api_type, null);
 });
 

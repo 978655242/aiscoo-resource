@@ -232,11 +232,9 @@ export class ProviderRegistryService {
               }
               const removed = new Set<string>();
               const models = provider.models.filter((model) => {
-                const eligible =
-                  account.providers
-                    .get(provider.providerId)
-                    ?.builtinModelIds?.includes(model.modelId) &&
-                  account.modelConfigs?.[provider.providerId]?.[model.modelId]?.enabled === true;
+                const eligible = account.providers
+                  .get(provider.providerId)
+                  ?.builtinModelIds?.includes(model.modelId);
                 if (!eligible) removed.add(model.modelId);
                 return eligible;
               });
@@ -313,7 +311,7 @@ export class ProviderRegistryService {
           personalModels: config.personalModels,
           accountProviders: account.providers,
           accountStates: account.states,
-          accountModelConfigs: account.modelConfigs,
+          accountModelPresentation: account.modelPresentation,
           accountOwner: account.owner,
           accountRevision: account.revision,
           accountAuthorizationRevision: account.authorizationRevision,
@@ -401,7 +399,7 @@ function freezeAccountSnapshot(
     basedOnZCodeBuiltinRevision: snapshot.basedOnZCodeBuiltinRevision,
     providers: snapshot.providers,
     ...(snapshot.states ? { states: snapshot.states } : {}),
-    ...(snapshot.modelConfigs ? { modelConfigs: snapshot.modelConfigs } : {}),
+    ...(snapshot.modelPresentation ? { modelPresentation: snapshot.modelPresentation } : {}),
     ...(snapshot.catalogIssues ? { catalogIssues: snapshot.catalogIssues } : {}),
     ...(snapshot.owner !== undefined ? { owner: snapshot.owner } : {}),
     ...(snapshot.catalogRevision ? { catalogRevision: snapshot.catalogRevision } : {}),

@@ -18,7 +18,7 @@ import {
 import { createNewApiProviderAnchors } from "@zcode/provider-node";
 import { NewApiEntitlementsSchema, ZCODE_AGENT_PROVIDER } from "@zcode/shared";
 import { resolveNewApiAccountProviders } from "../src/new-api/newApiAccountProviderResolution.js";
-import { owner, catalog, entitlements } from "./newApiRegistryFixtures.js";
+import { owner, catalog, entitlements, builtinModelRules } from "./newApiRegistryFixtures.js";
 import { mapNewApiQuota } from "../src/new-api/newApiUsageMapper.js";
 import { formatQuotaRemainingPercentage } from "../../ui/src/lib/codingPlanQuotaPresentation.js";
 import { mapNewApiEntitlement } from "../src/new-api/newApiUsageMapper.js";
@@ -107,9 +107,9 @@ test("Native model menus omit catalog issues and keep selectable models", () => 
     zcodeBuiltinProviders: createNewApiProviderAnchors(owner.origin),
     personalProviders: ProviderConfigMap.empty(),
     personalModels: ModelConfigRules.empty(),
-    zcodeBuiltinModelRules: ModelConfigRules.empty(),
+    zcodeBuiltinModelRules: builtinModelRules(),
     accountProviders: account.providers,
-    accountModelConfigs: account.modelConfigs,
+    accountModelPresentation: account.modelPresentation,
     accountStates: account.states,
   });
   const groups = buildRegistryModelSelectGroups(ZCODE_AGENT_PROVIDER, {

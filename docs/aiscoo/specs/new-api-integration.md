@@ -309,48 +309,52 @@ sequenceDiagram
 5. 用规范身份构造实际 SDK 请求，路径仍为 `/v1/chat/completions`、JSON `model` 仍为原始 `hy3`；原模型 capabilities、tools/reasoning 参数和 relay credential 来源保持正确。
 6. 缺失授权、错误 owner、旧 generation、撤销和换号仍拒绝请求；ID 迁移不得使旧 owner 获得执行权限。Desktop 与 Web 的结构化选择协议均接受旧引用并输出规范引用。
 
-### 5.2 动态能力的真实通道
+### 5.2 集中 Built-in 配置通道
 
-扩展 AccountProviderConfigSnapshot，增加 `modelConfigs`：providerId → modelId →完整 ModelConfigData，并纳入 revision/解析/序列化。复用现有 source/AccountProviderService，不另建一套 Registry。
+2026-11-02 产品决策：模型能力改由 aiscoo-admin 集中维护并按上游 Built-in Release 下发，替代原 `/models.model_config` 完整能力旁路。本节取代旧的逐模型能力声明规则；既有账号、目录和执行隔离继续生效。
 
-必须落到这些现有 seam：
+1. Host 与独立 CLI 使用经校验的 `AISCOO_ADMIN_BASE_URL` 请求 `GET /api/v1/client/configs?app_version=...&platform=...`，读取 `data.configs.builtin_provider_config_json` 后 GET 该 URL。响应严格保持 `{code:0,data:{configs:{builtin_provider_config_json}}}` 与 `{schemaVersion:1,revision,config:{providerConfigRules,modelConfigRules}}`，不另创私有下载格式。
+2. 下载、Release 解析、按 endpoint/platform/version 隔离的缓存、revision 校验、定时刷新及有效本地版本全部复用上游实现。Aiscoo 仅在 Host/CLI 装配点选择自己的服务端地址；不更改全局官方 endpoint 以影响其他通用功能。
+3. 私有 anchors 仍由现有扩展追加，保持账号身份与 transport。账号 resolver 仅从 login、`/entitlements`、`/models` 生成 access/state、真实模型成员、名称、图标和目录问题；不读取或传递 `model_config` 能力，即使旧服务端仍返回该兼容字段。
+4. 能力恢复上游 `Builtin model rules → Personal exact/manual rules` 合成，保留正则、协议、站点、模板、Provider 精确规则的既有优先级。上下文、输入输出能力、工具、推理档位及参数映射均来自这一配置路径；编辑和个人启停使用上游写入接口。既有 Personal 配置中的精确旧 Provider ID 按 §5.1.1 转换为同协议规范 ID 后参与合成，原有个人禁用及参数覆盖因此可能重新生效；新旧 ID 同时存在时规范 ID 的完整规则优先，不跨协议合并。
+5. 个人配置只能影响已授权模型的使用偏好；不能增加真实目录成员、变更托管凭据、授予权益或绕过服务端模型输出上限。服务端禁用、无路由、无授权或已撤权仍不可执行。
+6. Host 与 Worker 使用同一 Built-in revision，并保留 `basedOnZCodeBuiltinRevision`、owner、授权 revision、串行交付和 applied 确认。账号快照不再携带完整能力；必要的名称/图标映射只含展示字段，不成为第二份配置。
+7. Native source 出错、换号或撤销时先使旧权限不可执行。目录问题通过既有 `catalogIssues` 和模型行内提示呈现；合法的集中配置应允许缺少旧逐模型 JSON 的模型工作。上游配置解析或受限表达式校验错误仍阻止相应配置执行。
 
-1. 本地受维护的 Built-in rules 始终合并私有 anchors，使 account overlay 不被 `ProviderConfigResolver` 丢弃；不能依赖官方 CDN 先发布这些私有 ID，也不能让 CDN 刷新移除它们。
-2. Account resolver 从真实 login + `/entitlements` + `/models` 生成 provider access/state、builtinModelIds 和完整 modelConfigs；No Plan 不假 entitled。
-3. sources/config schema/resolver/Registry 在同一个 matching revision 发布模型列表、能力与权限。`basedOnZCodeBuiltinRevision` 栅栏仍有效。
-4. 私有模型完整 capabilities 最终由 account snapshot 取值；Personal/Template/manual model 规则不得覆盖管理员上下文/能力/协议。用户仍可选择允许的 reasoning level、输出上限，不可放宽其范围。
-5. `providerUpdateAccountConfig` 以及 worker 的 parseProcessAccountProviderConfigSnapshot 同步扩展 modelConfigs；Host 与本机 worker 同时更新，不能只改桌面 selector。
-6. Native source 出错、换号/撤销时先发布 fail-closed 的可执行权限，旧 Registry 在等待 revision 时也不得继续执行旧用户模型。保留缓存资料与允许请求是两回事。
-
-完整能力依 canonical §7：contextWindow、全部 input/output flags、tool/JSON schema/native search/mid-system、reasoning values/map、output max/map。用现有 completeModelConfigDataSchema 和受限 CEL 编译器严格校验；无 reasoning 的 neutral 配置也来自服务器，不是客户端补默认值。
-
-编译错误或 metadata 缺失：保留现有 disabledReason 展示，禁用实际执行并说明管理员配置问题；不读内置 GLM capabilities、不猜模型前缀、不重新拼接旧官方列表。目录空或无授权是实际不可用，不在私有列表塞一个假默认模型。
-
-canonical 返回 api_type=null/model_config=null 的未配置模型不能硬塞到任一 transport Registry 或提供可执行 ref。AccountProviderService 将它们以及 Host CEL 编译失败项投影到快照的 `catalogIssues`，每项固定 `{source:"new-api",modelId,displayName,code}`，与完整能力一起按同一 owner/revision 更新。
-
-`ModelSelectionView`、`ProviderSettingsView` 及相应 shared RPC schema 保留只读 catalogIssues；本机 worker 同步保留该字段，但不得将 issue 创建为 Registry model。对话及复用同一分组构造器的模型选择菜单仅展示可选择的真实目录项，不显示 catalogIssues，也不生成只含问题项的空分组；没有可选模型时保留既有管理模型入口。`settings/ModelProviderSection.tsx` 继续显示问题模型的实际名称/原因，供管理员诊断，不提供选择 action/model ref。管理员修复后从 issues 移入正确 transport 的真实目录；换号先清该 owner 的 issues。隐藏仅是 Renderer 展示规则，不修改 Host 的可用性判断、授权、Registry 或历史选择。
+```mermaid
+sequenceDiagram
+    participant Admin as 管理员
+    participant API as aiscoo-admin / 发布所有者
+    participant Host as Local Host / 上游配置源
+    participant Worker as Agent Worker
+    Admin->>API: 保存草稿并发布（expectedVersion）
+    API->>API: 原子提交不可变 Release 和发布指针
+    Host->>API: GET /api/v1/client/configs
+    API-->>Host: builtin_provider_config_json
+    Host->>API: GET 不可变版本 URL
+    API-->>Host: 上游 Release JSON
+    Host->>Host: 校验 revision，合成个人规则及账号目录
+    Host->>Worker: 同 revision 配置及 owner/授权快照
+    Worker-->>Host: Registry 已应用确认
+    Note over Host,Worker: 换号、撤权及迟到结果沿用既有保护
+```
 
 ### 5.2.1 服务端能力声明与思考控制一致性
 
-2026-10-12 优化范围：复用上述动态通道和原版 Composer，不新增模型配置页、能力 Registry 或 HTTP 字段；执行任务见 [模型能力优化计划](../../superpowers/plans/2026-10-12-new-api-model-capability-optimization.md)。
+- aiscoo-admin 的集中发布配置是推荐能力的唯一服务端来源。既有逐模型记录迁移为集中规则，并保留原文；不要求管理员在每次上架模型时填写能力 JSON。主流模型复用集中匹配规则，部署差异在同一集中配置中维护。
+- `reasoningLevel.values/map` 与 `maxOutputTokens.max/map` 沿用上游合同；不硬加档位。思考关闭映射必须符合真实供应商协议，空映射不证明思考关闭。原生渠道覆盖和真实别名必须与配置一致。
+- 新增模型及 schema 已支持的能力不要求客户端发版。协议或 schema 之外的新能力仍需客户端支持。个人编辑和恢复默认使用现有上游交互，不能伪造实际供应商能力。
+- 管理后台发布与客户端已应用是不同状态。模型设置既有 `refreshSources` 同时刷新 Built-in 和账号目录；后台轮询复用上游调度，不增加第二套推送或计时器。
+- 配置更新作用于后续提交；运行中的 turn 保持冻结配置。排队输入在 admission 时校验当前目录与配置。完整配置 revision 与执行授权 owner/revision 分开；纯参数更新不冒充账号撤权，真正换号、停用或撤销仍及时拒绝旧请求。
+- 旧客户端的 `/models.model_config` 暂由集中配置自动投影，不回写逐模型记录；新客户端不再依赖该字段。迁移不得吞掉显式 false、既有上下文限制、档位顺序或参数映射。
 
-- New API 是托管模型能力声明的唯一来源；Host 持有经校验的 owner-scoped 投影，Renderer 只展示该投影。本规则只覆盖 `new-api-account`，不覆盖用户自配 Provider 或独立官方云模型。
-- 每个 exact model ID 独立声明完整能力、思考档位顺序及 CEL 映射。新增模型或修改既有 schema 能表达的能力不要求发布客户端；新协议、新交互或超出 schema 的能力仍需客户端支持，不能凭配置凭空增加。前端只开放 Chat Completions 的规则不变。
-- `reasoningLevel.values` 决定允许选择的值；`map` 决定这些值如何写入真实协议请求。客户端不得硬加 `low/medium/high`，也不得因模型名称匹配就补默认能力。
-- “关闭”必须语义真实：有思考能力的模型若提供 `disabled/off` 等关闭档位，映射必须使用实际上游支持的明确关闭参数。`map:"{}"` 仅表示不覆盖请求字段，不能作为关闭思考的证据；canonical 的非思考模型 neutral 配置只适用于已确认没有思考能力的模型。
-- 元数据必须同时符合模型接口及部署渠道的实际能力。原生 channel 参数覆盖、默认值或模型别名不能把用户选择重新改成另一档；同名模型的候选渠道不一致时，由管理员拆分真实 alias，不在客户端增加兜底。
-- 保留既有标签、选择器和无效值提示。多档模型可选；已选中的单档模型保持只读；恢复时未选或已失效的值不能在展示层伪装为首档或“关闭”。新建/主动选模保留 `completeNewModelSelection` 取服务端 `values` 最后一项的现行行为，辅助调用保留首项；不新增默认档位字段，也不把恢复失效值当作主动选模。
-- 后台保存不等于客户端已刷新。明确使用模型设置已有 `refreshSources` 拉取目录；Renderer 重读 View 不代替 HTTP 刷新。不新增轮询/推送。刷新后首次 `sendText` 复用 Host 的 Account Config 串行交付，并以 Worker Registry 已应用匹配 revision 为放行条件，不能只凭 `receivedRevision` 回执。
-- 用户选择属于下一次提交；同一个 model ID/档位的后续 turn 必须重新绑定已应用的能力。纯能力/映射更新不改写或取消已经开始的 turn，该 turn 的后续工具步骤及重试仍用冻结配置；排队输入在真正执行时按当时有效目录校验，已删除档位不得静默替换成另一档。
-- 配置 revision 与执行授权身份分开：完整 Account snapshot revision 继续用于交付/应用；Native 执行授权使用精确 owner 与 canonical `authorizationRevision`。换号、退出、授权撤销、模型停用或移出可执行目录仍须及时取消/拒绝，不得只删除旧 revision 判断而失去安全门禁。保留当前保守的 owner 级取消范围，不新建多租约系统；自配模型与独立官方云不共享 Native 生命周期。
-- 保留现有结构、受限编译、授权和 owner/revision 校验。客户端可以校验配置可执行性，但不能自动证明供应商真实支持声明；两者须分别验收。凭据、上游地址和任意 JS 不进入模型配置或 Renderer。
+验收场景：
 
-增量验收：
-
-1. 两个托管模型声明不同的档位、上下文和输出上限，Host、UI 与 worker 分别采用各自配置；本地覆盖及内置规则不能改写托管能力。
-2. 对实际有思考能力的部署模型，每个公开档位的 UI 选择、CLI 原始出站参数和真实 relay/上游行为对应；关闭档位显式关闭，非关闭档位不被渠道覆盖。仅有标签或空映射不算通过。
-3. 服务端只改声明并刷新目录后，既有客户端可使用新增合法档位；原选择被删除时明确重选，后续请求使用新映射，已在执行的请求保持自身快照。
-4. 缺失配置、非法 CEL、模型停用、换号/撤销或旧响应回写均不可执行；隐藏 transport、自配 Provider、独立官方云和原版设置布局不受影响。
+1. 管理后台发布的配置可被未经改写的上游 Release 解码器接受；客户端请求仅指向自己的配置服务，Host 与独立 CLI 均适用。
+2. 两个没有逐模型 JSON 的已授权模型，经集中规则得到各自能力；个人编辑和启停生效，恢复默认后使用当前已发布推荐配置。
+3. 发布新的上下文/档位/映射并刷新后，Host、UI、Worker 采用同 revision；执行中的 turn 保持旧快照，之后的输入使用新配置。
+4. 无路由、模型停用、非法配置、退出、换号、撤权和迟到响应保持不可执行保护；隐藏 transport 和自配 Provider 的原有行为不变。
+5. 旧逐模型配置幂等迁移且可追溯；旧客户端从集中配置的兼容投影继续读取能力，新客户端忽略该兼容字段。
 
 ### 5.3 调用凭据与协议
 
@@ -363,7 +367,7 @@ canonical 返回 api_type=null/model_config=null 的未配置模型不能硬塞�
 - 原生模型错误、额度不足、过期/撤销、后台故障分开显示；没有 wallet/general-sub/official/custom-key fallback。
 - 现有本机 Agent 推理能力：stream、tools、允许的 vision/reasoning、取消，使用实际 metadata；不裁掉请求参数，也不统一将 provider 错误改成额度错误。
 
-secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或个人配置文件。沿用本机 Agent 已有请求期 secret 传输及安全存储边界，不设计远程 lease/provisioning。
+secret 不进入 provider config、header rule、modelPresentation、Renderer DTO 或个人配置文件。沿用本机 Agent 已有请求期 secret 传输及安全存储边界，不设计远程 lease/provisioning。
 
 ### 5.4 原选择与各分支清理
 
@@ -397,7 +401,7 @@ secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或
 | calculateEnterpriseOrder / createEnterpriseOrder / cancelEnterpriseOrder / continueEnterpriseOrderPayment                           | 同上；本期不存在 XCode 下单/订单修改操作                                                                                        |
 | checkPayment / checkPendingOrders / queryStripeCards / checkPaypalSupport / getEnterprisePendingOrders / checkEnterpriseOrderStatus | 使用下文确定的 SelfServiceReadResult；私有模式返回 not-supported，不返回 paid 成功、空订单/false 等代替未提供的业务事实         |
 | getOffPeakClientConfig / getDynamicWorkflowClientConfig                                                                             | Aiscoo 产品不读取旧官方连接；依赖官方身份的能力明确不可用，不从 Native client-config 仿造                                       |
-| getModelContextBudgetStrategy                                                                                                       | 保留现有 preflight-v1 客户端策略；管理员 metadata 决定模型硬上限                                                                |
+| getModelContextBudgetStrategy                                                                                                       | 保留现有 preflight-v1 客户端策略；集中 Built-in 与个人规则决定客户端模型配置，服务端保持自身请求限额                            |
 | getForceUpdateConfig                                                                                                                | 保留实际应用更新来源，不伪装成 New API 套餐字段                                                                                 |
 
 上述六个自助支付读方法的返回值统一改为 `SelfServiceReadResult<T>`：`{availability:"available",data:T}` 或 `{availability:"not-supported",reason:"manual_admin",data:null}`。T 分别为原 `CodingPlanPaymentCheckResponse`、`CodingPlanPendingOrderCheckResponse`、`CodingPlanStripeCard[]`、`CodingPlanPaypalSupportResponse`、`EnterpriseCodingPlanPendingOrder[]`、`EnterpriseCodingPlanOrderStatusResponse`。当前私有模式只能返回第二分支；权限/身份/网络/后端失败仍抛真实错误，不当作 not-supported。所有 caller 必须先按 availability 分支，停止订单状态/付款轮询并显示现有手工授予入口；不新增支付读 HTTP 请求。旧非私有功能如果仍使用这些读方法，真实 T 必须显式包装 available，不能保留未判别的兼容返回。
@@ -487,7 +491,7 @@ shared `CodingPlanResetStatusSnapshot` 改为有 mode 的联合：原官方窗�
 
 ## 9. 本机 worker 与非本期平台
 
-本期必须实际贯通 Host → 本机 worker 的 `providerUpdateAccountConfig` 和请求期凭据；否则 selector 的真实模型无法用于 Agent 推理。快照 schema 必须同步解析、revision和 complete modelConfig，旧 snapshot不得静默丢弃新字段后执行。
+本期必须实际贯通 Host → 本机 worker 的 `providerUpdateAccountConfig` 和请求期凭据；否则 selector 的真实模型无法用于 Agent 推理。快照 schema 必须同步解析 revision、授权成员和展示字段，能力由同 revision 的 Built-in/Personal 配置合成；旧 snapshot 不得静默丢弃新字段后执行。
 
 本期不升级跨 Environment `providerProvisioningEnvelope` 为私有协议，也不向它加入 Native control/refresh/model credentials。无私有远程实现时，private account不能被旧 zhipu-family fallback解释或投递到远程；有明确 unsupported 提示，不偷偷把默认 key导出。
 
@@ -497,13 +501,13 @@ shared `CodingPlanResetStatusSnapshot` 改为有 mode 的联合：原官方窗�
 
 ## 10. 实现顺序与变更边界
 
-| 切片            | 交付内容                                                                                    | 依赖                                 |
-| --------------- | ------------------------------------------------------------------------------------------- | ------------------------------------ |
-| X1 身份与协议   | Native wire解析、主账号 purpose、凭据 namespace、安全恢复、pending generation               | canonical auth 和 scoped Session后端 |
-| X2 Registry     | 私有 access/anchors、完整 account modelConfigs、严格能力、worker同步、旧选择要求重选        | canonical models/entitlements        |
-| X3 控制面       | Native套餐/usage/reset adapter、manual purchase guards、只读 Web handoff、实际周期/空值映射 | canonical读接口/页面                 |
-| X4 官方账号退役 | 删除 Aiscoo 产品官方登录/恢复/连接入口，依赖能力真实不可用；历史凭据保留                    | 唯一登录策略                         |
-| X5 联调         | 本机登录→管理员授予→真实Agent→消费→耗尽/撤销，真实 UI及官方登录禁用验收                     | 两仓全部切片                         |
+| 切片            | 交付内容                                                                                    | 依赖                                  |
+| --------------- | ------------------------------------------------------------------------------------------- | ------------------------------------- |
+| X1 身份与协议   | Native wire解析、主账号 purpose、凭据 namespace、安全恢复、pending generation               | canonical auth 和 scoped Session后端  |
+| X2 Registry     | 私有 access/anchors、集中 Built-in 与个人规则、账号成员和展示快照、worker 同步、旧选择重选  | canonical configs/models/entitlements |
+| X3 控制面       | Native套餐/usage/reset adapter、manual purchase guards、只读 Web handoff、实际周期/空值映射 | canonical读接口/页面                  |
+| X4 官方账号退役 | 删除 Aiscoo 产品官方登录/恢复/连接入口，依赖能力真实不可用；历史凭据保留                    | 唯一登录策略                          |
+| X5 联调         | 本机登录→管理员授予→真实Agent→消费→耗尽/撤销，真实 UI及官方登录禁用验收                     | 两仓全部切片                          |
 
 在现有 feature 分支实施，遵守 docs/aiscoo/BRANCHING.md 与仓库架构治理。新增契约放 shared、协调放服务 owner；UI使用现有RPC/hooks。先核对 exported symbol references、复用patterns，再改 union；不加单实现抽象或全局 generic backend framework。
 
