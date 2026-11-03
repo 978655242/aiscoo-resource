@@ -27,3 +27,5 @@ vendor
 
 # XCODE: 本地运行 CLI 单测时 SQLite 迁移备份可能落在包根（测试隔离缺陷），不得入库。
 /backup/
+# XCODE: 同一缺陷也会写到各包根（如 packages/adapters/backup/cli-<时间戳>-<uuid>/），旧规则只覆盖 CLI 根。
+/packages/*/backup/
