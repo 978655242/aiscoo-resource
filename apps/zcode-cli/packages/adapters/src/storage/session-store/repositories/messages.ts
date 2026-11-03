@@ -8,7 +8,12 @@ import type {
   SessionId,
   SessionStorePort,
 } from "@zcode/contracts";
-import { decodeMessageRow, decodePartRow, partCreatedAt } from "../codecs.js";
+import {
+  decodeMessageRow,
+  decodePartRow,
+  normalizeStoredModelSelection,
+  partCreatedAt,
+} from "../codecs.js";
 import { encodeJson } from "../json.js";
 import type { MessageRow, PartRow } from "../rows.js";
 import { touchSession } from "./sessions.js";
@@ -43,6 +48,11 @@ export function saveMessage(
   input: MessageInfo,
   copyFrom?: Parameters<SessionStorePort["saveMessage"]>[1],
 ): void {
+  // XCODE: Writer 接受 typed 输入；当前引用统一写规范 ID，旧回滚快照仍由既有 SQL 保留。
+  input =
+    input.role === "user" && input.modelSelection
+      ? { ...input, modelSelection: normalizeStoredModelSelection(input.modelSelection) }
+      : normalizeStoredModelSelection(input);
   const { id, sessionID, ...data } = input;
   // 冻结旧版协议 mapper 无条件读取 user.model；缺少整个对象会让正文也无法打开。
   // 只补必需对象；旧行的原 model 仍由冲突更新/复制逻辑保留，新版 Reader 不使用它。
@@ -119,7 +129,10 @@ export function savePart(
   const { id, sessionID, messageID, ...data } = input;
   let storedData: Record<string, unknown> = data;
   if (input.type === "timeline" && input.timelineType === "model_change") {
-    const { fromModel, toModel, ...part } = data as typeof input;
+    const { fromModel: rawFromModel, toModel: rawToModel, ...part } = data as typeof input;
+    // XCODE: 时间线 label 是历史事实，只迁移其中的 Provider ID。
+    const fromModel = normalizeStoredModelSelection(rawFromModel);
+    const toModel = normalizeStoredModelSelection(rawToModel);
     // 冻结旧版 Reader 直接访问 toModel.providerID；只为这一个必需对象做最小兼容写入。
     // 当前 Reader 不读它，更新同一旧行时 SQL 保留原快照，不持续反向同步。
     const oldToModel = toModel
@@ -138,7 +151,8 @@ export function savePart(
     };
   } else if (input.type === "subtask") {
     const { model, ...part } = data as typeof input;
-    storedData = { ...part, modelSelection: model };
+    // XCODE: 子任务正常保存复用同一个存储规范化边界，不改原始模型或档位。
+    storedData = { ...part, modelSelection: normalizeStoredModelSelection(model) };
   }
   const now = Date.now();
 

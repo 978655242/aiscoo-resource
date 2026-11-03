@@ -41,7 +41,7 @@ vi.mock("@/hooks/useProviderSettingsView.js", () => ({
         revision: 1,
         providers: [
           {
-            providerId: "account:new-api-openai-chat-completions",
+            providerId: "account:aiscoo-openai-chat-completions",
             effectiveConfig: {
               access: {
                 type: h.native ? "new-api-account" : "zhipu-account",

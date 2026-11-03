@@ -15,15 +15,15 @@ import { owner, modelConfig, entitlements, catalog } from "./newApiRegistryFixtu
 
 test("Native catalog resolves only admin transport and isolates metadata issues", () => {
   const result = resolveNewApiAccountProviders({ owner, entitlements, catalog });
-  assert.deepEqual(result.providers.get("account:new-api-openai-responses")?.builtinModelIds, [
+  assert.deepEqual(result.providers.get("account:aiscoo-openai-responses")?.builtinModelIds, [
     "real-model",
   ]);
-  assert.deepEqual(result.providers.get("account:new-api-anthropic-messages")?.builtinModelIds, []);
+  assert.deepEqual(result.providers.get("account:aiscoo-anthropic-messages")?.builtinModelIds, []);
   assert.deepEqual(
     result.catalogIssues.map((issue) => issue.modelId),
     ["unconfigured", "bad-cel"],
   );
-  assert.equal(result.states["account:new-api-openai-responses"]?.current, true);
+  assert.equal(result.states["account:aiscoo-openai-responses"]?.current, true);
   assert.equal(JSON.stringify(result).includes("secret"), false);
 });
 
@@ -62,10 +62,10 @@ test("Native disabled rows retain administrator reasons without selectable or ex
       code: "XCODE_MODEL_DISABLED",
     },
   ]);
-  assert.deepEqual(result.providers.get("account:new-api-openai-responses")?.builtinModelIds, [
+  assert.deepEqual(result.providers.get("account:aiscoo-openai-responses")?.builtinModelIds, [
     "real-model",
   ]);
-  assert.deepEqual(result.modelConfigs["account:new-api-openai-responses"]?.["real-model"], {
+  assert.deepEqual(result.modelConfigs["account:aiscoo-openai-responses"]?.["real-model"], {
     ...modelConfig,
     displayName: "Real",
   });
@@ -96,7 +96,7 @@ test("Native complete capability outranks Personal manual rules", () => {
     personalModels: new ModelConfigRules([
       {
         type: "provider-model",
-        providerId: "account:new-api-openai-responses",
+        providerId: "account:aiscoo-openai-responses",
         modelId: "real-model",
         config: ModelConfig.fromData({
           ...modelConfig,
@@ -189,5 +189,5 @@ test("Native mismatching authorization revision fails closed", () => {
     entitlements: { ...entitlements, status: "revoked" },
     catalog,
   });
-  assert.equal(result.providers.get("account:new-api-openai-responses")?.access?.entitled, false);
+  assert.equal(result.providers.get("account:aiscoo-openai-responses")?.access?.entitled, false);
 });

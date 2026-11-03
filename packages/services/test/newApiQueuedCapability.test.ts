@@ -29,7 +29,7 @@ import { resolveNewApiAccountProviders } from "../src/new-api/newApiAccountProvi
 import { catalog, entitlements, modelConfig, owner } from "./newApiRegistryFixtures.js";
 
 const lowSelection = {
-  providerId: "account:new-api-openai-chat-completions",
+  providerId: "account:aiscoo-openai-chat-completions",
   modelId: "real-model",
   options: { reasoningLevel: "low" },
 };

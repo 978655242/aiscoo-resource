@@ -5,7 +5,7 @@
 ## 产品规则
 
 - 复用现有模型设置外壳、左右分栏、导航、标题、状态卡和套餐入口样式；不另造一套 New API 配置页。
-- 官方模型入口只有 `account:new-api-openai-chat-completions`，名称固定为 `XWork`。隐藏协议不恢复，不自动迁移历史模型选择，不借用 BigModel/Z.ai 的 Provider 身份。
+- 官方模型入口只有 `account:aiscoo-openai-chat-completions`，名称来自统一品牌的 `Aiscoo Zen`。旧 `account:new-api-*` 引用按[集成规格 §5.1.1](new-api-integration.md#511-provider-id-命名迁移与旧引用兼容)仅转换同协议 Provider ID；隐藏协议不恢复，不自动改选其他模型或协议，不借用 BigModel/Z.ai 的 Provider 身份。
 - New API 入口是托管套餐，不进入自定义 Provider 表单。未登录、查询中、未开通、有效、额度用尽、过期、撤销和查询失败分别呈现；查询失败不解释为未开通。
 - 套餐状态、名称、有效期与额度来自 `/entitlements`；模板、价格、币种、周期和说明来自 `/plans`。不取官方静态价格或官方权益，不硬编码截图中的商品。
 - 个人套餐卡片保持原版单套餐摘要样式：按 `/plans` 返回顺序只展示首个已启用模板的价格、币种、完整周期和说明，不按价格重新排序、不按币种/周期生成多条参考价、不拼接其他模板说明。缺目录或全部模板禁用时显示真实空态，不补假价格；套餐比较页继续展示完整目录。

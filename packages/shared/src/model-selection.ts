@@ -1,9 +1,11 @@
 import { z } from "zod";
+// XCODE: 所有结构化模型选择复用同一精确身份迁移，保留上游 schema 的组合能力。
+import { normalizeAiscooModelProviderId } from "./model-provider-types.js";
 
 /** 用户对后续模型执行的完整选择；不表达已经创建的 Active Model。 */
 export const modelSelectionSchema = z
   .object({
-    providerId: z.string().trim().min(1),
+    providerId: z.string().trim().min(1).transform(normalizeAiscooModelProviderId),
     modelId: z.string().trim().min(1),
     options: z
       .object({
@@ -34,7 +36,8 @@ export const ZCODE_MODEL_REASONING_SEPARATOR = "$";
 export function formatModelPickerValue(selection: ModelSelection | undefined): string {
   // 只在显示边界把未绑定表示为空；实际执行仍校验完整 ModelSelection。
   if (!selection) return "";
-  const base = `${selection.providerId}/${selection.modelId}`;
+  // XCODE: 历史展示对象可能未经过 schema；只替换 Provider 身份，不改历史模型和档位。
+  const base = `${normalizeAiscooModelProviderId(selection.providerId)}/${selection.modelId}`;
   const reasoningLevel = selection.options?.reasoningLevel;
   return reasoningLevel ? `${base}${ZCODE_MODEL_REASONING_SEPARATOR}${reasoningLevel}` : base;
 }

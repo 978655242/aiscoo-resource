@@ -22,6 +22,9 @@ import {
   resolveProviderFamilyDomainFromOAuthProvider,
   ZAI_PROVIDER_ID,
   NEW_API_PROVIDER_ID,
+  // XCODE: 设置目标只识别共享精确模型身份，兼容旧导航但不按前缀猜测自配 Provider。
+  isNewApiModelProviderId,
+  normalizeAiscooModelProviderId,
 } from "@zcode/shared";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { Button } from "@/components/ui/button.js";
@@ -339,10 +342,11 @@ export function ModelProviderSection({
   const applyModelProviderTarget = useCallback(
     (target: SettingsModelProviderTarget | undefined) => {
       if (!target) return false;
-      if (target.providerId?.startsWith("account:new-api-")) {
+      const nativeProviderId = normalizeAiscooModelProviderId(target.providerId);
+      if (isNewApiModelProviderId(nativeProviderId)) {
         setInvalidProviderTarget(false);
         setTemplatePickerOpen(false);
-        setSelectedNodeKey(createCustomProviderNodeKey(target.providerId));
+        setSelectedNodeKey(createCustomProviderNodeKey(nativeProviderId));
         return true;
       }
       const providerId = resolveCodingPlanIntentProviderId(target);

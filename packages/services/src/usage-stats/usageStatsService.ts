@@ -19,7 +19,12 @@ import type {
   CodingPlanResetHistoryReadResult,
   NewApiOwner,
 } from "@zcode/shared";
-import { isCodingPlanModelProviderId, isNewApiModelProviderId } from "@zcode/shared";
+import {
+  isCodingPlanModelProviderId,
+  isNewApiModelProviderId,
+  NEW_API_MODEL_PROVIDER_IDS,
+  normalizeAiscooModelProviderId,
+} from "@zcode/shared";
 import type { ICredentialService } from "../credential/credential.js";
 import type { IAccountRequestAuthService } from "../model-provider/accountRequestAuthService.js";
 import type { IZCodeAgentService } from "../zcode-agent/zcodeAgent.js";
@@ -123,7 +128,10 @@ export function createUsageStatsService(
   const native = dependencies.native;
   const usesNative = (request: UsageEntitlementRequest | UsageStatsRequest) =>
     request.accountAccess?.type === "new-api-account" ||
-    Boolean(request.preferredProviderId && isNewApiModelProviderId(request.preferredProviderId)) ||
+    Boolean(
+      request.preferredProviderId &&
+      isNewApiModelProviderId(normalizeAiscooModelProviderId(request.preferredProviderId)),
+    ) ||
     Boolean(native && !request.preferredProviderId);
   const assertNativeRequestOwner = (
     request: UsageEntitlementRequest | UsageStatsRequest,
@@ -147,7 +155,10 @@ export function createUsageStatsService(
       assertNativeRequestOwner(request, owner);
       return mapNewApiEntitlement(
         await native.client.getEntitlements(token),
-        request.preferredProviderId ?? "account:new-api-anthropic-messages",
+        // XCODE: 旧调用可读，额度投影与默认写入只产生规范 Aiscoo 模型身份。
+        normalizeAiscooModelProviderId(
+          request.preferredProviderId ?? NEW_API_MODEL_PROVIDER_IDS["anthropic-messages"],
+        ),
       );
     });
   };
@@ -292,7 +303,8 @@ export function createUsageStatsService(
       const requestedNative =
         request.accountAccess?.type === "new-api-account" ||
         Boolean(
-          request.preferredProviderId && isNewApiModelProviderId(request.preferredProviderId),
+          request.preferredProviderId &&
+          isNewApiModelProviderId(normalizeAiscooModelProviderId(request.preferredProviderId)),
         );
       if (request.dataSource === "new-api" || requestedNative) {
         if (request.dataSource === "monitor") throw new Error("XCODE_USAGE_SOURCE_MISMATCH");

@@ -1,6 +1,8 @@
 import {
   BUILTIN_MODEL_PROVIDER_IDS,
   BUILTIN_PROVIDER_TEMPLATE_IDS,
+  // XCODE: 历史 importer 与结构化选择使用相同的 Aiscoo 身份迁移。
+  normalizeAiscooModelProviderId,
 } from "./model-provider-types.js";
 import { normalizeOfficialGlmModelId } from "./official-glm-model-id.js";
 
@@ -34,6 +36,8 @@ export function migrateLegacyModelProviderId(providerId: string): string | undef
     case "builtin:zai-coding-plan":
       return BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan;
     default:
-      return providerId.startsWith("builtin:") ? undefined : providerId;
+      return providerId.startsWith("builtin:")
+        ? undefined
+        : normalizeAiscooModelProviderId(providerId);
   }
 }

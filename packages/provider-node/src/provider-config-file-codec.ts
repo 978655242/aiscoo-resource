@@ -9,6 +9,9 @@ import {
   type ProviderConfigLayerUpdate,
 } from "@zcode/provider";
 
+// XCODE: 复用下游配置投影兼容精确旧身份，上游文件仍拥有 schema 与版本校验。
+import { normalizeAiscooProviderConfigLayer } from "./new-api-provider-anchors.js";
+
 const CURRENT_SCHEMA_VERSION = 1 as const;
 
 type ProviderConfigFileMigration = (input: unknown) => unknown;
@@ -69,16 +72,19 @@ export function decodeProviderConfigFile(input: unknown): ProviderConfigLayerUpd
     version = nextVersion;
   }
   const parsed = storedProviderConfigSchema.parse(candidate);
-  return Object.freeze({
-    providers: parsePersonalProviderConfigMap(parsed.config.providerConfigRules),
-    models: parsePersonalModelConfigRules(
-      normalizeLegacyManualRules(parsed.config.modelConfigRules),
-    ),
-    providerOrder: parsed.config.providerOrder,
-    ...(parsed.config.defaultModelSelection === undefined
-      ? {}
-      : { defaultModelSelection: parsed.config.defaultModelSelection }),
-  });
+  // XCODE: 先保留原 schema 对坏重复的拒绝，再投影新身份，避免丢失旧默认选择及覆盖规则。
+  return Object.freeze(
+    normalizeAiscooProviderConfigLayer({
+      providers: parsePersonalProviderConfigMap(parsed.config.providerConfigRules),
+      models: parsePersonalModelConfigRules(
+        normalizeLegacyManualRules(parsed.config.modelConfigRules),
+      ),
+      providerOrder: parsed.config.providerOrder,
+      ...(parsed.config.defaultModelSelection === undefined
+        ? {}
+        : { defaultModelSelection: parsed.config.defaultModelSelection }),
+    }),
+  );
 }
 
 const legacyCompleteManualSchema = completeModelConfigDataSchema.extend({
@@ -110,6 +116,13 @@ function normalizeLegacyManualRules(input: unknown): unknown {
 }
 
 export function encodeProviderConfigFile(update: ProviderConfigLayerUpdate) {
+  // XCODE: 别名去重会丢弃旧条目，必须先校验完整原值，不能让新键遮盖非法 Access 或不完整手动规则。
+  parsePersonalProviderConfigMap({ providerRules: update.providers.toJSON() });
+  update.models.toPersonalJSON();
+  // XCODE: typed 写入也可能绕过 schema，统一在既有编码入口输出规范身份。
+  update = normalizeAiscooProviderConfigLayer(update);
+  // XCODE: 规范化后的 Provider 仍通过 Personal 来源校验；模型规则在下方编码时再次校验。
+  parsePersonalProviderConfigMap({ providerRules: update.providers.toJSON() });
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     config: {

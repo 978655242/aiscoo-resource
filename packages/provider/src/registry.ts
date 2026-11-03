@@ -1,6 +1,11 @@
 import type { ModelId, ProviderId } from "./config/index.js";
 import type { Provider, ProviderModel } from "./resolver.js";
 import type { ModelSelection } from "@zcode/shared/model-selection";
+// XCODE: typed 查询复用唯一身份规范化，Registry 仍只索引规范 Provider。
+import {
+  normalizeAiscooModelProviderId,
+  normalizeAiscooModelSelection,
+} from "@zcode/shared/model-provider-types";
 
 export type { ModelSelection } from "@zcode/shared/model-selection";
 
@@ -64,14 +69,18 @@ export class ProviderRegistry {
   }
 
   getProvider(providerId: ProviderId): Provider | undefined {
-    return this.#providerById.get(providerId);
+    // XCODE: 旧精确引用只转换查询键，不注册第二个 Provider。
+    return this.#providerById.get(normalizeAiscooModelProviderId(providerId));
   }
 
   getModel(providerId: ProviderId, modelId: ModelId): ProviderModel | undefined {
-    return this.#modelByProviderId.get(providerId)?.get(modelId);
+    // XCODE: 仅规范 Provider 身份，模型 ID 与当前资格保持原值。
+    return this.#modelByProviderId.get(normalizeAiscooModelProviderId(providerId))?.get(modelId);
   }
 
   validateSelection(selection: ModelSelection): ModelSelectionValidation {
+    // XCODE: 直接 typed 调用也必须先规范身份，再执行原资格与档位校验。
+    selection = normalizeAiscooModelSelection(selection);
     if (!this.#providerById.has(selection.providerId)) {
       return {
         ok: false,

@@ -12,6 +12,9 @@ import {
   type ZCodeBuiltinRelease,
 } from "./zcode-builtin-release.js";
 
+// XCODE: 只规范化已选 Release 的对外投影，原文版本与内容冲突判定保持不变。
+import { normalizeAiscooProviderConfigLayer } from "./new-api-provider-anchors.js";
+
 export interface NodeZCodeBuiltinProviderConfigSourceOptions {
   readonly bundledFilePath: string;
   readonly activeFilePath?: string;
@@ -238,12 +241,15 @@ function snapshotFromRelease(
   release: ZCodeBuiltinRelease,
   sourceKey: string,
 ): ProviderConfigLayerSnapshot {
-  return Object.freeze({
-    revision: `zcode-builtin:${release.revision}:${sourceKey}`,
-    providers: release.config.providers,
-    providerTemplates: release.config.providerTemplates,
-    models: release.config.modelConfigRules,
-  });
+  // XCODE: 旧 CDN/LKG 身份在投影时转换；签名和同版本校验继续使用原 Release。
+  return Object.freeze(
+    normalizeAiscooProviderConfigLayer({
+      revision: `zcode-builtin:${release.revision}:${sourceKey}`,
+      providers: release.config.providers,
+      providerTemplates: release.config.providerTemplates,
+      models: release.config.modelConfigRules,
+    }),
+  );
 }
 
 function signatureOf(release: ZCodeBuiltinRelease): string {

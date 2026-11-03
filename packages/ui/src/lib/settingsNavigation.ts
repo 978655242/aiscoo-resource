@@ -1,5 +1,7 @@
 /* eslint-disable max-lines -- 设置导航意图集中管理 sessionStorage、事件桥接和解析校验，拆分会让一次性意图消费顺序更难保证。 */
 import { logger } from "@/logger.js";
+// XCODE: 导航读取兼容精确旧模型身份，新意图统一发布规范 Aiscoo ID。
+import { normalizeAiscooModelProviderId } from "@zcode/shared";
 
 export type SettingsSectionId =
   | "general"
@@ -241,6 +243,9 @@ export function setPendingSettingsSectionIntent(
     return;
   }
 
+  const modelProviderId = options.modelProviderId
+    ? normalizeAiscooModelProviderId(options.modelProviderId)
+    : undefined;
   try {
     window.sessionStorage.setItem(SETTINGS_SECTION_INTENT_KEY, section);
     if (options.pluginTab) {
@@ -279,8 +284,8 @@ export function setPendingSettingsSectionIntent(
     } else {
       window.sessionStorage.removeItem(SETTINGS_SOURCE_SERVER_DETAILS_INTENT_KEY);
     }
-    if (options.modelProviderId) {
-      window.sessionStorage.setItem(SETTINGS_MODEL_PROVIDER_ID_INTENT_KEY, options.modelProviderId);
+    if (modelProviderId) {
+      window.sessionStorage.setItem(SETTINGS_MODEL_PROVIDER_ID_INTENT_KEY, modelProviderId);
     } else {
       window.sessionStorage.removeItem(SETTINGS_MODEL_PROVIDER_ID_INTENT_KEY);
     }
@@ -298,7 +303,7 @@ export function setPendingSettingsSectionIntent(
         pluginOrigin: options.pluginOrigin,
         pluginScopeKey: options.pluginScopeKey?.trim() || undefined,
         usageTab: options.usageTab,
-        modelProviderId: options.modelProviderId,
+        modelProviderId,
         ...(section === "remoteDevices" && options.sourceServerId?.trim()
           ? {
               sourceServerId: options.sourceServerId.trim(),
@@ -445,7 +450,7 @@ export function consumePendingSettingsModelProviderTarget():
       return undefined;
     }
     return {
-      providerId: providerId.trim(),
+      providerId: normalizeAiscooModelProviderId(providerId.trim()),
     };
   } catch {
     // 忽略浏览器存储异常，不影响主流程。

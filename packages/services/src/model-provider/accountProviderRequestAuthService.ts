@@ -11,7 +11,11 @@ import {
 } from "@zcode/shared";
 import type { NewApiAccountService } from "../new-api/newApiAccountService.js";
 import type { AccountProviderConfigSnapshot, ProviderSource } from "@zcode/provider";
-import { isNewApiModelProviderId, isBuiltinModelProviderId } from "@zcode/shared";
+import {
+  isNewApiModelProviderId,
+  isBuiltinModelProviderId,
+  normalizeAiscooModelProviderId,
+} from "@zcode/shared";
 
 export interface AccountRequestAuthMaterial {
   /** 私有传输字段兼容旧命名；套餐 OAuth 实际传入短期 Project Token。 */
@@ -183,10 +187,12 @@ export function createNewApiAccountRequestAuthResolver(options: {
     const access = input.accountAccess;
     if (access.type !== "new-api-account")
       throw new AccountRequestCredentialUnavailableError(input.providerId);
+    // XCODE: typed 直调不经过协议 schema，只迁移精确旧选择；Host 快照键仍须是规范身份。
+    const providerId = normalizeAiscooModelProviderId(input.providerId);
     const snapshot = await options.accountSource.read();
-    const providerAccess = snapshot.providers.get(input.providerId)?.access;
+    const providerAccess = snapshot.providers.get(providerId)?.access;
     if (
-      !isNewApiModelProviderId(input.providerId) ||
+      !isNewApiModelProviderId(providerId) ||
       !access.owner ||
       !access.authorizationRevision ||
       !options.account.isCurrent(access.owner) ||
@@ -195,10 +201,10 @@ export function createNewApiAccountRequestAuthResolver(options: {
       access.authorizationRevision !== snapshot.authorizationRevision ||
       providerAccess?.type !== "new-api-account" ||
       providerAccess.entitled !== true ||
-      snapshot.states?.[input.providerId]?.current !== true ||
+      snapshot.states?.[providerId]?.current !== true ||
       (input.modelId !== undefined &&
-        (!snapshot.providers.get(input.providerId)?.builtinModelIds?.includes(input.modelId) ||
-          snapshot.modelConfigs?.[input.providerId]?.[input.modelId]?.enabled !== true))
+        (!snapshot.providers.get(providerId)?.builtinModelIds?.includes(input.modelId) ||
+          snapshot.modelConfigs?.[providerId]?.[input.modelId]?.enabled !== true))
     ) {
       throw new AccountRequestCredentialUnavailableError(input.providerId);
     }
@@ -214,10 +220,15 @@ export function createNewApiAccountRequestAuthResolver(options: {
         await assertNative(input);
         return;
       }
+      // XCODE: 私有模型身份不能借官方 access 进入另一条凭据路径。
+      if (isNewApiModelProviderId(normalizeAiscooModelProviderId(input.providerId)))
+        throw new AccountRequestCredentialUnavailableError(input.providerId);
       await options.official.assertCurrent(input);
     },
     resolveCurrent: async (input) => {
       if (input.accountAccess.type !== "new-api-account") {
+        if (isNewApiModelProviderId(normalizeAiscooModelProviderId(input.providerId)))
+          throw new AccountRequestCredentialUnavailableError(input.providerId);
         if (input.reason === "model-request" && isBuiltinModelProviderId(input.providerId))
           throw new Error("XCODE_LEGACY_OFFICIAL_SELECTION_RESELECT_REQUIRED");
         return options.official.resolveCurrent(input);

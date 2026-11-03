@@ -1,5 +1,6 @@
 import type { TuiSubmitPromptResult } from "@zcode/tui";
 import { parseModelPickerValue, type ModelSelection } from "@zcode/shared/model-selection";
+import { normalizeAiscooModelSelection } from "@zcode/shared/model-provider-types";
 import { listAppEffortOptions } from "../effort-options.js";
 import { rememberCurrentModelSelection } from "../model-selection.js";
 import type { CommandCenterDeps, CommandCenterModelOption } from "../types.js";
@@ -65,10 +66,12 @@ export function resolveTuiModelSelection(
   selectedRef?: ModelSelection,
 ): ModelSelection {
   // Exact catalog matching preserves literal slashes and dollar signs in model IDs.
-  const requested =
+  // XCODE: 已持有的旧 Picker ref 会绕过字符串解析，必须在目录匹配前迁移。
+  const requested = normalizeAiscooModelSelection(
     selectedRef ??
-    options.find((option) => `${option.ref.providerId}/${option.ref.modelId}` === args)?.ref ??
-    parseModelPickerValue(args);
+      options.find((option) => `${option.ref.providerId}/${option.ref.modelId}` === args)?.ref ??
+      parseModelPickerValue(args),
+  );
   const option = options.find(
     ({ ref }) => ref.providerId === requested.providerId && ref.modelId === requested.modelId,
   );

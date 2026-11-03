@@ -12,15 +12,63 @@ import {
   type ProviderRegistryServiceSnapshot,
   resolveEffectiveModelSelection,
   ProviderSettingsFacade,
+  ProviderRegistry,
+  completeNewModelSelection,
+  normalizeModelSelection,
+  resolveInitialModelSelection,
 } from "@zcode/provider";
 import { createNewApiProviderAnchors, createNodeModelSelectionFacade } from "@zcode/provider-node";
 import { resolveNewApiAccountProviders } from "../src/new-api/newApiAccountProviderResolution.js";
 import { owner, catalog, entitlements, modelConfig } from "./newApiRegistryFixtures.js";
 
+test("legacy typed selections resolve the canonical provider without changing history or Registry membership", () => {
+  const { facade, registry } = nativeSelectionFixture();
+  const selection = Object.freeze({
+    providerId: "account:new-api-openai-chat-completions",
+    modelId: "chat-model",
+    options: Object.freeze({ reasoningLevel: "none" }),
+  });
+  const canonical = { ...selection, providerId: "account:aiscoo-openai-chat-completions" };
+  const index = new ProviderRegistry(registry.providers);
+  assert.equal(index.getProvider(selection.providerId), index.getProvider(canonical.providerId));
+  assert.equal(
+    index.getModel(selection.providerId, selection.modelId),
+    index.getModel(canonical.providerId, canonical.modelId),
+  );
+  assert.deepEqual(index.validateSelection(selection), { ok: true });
+  assert.deepEqual(normalizeModelSelection(registry, selection), canonical);
+  assert.deepEqual(completeNewModelSelection(registry, selection), canonical);
+  assert.deepEqual(resolveInitialModelSelection({ registry, configuredDefault: selection }), {
+    source: "configured-default",
+    selection: canonical,
+  });
+  const view = facade.getView(selection, undefined, { selection });
+  assert.deepEqual(view.effectiveSelection, canonical);
+  assert.deepEqual(view.preferredSelection, canonical);
+  assert.ok(
+    index.listProviders().every((provider) => !provider.providerId.startsWith("account:new-api-")),
+  );
+  assert.equal(selection.providerId, "account:new-api-openai-chat-completions");
+  assert.equal(view.effectiveSelection?.options?.reasoningLevel, "none");
+  for (const providerId of [
+    "account:new-api-openai-responses",
+    "account:new-api-anthropic-messages",
+    "account:new-api-custom",
+    "account:zai-individual-coding-plan",
+  ]) {
+    assert.equal(
+      facade.getView(undefined, undefined, {
+        selection: { ...selection, providerId },
+      }).effectiveSelection,
+      null,
+    );
+  }
+});
+
 test("Aiscoo selects only Chat Completions and requires reselect for hidden or old official refs", () => {
   const { facade, registry, snapshot } = nativeSelectionFixture();
   const selection = {
-    providerId: "account:new-api-openai-chat-completions",
+    providerId: "account:aiscoo-openai-chat-completions",
     modelId: "chat-model",
     options: { reasoningLevel: "none" },
   };
@@ -30,7 +78,7 @@ test("Aiscoo selects only Chat Completions and requires reselect for hidden or o
   );
   assert.deepEqual(
     facade.getView().providers.map((provider) => provider.providerId),
-    ["account:new-api-openai-chat-completions"],
+    ["account:aiscoo-openai-chat-completions"],
   );
   const settings = new ProviderSettingsFacade({
     getView: () => registry,
@@ -40,12 +88,12 @@ test("Aiscoo selects only Chat Completions and requires reselect for hidden or o
   }).getView();
   assert.deepEqual(
     settings.providers.map((provider) => provider.providerId),
-    ["account:new-api-openai-chat-completions"],
+    ["account:aiscoo-openai-chat-completions"],
   );
   const hidden = facade.getView(undefined, undefined, {
     selection: {
       ...selection,
-      providerId: "account:new-api-openai-responses",
+      providerId: "account:aiscoo-openai-responses",
       modelId: "real-model",
     },
   });
@@ -58,7 +106,7 @@ test("Aiscoo selects only Chat Completions and requires reselect for hidden or o
   assert.equal(old.providerId, "account:zai-individual-coding-plan");
   assert.equal(
     resolveEffectiveModelSelection({
-      selection: { ...selection, providerId: "account:new-api-anthropic-messages" },
+      selection: { ...selection, providerId: "account:aiscoo-anthropic-messages" },
       registry,
       classifyProvider: () => "ordinary",
     }).effectiveSelection,
@@ -136,12 +184,12 @@ function nativeSelectionFixture(
 test("Native personal overlays cannot hide or rename Aiscoo or expose hidden transports", () => {
   const personal = new ProviderConfigMap([
     {
-      providerId: "account:new-api-openai-chat-completions",
+      providerId: "account:aiscoo-openai-chat-completions",
       providerName: "Local renamed provider",
       config: new ProviderConfig({ visibility: "hidden", modelOrder: ["deepseek-v4-flash"] }),
     },
     {
-      providerId: "account:new-api-openai-responses",
+      providerId: "account:aiscoo-openai-responses",
       config: new ProviderConfig({ visibility: "visible" }),
     },
   ]);
@@ -155,7 +203,7 @@ test("Native personal overlays cannot hide or rename Aiscoo or expose hidden tra
   for (const view of [facade.getView(), settings]) {
     assert.deepEqual(
       view.providers.map((provider) => provider.providerId),
-      ["account:new-api-openai-chat-completions"],
+      ["account:aiscoo-openai-chat-completions"],
     );
     assert.equal(view.providers[0]!.providerName, "Aiscoo Zen");
   }
@@ -174,7 +222,7 @@ test("Native historical reasoning never inherits official Built-in aliases", () 
   const { facade } = nativeSelectionFixture(ProviderConfigMap.empty(), builtin);
   for (const level of ["off", "nothink", "deleted-level"]) {
     const selection = {
-      providerId: "account:new-api-openai-chat-completions",
+      providerId: "account:aiscoo-openai-chat-completions",
       modelId: "deepseek-v4-flash",
       options: { reasoningLevel: level },
     };
@@ -183,7 +231,7 @@ test("Native historical reasoning never inherits official Built-in aliases", () 
     assert.equal(selection.options.reasoningLevel, level);
   }
   const valid = {
-    providerId: "account:new-api-openai-chat-completions",
+    providerId: "account:aiscoo-openai-chat-completions",
     modelId: "deepseek-v4-flash",
     options: { reasoningLevel: "disabled" },
   };

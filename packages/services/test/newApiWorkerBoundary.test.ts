@@ -45,7 +45,7 @@ import { AiSdkModelAdapter } from "../../../apps/zcode-cli/packages/adapters/src
 // XCODE: test/tsconfig.json 将测试与 SDK 绑定同一份源码契约/调用上下文，避免 CLI dist 身份分裂。
 import { runWithModelInvocationContext, type ModelRequest } from "@zcode/contracts";
 
-const providerId = "account:new-api-openai-responses";
+const providerId = "account:aiscoo-openai-responses";
 function envelope() {
   return {
     revision: "revision-1",
@@ -275,6 +275,112 @@ test("Native relay resolution rejects non-Native access and snapshot or owner ch
   await assert.rejects(resolver.resolveCurrent(input));
 });
 
+test("Native typed auth accepts exact legacy selections without accepting incomplete snapshots or official access", async () => {
+  const source = new MutableAccountProviderConfigSource();
+  const native = resolveNewApiAccountProviders({
+    owner,
+    entitlements,
+    catalog,
+    configRevision: "builtin-1",
+  });
+  const snapshot = createAccountProviderConfigSnapshot(
+    "builtin-1",
+    native.providers,
+    native.states,
+    native,
+  );
+  source.replace(snapshot);
+  let relayReads = 0;
+  let officialReads = 0;
+  const unexpectedOfficial = async (): Promise<never> => {
+    officialReads++;
+    throw new Error("unexpected official auth");
+  };
+  const auth = createNewApiAccountRequestAuthResolver({
+    account: {
+      isCurrent: (candidate) => JSON.stringify(candidate) === JSON.stringify(owner),
+      getRelayCredential: async () => {
+        relayReads++;
+        return { token: "sk-current-native", expiresAt: 1000 };
+      },
+    },
+    accountSource: source,
+    official: {
+      resolveAccessCurrent: unexpectedOfficial,
+      assertCurrent: unexpectedOfficial,
+      resolveCurrent: unexpectedOfficial,
+    },
+  });
+  const accountAccess = {
+    type: "new-api-account",
+    accountType: "new-api",
+    mode: "private-subscription",
+    entitled: true,
+    owner,
+    authorizationRevision: snapshot.authorizationRevision,
+  } as const;
+  const legacyId = "account:new-api-openai-responses";
+  const input = {
+    providerId: legacyId,
+    modelId: "real-model",
+    accountAccess,
+    reason: "model-request",
+  } as const;
+  assert.deepEqual(await auth.resolveCurrent(input), { apiKey: "sk-current-native" });
+  await auth.assertCurrent(input);
+  assert.equal(input.providerId, legacyId, "compatibility must not mutate the captured selection");
+  assert.equal(relayReads, 1);
+  for (const id of [providerId, legacyId]) {
+    const officialAccess = {
+      type: "zhipu-account",
+      accountType: "zai",
+      mode: "individual-coding-plan",
+      entitled: true,
+    } as const;
+    await assert.rejects(
+      auth.resolveCurrent({ ...input, providerId: id, accountAccess: officialAccess }),
+    );
+    await assert.rejects(auth.assertCurrent({ providerId: id, accountAccess: officialAccess }));
+  }
+  for (const id of [
+    "account:new-api-openai-responses-custom",
+    "account:zai-individual-coding-plan",
+  ]) {
+    await assert.rejects(auth.resolveCurrent({ ...input, providerId: id }));
+  }
+  await assert.rejects(
+    auth.resolveCurrent({
+      ...input,
+      accountAccess: {
+        ...accountAccess,
+        owner: { ...owner, authGeneration: owner.authGeneration + 1 },
+      },
+    }),
+  );
+  source.replace({
+    ...snapshot,
+    revision: `${snapshot.revision}:missing-capabilities`,
+    modelConfigs: {},
+  });
+  await assert.rejects(
+    auth.resolveCurrent(input),
+    "legacy ID compatibility cannot bypass missing worker capabilities",
+  );
+  source.replace({
+    ...snapshot,
+    revision: `${snapshot.revision}:legacy-snapshot`,
+    providers: new ProviderConfigMap([[legacyId, snapshot.providers.get(providerId)!]]),
+    states: { [legacyId]: snapshot.states[providerId]! },
+    modelConfigs: { [legacyId]: snapshot.modelConfigs![providerId]! },
+  });
+  await assert.rejects(
+    auth.resolveCurrent(input),
+    "legacy snapshot keys cannot satisfy canonical membership",
+  );
+  assert.equal(relayReads, 1);
+  assert.equal(officialReads, 0);
+});
+
 test("real Host account owner grants relay only for current revision and stops on logout", async () => {
   const dir = await mkdtemp(join(tmpdir(), "native-worker-auth-"));
   const now = 1_800_000_000_000;
@@ -426,7 +532,7 @@ test(
   "Native invalidation aborts active SDK streams without cancelling custom execution or reviving late auth",
   { timeout: 10_000 },
   async () => {
-    const nativeId = "account:new-api-openai-chat-completions";
+    const nativeId = "account:aiscoo-openai-chat-completions";
     const native = resolveNewApiAccountProviders({
       owner,
       entitlements,

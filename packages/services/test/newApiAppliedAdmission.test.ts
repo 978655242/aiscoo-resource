@@ -19,6 +19,149 @@ import { setDataBaseDir } from "../src/paths.js";
 import { resolveNewApiAccountProviders } from "../src/new-api/newApiAccountProviderResolution.js";
 import { owner, catalog, entitlements, modelConfig } from "./newApiRegistryFixtures.js";
 
+test(
+  "Host normalizes legacy runtime auth IDs and rejects contradictory Native request identities before credential IO",
+  { timeout: 20_000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), "aiscoo-runtime-auth-identity-"));
+    setDataBaseDir(dir);
+    const workerPath = join(dir, "worker.mjs");
+    const canonicalId = "account:aiscoo-openai-responses";
+    const legacyId = "account:new-api-openai-responses";
+    const selection = { providerId: canonicalId, modelId: "real-model" };
+    const accountAccess = {
+      type: "new-api-account",
+      accountType: "new-api",
+      mode: "private-subscription",
+      entitled: true,
+      owner,
+      authorizationRevision: "7",
+    };
+    const cases = [
+      { providerId: legacyId, modelSelection: selection, accountAccess },
+      {
+        providerId: canonicalId,
+        modelSelection: { ...selection, providerId: legacyId },
+        accountAccess,
+      },
+      {
+        providerId: canonicalId,
+        modelSelection: { ...selection, providerId: "account:aiscoo-openai-chat-completions" },
+        accountAccess,
+      },
+      { providerId: "custom", modelSelection: selection, accountAccess },
+      {
+        providerId: canonicalId,
+        modelSelection: selection,
+        accountAccess: {
+          type: "zhipu-account",
+          accountType: "zai",
+          mode: "individual-coding-plan",
+          entitled: true,
+        },
+      },
+      { providerId: canonicalId, modelSelection: selection },
+    ];
+    const transportUrl = new URL(
+      "../../../apps/zcode-cli/packages/bootstrap/src/zcode-protocol/transport.ts",
+      import.meta.url,
+    ).href;
+    const sharedUrl = new URL("../../shared/src/index.ts", import.meta.url).href;
+    await writeFile(
+      workerPath,
+      `
+import { ZCodeProtocolNdjsonConnection } from ${JSON.stringify(transportUrl)};
+import { zcodeProtocolMethods } from ${JSON.stringify(sharedUrl)};
+const cases = ${JSON.stringify(cases)};
+let generation, index = 0;
+const replies = [];
+const next = () => {
+  if (index === cases.length) {
+    connection.send({ id: generation.id, result: { text: JSON.stringify(replies), selection: generation.params.selection } });
+    return;
+  }
+  connection.send({ id: "native-auth-" + index, method: zcodeProtocolMethods.interactionRequestProviderRuntimeHeaders, params: {
+    requestId: "native-auth-" + index, sessionId: "auth-fixture", workspace: { workspacePath: ${JSON.stringify(dir)}, workspaceKey: ${JSON.stringify(dir)} }, reason: "model-request", ...cases[index],
+  } });
+};
+const connection = new ZCodeProtocolNdjsonConnection({ input: process.stdin, output: process.stdout, handleMessage: async message => {
+  if (!("method" in message)) { replies.push(message); index++; next(); return; }
+  if (message.method === zcodeProtocolMethods.runtimeCapabilities) return { id: message.id, result: {} };
+  if (message.method === zcodeProtocolMethods.providerRefreshRegistry) return { id: message.id, result: { refreshed: true } };
+  if (message.method === zcodeProtocolMethods.workspaceGenerateText) { generation = message; next(); return; }
+  throw new Error("Unexpected method: " + message.method);
+} });
+connection.start();
+await connection.waitForClose();
+`,
+    );
+    const seenProviderIds: string[] = [];
+    const native = resolveNewApiAccountProviders({
+      owner,
+      entitlements,
+      catalog: {
+        ...catalog,
+        models: [{ ...catalog.models[0]!, api_type: "openai-chat-completions" }],
+      },
+    });
+    const resolution = new ProviderConfigResolver().resolve({
+      zcodeBuiltinProviders: createNewApiProviderAnchors(owner.origin),
+      personalProviders: ProviderConfigMap.empty(),
+      personalModels: ModelConfigRules.empty(),
+      zcodeBuiltinModelRules: ModelConfigRules.empty(),
+      accountProviders: native.providers,
+      accountModelConfigs: native.modelConfigs,
+      accountStates: native.states,
+    });
+    const agent = createZCodeAgentService({
+      modelSelectionReadinessSource: {
+        getView: async () => ({
+          revision: 1,
+          providers: resolution.registryProviders.map(projectModelSelectionProviderView),
+        }),
+      },
+      commandResolver: () => ({
+        command: process.execPath,
+        args: ["--import", import.meta.resolve("tsx"), workerPath],
+        cwd: dir,
+        env: { TSX_TSCONFIG_PATH: fileURLToPath(new URL("./tsconfig.json", import.meta.url)) },
+      }),
+      requestTimeoutMs: 5_000,
+      readRequestVerificationConfig: async () => null,
+      accountRequestAuthService: {
+        resolveAccessCurrent: async () => {
+          throw new Error("unexpected access lookup");
+        },
+        assertCurrent: async () => {
+          throw new Error("unexpected identity lookup");
+        },
+        resolveCurrent: async (input) => {
+          seenProviderIds.push(input.providerId);
+          assert.deepEqual(input.accountAccess, accountAccess);
+          return { apiKey: "sk-isolated-auth-fixture" };
+        },
+      },
+    });
+    try {
+      const result = await agent.generateWorkspaceText({
+        workspacePath: dir,
+        selection,
+        prompt: "isolated runtime auth",
+        querySource: "test",
+      });
+      const replies = JSON.parse(result.text);
+      assert.equal(replies.length, cases.length);
+      for (const reply of replies.slice(0, 2)) assert.equal(reply.result?.headersApplied, true);
+      for (const reply of replies.slice(2)) assert.equal(reply.error?.code, -32602);
+      assert.deepEqual(seenProviderIds, [canonicalId, canonicalId]);
+    } finally {
+      await agent.disposeAllAndWait();
+      setDataBaseDir(null);
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
 for (const mode of ["desktop-continuous", "web-remote-replayable"] as const) {
   for (const type of ["sendText", "createSession"] as const) {
     test(
