@@ -10,7 +10,11 @@ import {
 const BUILTIN_PROMPT_COMMAND_PATTERN = /^\/([^\s]+)(?:\s+([\s\S]*))?$/;
 const INIT_COMMAND_NAME = "init";
 
+// XCODE: /init 指令候选路径与实际资源读取一致，根 AGENTS.md 目标不变。
+import { getNativeResourceDirectoryName, nativeProjectResourcePath, type NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories/node";
+
 export interface ResolveZCodeBuiltinPromptCommandOptions {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   /**
    * 动态工作流灰度门（docs/dynamic-workflow/launch.md「Gray release」）。**只有显式 false 才挡下**
    * `/workflow`：TUI / headless 从不设置该字段，那里的功能始终开启。挡下时返回 undefined，
@@ -48,6 +52,7 @@ export function resolveZCodeBuiltinPromptCommandInvocation(
     return {
       name: INIT_COMMAND_NAME,
       prompt: buildInitAgentsPrompt({
+        nativeDirectories: options.nativeDirectories,
         args: invocation.args,
         targetPath: join(workingDirectory, "AGENTS.md"),
         workingDirectory,
@@ -80,6 +85,7 @@ function parseBuiltinPromptCommandInvocation(input: string): { args: string; nam
 }
 
 function buildInitAgentsPrompt(params: {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   args: string;
   targetPath: string;
   workingDirectory: string;
@@ -102,13 +108,13 @@ function buildInitAgentsPrompt(params: {
     "Target:",
     `- Workspace directory: ${params.workingDirectory}`,
     `- Instruction file: ${params.targetPath}`,
-    `- Existing hidden instruction candidates: ${join(params.workingDirectory, ".zcode", "AGENTS.md")} and ${join(params.workingDirectory, ".agents", "AGENTS.md")}`,
+    `- Existing hidden instruction candidates: ${nativeProjectResourcePath(params.workingDirectory, params.nativeDirectories, "AGENTS.md")} and ${join(params.workingDirectory, ".agents", "AGENTS.md")}`,
     "- File name must be exactly AGENTS.md.",
-    "- This command targets the current workspace only. Do not write ~/.zcode/AGENTS.md.",
+    `- This command targets the current workspace only. Do not write ~/${getNativeResourceDirectoryName(params.nativeDirectories)}/AGENTS.md.`,
     additionalInstructions,
     "",
     "Process:",
-    "1. First check whether .zcode/AGENTS.md or .agents/AGENTS.md exists in the workspace. If either exists, tell the user they already have an instructions file, mention the path found, and stop without creating a new AGENTS.md.",
+    `1. First check whether ${getNativeResourceDirectoryName(params.nativeDirectories)}/AGENTS.md or .agents/AGENTS.md exists in the workspace. If either exists, tell the user they already have an instructions file, mention the path found, and stop without creating a new AGENTS.md.`,
     "2. Inspect the repository before writing. Prefer Read, Glob, Grep, and safe Bash commands such as ls, find, git status, and package-manager script inspection.",
     "3. If AGENTS.md already exists, read it first and update it with Edit instead of replacing it wholesale.",
     "4. If AGENTS.md does not exist, create it at the workspace root.",

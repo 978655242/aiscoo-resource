@@ -42,7 +42,11 @@ export interface ParamsSchema<T> {
   parse(input: unknown): T;
 }
 
+// XCODE: 协议进程持有唯一入口目录快照，catalog 与冷恢复共用。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
+
 export interface ZCodeProtocolAgentDependencies {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   createZCodeApp(options?: Omit<ZCodeAppOptions, "providerRegistry">): ZCodeApp | Promise<ZCodeApp>;
   /**
    * 每个 session record 的内存 event store 工厂。

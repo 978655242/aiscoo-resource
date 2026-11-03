@@ -4,7 +4,16 @@
  */
 export const cliAiscooModule = {
   id: "cli-aiscoo",
-  requires: ["cli-arguments", "cli-sea-keyring", "zcode-cli", "cli-aiscoo-brand", "shared"],
+  // XCODE: 保留管理端源依赖，并追加产品身份与原生资源目录策略。
+  requires: [
+    "cli-arguments",
+    "cli-sea-keyring",
+    "zcode-cli",
+    "cli-aiscoo-brand",
+    "shared",
+    "aiscoo-desktop-identity",
+    "native-resource-directories",
+  ],
   provides: ["cli-aiscoo"],
   publicEntrypoints: ["index.ts", "contract.ts", "provider-runtime-env.ts"],
 } as const;

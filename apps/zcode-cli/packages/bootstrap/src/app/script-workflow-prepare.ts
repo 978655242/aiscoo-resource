@@ -8,7 +8,11 @@ import { stableHash } from "./script-workflow-meta.js";
 import { emptyScriptWorkflowStats } from "./script-workflow-format.js";
 import { inferScriptWorkflowScope } from "./script-workflow-utils.js";
 
+// XCODE: legacy workflow 的来源分类沿用父会话原生目录。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
+
 export async function prepareScriptWorkflowRun(input: {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   args?: unknown;
   document: Awaited<ReturnType<typeof readWorkflowScriptDocument>>;
   parentSessionId: SessionId;
@@ -21,7 +25,7 @@ export async function prepareScriptWorkflowRun(input: {
     id: `script_${stableHash(`${input.document.path}:${input.document.hash}`).slice(0, 24)}`,
     meta: input.document.meta,
     name: input.document.meta.name,
-    scope: inferScriptWorkflowScope(input.document.path, input.workingDirectory),
+    scope: inferScriptWorkflowScope(input.document.path, input.workingDirectory, input.nativeDirectories),
     scriptHash: input.document.hash,
     scriptPath: input.document.path,
     source: "user",

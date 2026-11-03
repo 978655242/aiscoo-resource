@@ -1,5 +1,7 @@
 # Claude Plugin Compatibility
 
+Native user/workspace configuration and inline resources follow the optional [Native Resource Directories](native-resource-directories.md) policy. Runtime plugin inventory, version cache, explicit installation paths and package formats retain their existing locations. Host resource discovery and CLI management consume the same runtime plugin store independently of the selected resource configuration directory.
+
 ## Goal
 
 ZCode should load a bounded subset of Claude Code format plugins while keeping

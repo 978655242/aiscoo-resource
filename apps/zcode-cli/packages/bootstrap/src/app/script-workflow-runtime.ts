@@ -199,6 +199,8 @@ export class ScriptWorkflowRuntime {
       { traceContext: options?.traceContext ?? this.deps.traceContext },
     );
     const run = await prepareScriptWorkflowRun({
+      // XCODE: 执行副本不换根，仅保存定义的来源分类使用资源策略。
+      nativeDirectories: this.deps.appOptions.nativeDirectories,
       args: input.args,
       document,
       parentSessionId: this.deps.sessionId,

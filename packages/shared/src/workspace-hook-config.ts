@@ -2,6 +2,12 @@ import { existsSync, statSync } from "node:fs";
 import { access, readFile, stat } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { z } from "zod";
+// XCODE: 原生资源目录由入口解析后注入；来源枚举仅用于稳定协议标签。
+import {
+  getNativeResourceDirectoryName,
+  type NativeResourceDirectoryPolicy,
+} from "./native-resource-directories/index.js";
+import { nativeProjectConfigPath } from "./native-resource-directories/node.js";
 
 export const WORKSPACE_HOOK_DIGEST_SCHEMA_VERSION = 1 as const;
 export const DEFAULT_WORKSPACE_HOOK_TIMEOUT_MS = 60_000;
@@ -175,10 +181,13 @@ export function resolveWorkspaceHookConfiguredGates(input: {
  * 纯函数，sync/async discovery 共享，确保候选文件名与顺序规则只在此处维护一次
  * （sync/async 共享同一份 flatMap，避免候选路径的生成规则出现分歧）。
  */
-function buildWorkspaceHookCandidatePaths(directories: readonly string[]): string[] {
+function buildWorkspaceHookCandidatePaths(
+  directories: readonly string[],
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): string[] {
   return directories.flatMap((directory) => [
     join(directory, "zcode.json"),
-    join(directory, ".zcode", "config.json"),
+    nativeProjectConfigPath(directory, nativeDirectories),
   ]);
 }
 
@@ -211,9 +220,14 @@ function deduplicateWorkspaceHookConfigRefs(
 export function discoverWorkspaceHookConfigPaths(input: {
   workingDirectory: string;
   explicitProjectConfigPath?: string;
+  // XCODE: sync/async 扫描复用入口固定的原生资源策略。
+  nativeDirectories?: NativeResourceDirectoryPolicy;
 }): WorkspaceHookConfigPathRef[] {
   const start = resolve(input.workingDirectory);
-  const refs = buildWorkspaceHookCandidatePaths(getProjectConfigDirectories(start))
+  const refs = buildWorkspaceHookCandidatePaths(
+    getProjectConfigDirectories(start),
+    input.nativeDirectories,
+  )
     .filter((path) => existsSync(path))
     .map((path) => ({ path, explicitProjectConfig: false }));
 
@@ -230,13 +244,19 @@ export function createWorkspaceHookSourceInput(input: {
   hooks: WorkspaceHooksConfig;
   discoveryOrder: number;
   explicitProjectConfig?: boolean;
+  // XCODE: baseDir 与 editable 必须和发现阶段使用同一目录名。
+  nativeDirectories?: NativeResourceDirectoryPolicy;
 }): WorkspaceHookSourceInput {
   const canonicalPath = resolve(input.path);
   const explicitProjectConfig = input.explicitProjectConfig === true;
   const configDirectory = dirname(canonicalPath);
+  // XCODE: 显式旧目录保留原相对 cwd 语义；只兼容 baseDir，不扩大发现或可编辑范围。
+  const isNativeConfigDirectory =
+    basename(configDirectory) === getNativeResourceDirectoryName(input.nativeDirectories) ||
+    (explicitProjectConfig && basename(configDirectory) === ".zcode");
   return {
     canonicalPath,
-    baseDir: basename(configDirectory) === ".zcode" ? dirname(configDirectory) : configDirectory,
+    baseDir: isNativeConfigDirectory ? dirname(configDirectory) : configDirectory,
     discoveryOrder: input.discoveryOrder,
     configFileKind: explicitProjectConfig
       ? "explicit"
@@ -246,7 +266,8 @@ export function createWorkspaceHookSourceInput(input: {
     explicitProjectConfig,
     editable:
       !explicitProjectConfig &&
-      canonicalPath === resolve(input.workingDirectory, ".zcode", "config.json"),
+      canonicalPath ===
+        resolve(nativeProjectConfigPath(input.workingDirectory, input.nativeDirectories)),
     hooks: input.hooks,
   };
 }
@@ -254,6 +275,8 @@ export function createWorkspaceHookSourceInput(input: {
 export async function readWorkspaceHookProjectSources(input: {
   workingDirectory: string;
   explicitProjectConfigPath?: string;
+  // XCODE: sync/async 扫描复用入口固定的原生资源策略。
+  nativeDirectories?: NativeResourceDirectoryPolicy;
 }): Promise<{ sources: WorkspaceHookSourceInput[]; errors: WorkspaceHookSourceReadError[] }> {
   const refs = await discoverWorkspaceHookConfigPathsAsync(input);
   const sources: WorkspaceHookSourceInput[] = [];
@@ -270,6 +293,7 @@ export async function readWorkspaceHookProjectSources(input: {
           hooks: workspaceHooksConfigSchema.parse(value.hooks),
           discoveryOrder,
           explicitProjectConfig: ref.explicitProjectConfig,
+          nativeDirectories: input.nativeDirectories,
         }),
       );
     } catch (error) {
@@ -282,10 +306,13 @@ export async function readWorkspaceHookProjectSources(input: {
 async function discoverWorkspaceHookConfigPathsAsync(input: {
   workingDirectory: string;
   explicitProjectConfigPath?: string;
+  // XCODE: sync/async 扫描复用入口固定的原生资源策略。
+  nativeDirectories?: NativeResourceDirectoryPolicy;
 }): Promise<WorkspaceHookConfigPathRef[]> {
   const start = resolve(input.workingDirectory);
   const candidates = buildWorkspaceHookCandidatePaths(
     await getProjectConfigDirectoriesAsync(start),
+    input.nativeDirectories,
   );
   const refs: WorkspaceHookConfigPathRef[] = [];
   for (const path of candidates) {

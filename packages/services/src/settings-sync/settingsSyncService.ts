@@ -21,6 +21,14 @@ import type {
   SettingsSyncSourceRootSummary,
   SettingsSyncTaskImportResult,
 } from "@zcode/shared";
+// XCODE: 外部资源导入保留原状态机，仅将原生目标路径策略通过可选参数贯通。
+import {
+  nativeUserResourcePath,
+  nativeProjectResourcePath,
+  nativeUserConfigPath,
+  nativeProjectConfigPath,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
 import { copyFile, cp, link, lstat, mkdir, readFile, readdir, rm, symlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
@@ -36,6 +44,7 @@ import type { ISettingsSyncService } from "./settingsSync.js";
 const log = createServiceLogger("settings-sync");
 
 interface SettingsSyncServiceDependencies {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   settingService: ISettingService;
 }
 
@@ -412,127 +421,147 @@ function resolveUserHomeDir(): string {
   return envHome && envHome.length > 0 ? envHome : homedir();
 }
 
-function getWorkspaceZcodeSkillRoot(workspacePath: string): string {
-  return join(workspacePath, ".zcode", "skills");
+function getWorkspaceZcodeSkillRoot(
+  workspacePath: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): string {
+  return nativeProjectResourcePath(workspacePath, nativeDirectories, "skills");
 }
 
-function getUserZcodeSkillRoot(): string {
-  return join(resolveUserHomeDir(), ".zcode", "skills");
+function getUserZcodeSkillRoot(nativeDirectories?: NativeResourceDirectoryPolicy): string {
+  return nativeUserResourcePath(resolveUserHomeDir(), nativeDirectories, "skills");
 }
 
-function getWorkspaceZcodeCommandRoot(workspacePath: string): string {
-  return join(workspacePath, ".zcode", "commands");
+function getWorkspaceZcodeCommandRoot(
+  workspacePath: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): string {
+  return nativeProjectResourcePath(workspacePath, nativeDirectories, "commands");
 }
 
-function getUserZcodeCommandRoot(): string {
-  return join(resolveUserHomeDir(), ".zcode", "commands");
+function getUserZcodeCommandRoot(nativeDirectories?: NativeResourceDirectoryPolicy): string {
+  return nativeUserResourcePath(resolveUserHomeDir(), nativeDirectories, "commands");
 }
 
-function getWorkspaceZcodePluginRoot(workspacePath: string): string {
-  return join(workspacePath, ".zcode", "plugins");
+function getWorkspaceZcodePluginRoot(
+  workspacePath: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): string {
+  return nativeProjectResourcePath(workspacePath, nativeDirectories, "plugins");
 }
 
-function getUserZcodePluginRoot(): string {
-  return join(resolveUserHomeDir(), ".zcode", "plugins");
+function getUserZcodePluginRoot(nativeDirectories?: NativeResourceDirectoryPolicy): string {
+  return nativeUserResourcePath(resolveUserHomeDir(), nativeDirectories, "plugins");
 }
 
-function getUserZcodeCliConfigPath(): string {
-  return join(resolveUserHomeDir(), ".zcode", "cli", "config.json");
+function getUserZcodeCliConfigPath(nativeDirectories?: NativeResourceDirectoryPolicy): string {
+  return nativeUserConfigPath(resolveUserHomeDir(), nativeDirectories);
 }
 
-function getWorkspaceZcodeConfigPath(workspacePath: string): string {
-  return join(workspacePath, ".zcode", "config.json");
+function getWorkspaceZcodeConfigPath(
+  workspacePath: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): string {
+  return nativeProjectConfigPath(workspacePath, nativeDirectories);
 }
 
 function getClaudeUserAgentsFileSourcePath(): string {
   return join(resolveUserHomeDir(), ".claude", "CLAUDE.md");
 }
 
-function getUserZcodeAgentsFilePath(): string {
-  return join(resolveUserHomeDir(), ".zcode", "AGENTS.md");
+function getUserZcodeAgentsFilePath(nativeDirectories?: NativeResourceDirectoryPolicy): string {
+  return nativeUserResourcePath(resolveUserHomeDir(), nativeDirectories, "AGENTS.md");
 }
 
 function resolveTargetRootForScope(
   targetScope: SettingsSyncSourceScope,
   workspacePath: string | undefined,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): string | null {
   if (targetScope === "global") {
-    return getUserZcodeSkillRoot();
+    return getUserZcodeSkillRoot(nativeDirectories);
   }
-  return workspacePath ? getWorkspaceZcodeSkillRoot(workspacePath) : null;
+  return workspacePath ? getWorkspaceZcodeSkillRoot(workspacePath, nativeDirectories) : null;
 }
 
 function resolveCandidateTargetRoot(
   sourceScope: SkillImportScope,
   workspacePath: string | undefined,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): string | null {
   return sourceScope === "workspace"
     ? workspacePath
-      ? getWorkspaceZcodeSkillRoot(workspacePath)
+      ? getWorkspaceZcodeSkillRoot(workspacePath, nativeDirectories)
       : null
-    : getUserZcodeSkillRoot();
+    : getUserZcodeSkillRoot(nativeDirectories);
 }
 
 function resolveCommandTargetRootForScope(
   targetScope: SettingsSyncSourceScope,
   workspacePath: string | undefined,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): string | null {
   if (targetScope === "global") {
-    return getUserZcodeCommandRoot();
+    return getUserZcodeCommandRoot(nativeDirectories);
   }
-  return workspacePath ? getWorkspaceZcodeCommandRoot(workspacePath) : null;
+  return workspacePath ? getWorkspaceZcodeCommandRoot(workspacePath, nativeDirectories) : null;
 }
 
 function resolveCommandCandidateTargetRoot(
   sourceScope: CommandImportScope,
   workspacePath: string | undefined,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): string | null {
   return sourceScope === "workspace"
     ? workspacePath
-      ? getWorkspaceZcodeCommandRoot(workspacePath)
+      ? getWorkspaceZcodeCommandRoot(workspacePath, nativeDirectories)
       : null
-    : getUserZcodeCommandRoot();
+    : getUserZcodeCommandRoot(nativeDirectories);
 }
 
 function resolvePluginTargetRootForScope(
   targetScope: SettingsSyncSourceScope,
   workspacePath: string | undefined,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): string | null {
   if (targetScope === "global") {
-    return getUserZcodePluginRoot();
+    return getUserZcodePluginRoot(nativeDirectories);
   }
-  return workspacePath ? getWorkspaceZcodePluginRoot(workspacePath) : null;
+  return workspacePath ? getWorkspaceZcodePluginRoot(workspacePath, nativeDirectories) : null;
 }
 
 function resolvePluginCandidateTargetRoot(
   sourceScope: PluginImportScope,
   workspacePath: string | undefined,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): string | null {
   return sourceScope === "workspace"
     ? workspacePath
-      ? getWorkspaceZcodePluginRoot(workspacePath)
+      ? getWorkspaceZcodePluginRoot(workspacePath, nativeDirectories)
       : null
-    : getUserZcodePluginRoot();
+    : getUserZcodePluginRoot(nativeDirectories);
 }
 
 function resolvePluginConfigPathForScope(
   targetScope: SettingsSyncSourceScope,
   workspacePath: string | undefined,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): string | null {
   if (targetScope === "global") {
-    return getUserZcodeCliConfigPath();
+    return getUserZcodeCliConfigPath(nativeDirectories);
   }
-  return workspacePath ? getWorkspaceZcodeConfigPath(workspacePath) : null;
+  return workspacePath ? getWorkspaceZcodeConfigPath(workspacePath, nativeDirectories) : null;
 }
 
 function resolveMcpConfigPathForScope(
   targetScope: SettingsSyncSourceScope,
   workspacePath: string | undefined,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): string | null {
   if (targetScope === "global") {
-    return getUserZcodeCliConfigPath();
+    return getUserZcodeCliConfigPath(nativeDirectories);
   }
-  return workspacePath ? getWorkspaceZcodeConfigPath(workspacePath) : null;
+  return workspacePath ? getWorkspaceZcodeConfigPath(workspacePath, nativeDirectories) : null;
 }
 
 async function importSkillDirectory(
@@ -1082,9 +1111,14 @@ async function readMcpServersFromSourceFile(
 async function collectExistingMcpServerNameKeys(
   targetScope: SettingsSyncSourceScope,
   workspacePath: string | undefined,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<Set<string>> {
   const nameKeys = new Set<string>();
-  const targetConfigPath = resolveMcpConfigPathForScope(targetScope, workspacePath);
+  const targetConfigPath = resolveMcpConfigPathForScope(
+    targetScope,
+    workspacePath,
+    nativeDirectories,
+  );
   if (targetConfigPath) {
     for (const name of Object.keys(
       readZcodeMcpServers(await readJsonFileOrEmpty(targetConfigPath)),
@@ -1210,11 +1244,12 @@ async function getPluginImportCandidateSkipReason(
   existingPluginIdsByConfigPath: Map<string, Set<string>>,
   workspacePath: string | undefined,
   targetScope: SettingsSyncSourceScope = candidate.sourceRootScope,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<SettingsSyncPluginSkipReason | undefined> {
   if (await pathExists(candidate.targetPath)) {
     return "targetExists";
   }
-  const configPath = resolvePluginConfigPathForScope(targetScope, workspacePath);
+  const configPath = resolvePluginConfigPathForScope(targetScope, workspacePath, nativeDirectories);
   if (!configPath) {
     return "targetExists";
   }
@@ -1231,6 +1266,7 @@ async function isPluginImportCandidateImportable(
   existingPluginIdsByConfigPath: Map<string, Set<string>>,
   workspacePath: string | undefined,
   targetScope: SettingsSyncSourceScope = candidate.sourceRootScope,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<boolean> {
   return (
     (await getPluginImportCandidateSkipReason(
@@ -1238,6 +1274,7 @@ async function isPluginImportCandidateImportable(
       existingPluginIdsByConfigPath,
       workspacePath,
       targetScope,
+      nativeDirectories,
     )) === undefined
   );
 }
@@ -1247,10 +1284,15 @@ async function getMcpImportCandidateSkipReason(
   existingNameKeysByTargetScope: Map<SettingsSyncSourceScope, Set<string>>,
   workspacePath: string | undefined,
   targetScope: SettingsSyncSourceScope = candidate.sourceRootScope,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<SettingsSyncMcpServerSkipReason | undefined> {
   let existingNameKeys = existingNameKeysByTargetScope.get(targetScope);
   if (!existingNameKeys) {
-    existingNameKeys = await collectExistingMcpServerNameKeys(targetScope, workspacePath);
+    existingNameKeys = await collectExistingMcpServerNameKeys(
+      targetScope,
+      workspacePath,
+      nativeDirectories,
+    );
     existingNameKeysByTargetScope.set(targetScope, existingNameKeys);
   }
   return existingNameKeys.has(candidate.nameKey) ? "sameNameExists" : undefined;
@@ -1261,6 +1303,7 @@ async function isMcpImportCandidateImportable(
   existingNameKeysByTargetScope: Map<SettingsSyncSourceScope, Set<string>>,
   workspacePath: string | undefined,
   targetScope: SettingsSyncSourceScope = candidate.sourceRootScope,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<boolean> {
   return (
     (await getMcpImportCandidateSkipReason(
@@ -1268,6 +1311,7 @@ async function isMcpImportCandidateImportable(
       existingNameKeysByTargetScope,
       workspacePath,
       targetScope,
+      nativeDirectories,
     )) === undefined
   );
 }
@@ -1378,6 +1422,7 @@ async function buildCommandSourceRootSummaries(
 async function buildPluginSourceRootSummaries(
   candidates: PluginImportCandidate[],
   workspacePath: string | undefined,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<SettingsSyncSourceRootSummary[]> {
   const existingPluginIdsByConfigPath = new Map<string, Set<string>>();
   const grouped = new Map<string, PluginImportCandidate[]>();
@@ -1399,6 +1444,8 @@ async function buildPluginSourceRootSummaries(
         candidate,
         existingPluginIdsByConfigPath,
         workspacePath,
+        undefined,
+        nativeDirectories,
       );
       const importable = skipReason === undefined;
       if (importable) {
@@ -1431,6 +1478,7 @@ async function buildPluginSourceRootSummaries(
 async function buildMcpSourceRootSummaries(
   candidates: McpImportCandidate[],
   workspacePath: string | undefined,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<SettingsSyncSourceRootSummary[]> {
   const existingNameKeysByTargetScope = new Map<SettingsSyncSourceScope, Set<string>>();
   const grouped = new Map<string, McpImportCandidate[]>();
@@ -1452,6 +1500,8 @@ async function buildMcpSourceRootSummaries(
         candidate,
         existingNameKeysByTargetScope,
         workspacePath,
+        undefined,
+        nativeDirectories,
       );
       const importable = skipReason === undefined;
       if (importable) {
@@ -1482,6 +1532,7 @@ async function buildMcpSourceRootSummaries(
 
 async function collectSkillImportCandidates(
   workspacePath?: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<SkillImportCandidate[]> {
   const candidates: SkillImportCandidate[] = [];
   const seenSourcePaths = new Set<string>();
@@ -1495,7 +1546,7 @@ async function collectSkillImportCandidates(
       }
       seenSourcePaths.add(skillPath);
       const sourceDir = dirname(skillPath);
-      const targetRoot = resolveCandidateTargetRoot(root.scope, workspacePath);
+      const targetRoot = resolveCandidateTargetRoot(root.scope, workspacePath, nativeDirectories);
       if (!targetRoot) {
         continue;
       }
@@ -1519,6 +1570,7 @@ async function collectSkillImportCandidates(
 
 async function collectCommandImportCandidates(
   workspacePath?: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<CommandImportCandidate[]> {
   const candidates: CommandImportCandidate[] = [];
   const seenSourcePaths = new Set<string>();
@@ -1531,7 +1583,11 @@ async function collectCommandImportCandidates(
         continue;
       }
       seenSourcePaths.add(commandPath);
-      const targetRoot = resolveCommandCandidateTargetRoot(root.scope, workspacePath);
+      const targetRoot = resolveCommandCandidateTargetRoot(
+        root.scope,
+        workspacePath,
+        nativeDirectories,
+      );
       if (!targetRoot) {
         continue;
       }
@@ -1561,6 +1617,7 @@ async function collectCommandImportCandidates(
 
 async function collectPluginImportCandidates(
   workspacePath?: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<PluginImportCandidate[]> {
   const candidates: PluginImportCandidate[] = [];
   const seenSourcePaths = new Set<string>();
@@ -1573,7 +1630,11 @@ async function collectPluginImportCandidates(
         continue;
       }
       seenSourcePaths.add(pluginPath);
-      const targetRoot = resolvePluginCandidateTargetRoot(root.scope, workspacePath);
+      const targetRoot = resolvePluginCandidateTargetRoot(
+        root.scope,
+        workspacePath,
+        nativeDirectories,
+      );
       if (!targetRoot) {
         continue;
       }
@@ -1626,8 +1687,11 @@ async function collectMcpImportCandidates(workspacePath?: string): Promise<McpIm
   return candidates;
 }
 
-async function buildSkillsDiscovery(workspacePath?: string): Promise<SettingsSyncDiscoveryResult> {
-  const candidates = await collectSkillImportCandidates(workspacePath);
+async function buildSkillsDiscovery(
+  workspacePath?: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<SettingsSyncDiscoveryResult> {
+  const candidates = await collectSkillImportCandidates(workspacePath, nativeDirectories);
   const agents: SettingsSyncDiscoveryResult["agents"] = [];
   for (const { agent } of SUPPORTED_SKILL_AGENT_SOURCES) {
     const agentCandidates = candidates.filter((candidate) => candidate.agent === agent);
@@ -1666,8 +1730,9 @@ async function buildSkillsDiscovery(workspacePath?: string): Promise<SettingsSyn
 
 async function buildCommandsDiscovery(
   workspacePath?: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<SettingsSyncDiscoveryResult> {
-  const candidates = await collectCommandImportCandidates(workspacePath);
+  const candidates = await collectCommandImportCandidates(workspacePath, nativeDirectories);
   const agents: SettingsSyncDiscoveryResult["agents"] = [];
   for (const { agent } of SUPPORTED_COMMAND_AGENT_SOURCES) {
     const agentCandidates = candidates.filter((candidate) => candidate.agent === agent);
@@ -1704,8 +1769,11 @@ async function buildCommandsDiscovery(
   };
 }
 
-async function buildPluginsDiscovery(workspacePath?: string): Promise<SettingsSyncDiscoveryResult> {
-  const candidates = await collectPluginImportCandidates(workspacePath);
+async function buildPluginsDiscovery(
+  workspacePath?: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<SettingsSyncDiscoveryResult> {
+  const candidates = await collectPluginImportCandidates(workspacePath, nativeDirectories);
   const agents: SettingsSyncDiscoveryResult["agents"] = [];
   for (const { agent } of SUPPORTED_PLUGIN_AGENT_SOURCES) {
     const agentCandidates = candidates.filter((candidate) => candidate.agent === agent);
@@ -1713,7 +1781,11 @@ async function buildPluginsDiscovery(workspacePath?: string): Promise<SettingsSy
     const sourcePaths = [
       ...new Set(agentCandidates.map((candidate) => candidate.sourceRootPath)),
     ].sort((left, right) => left.localeCompare(right));
-    const sourceRoots = await buildPluginSourceRootSummaries(agentCandidates, workspacePath);
+    const sourceRoots = await buildPluginSourceRootSummaries(
+      agentCandidates,
+      workspacePath,
+      nativeDirectories,
+    );
     let importableCount = 0;
     const existingPluginIdsByConfigPath = new Map<string, Set<string>>();
     for (const candidate of agentCandidates) {
@@ -1722,6 +1794,8 @@ async function buildPluginsDiscovery(workspacePath?: string): Promise<SettingsSy
           candidate,
           existingPluginIdsByConfigPath,
           workspacePath,
+          undefined,
+          nativeDirectories,
         )
       ) {
         importableCount += 1;
@@ -1748,7 +1822,10 @@ async function buildPluginsDiscovery(workspacePath?: string): Promise<SettingsSy
   };
 }
 
-async function buildMcpDiscovery(workspacePath?: string): Promise<SettingsSyncDiscoveryResult> {
+async function buildMcpDiscovery(
+  workspacePath?: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<SettingsSyncDiscoveryResult> {
   const candidates = await collectMcpImportCandidates(workspacePath);
   const agents: SettingsSyncDiscoveryResult["agents"] = [];
   for (const { agent } of SUPPORTED_MCP_AGENT_SOURCES) {
@@ -1757,7 +1834,11 @@ async function buildMcpDiscovery(workspacePath?: string): Promise<SettingsSyncDi
     const sourcePaths = [
       ...new Set(agentCandidates.map((candidate) => candidate.sourceRootPath)),
     ].sort((left, right) => left.localeCompare(right));
-    const sourceRoots = await buildMcpSourceRootSummaries(agentCandidates, workspacePath);
+    const sourceRoots = await buildMcpSourceRootSummaries(
+      agentCandidates,
+      workspacePath,
+      nativeDirectories,
+    );
     let importableCount = 0;
     const existingNameKeysByTargetScope = new Map<SettingsSyncSourceScope, Set<string>>();
     for (const candidate of agentCandidates) {
@@ -1766,6 +1847,8 @@ async function buildMcpDiscovery(workspacePath?: string): Promise<SettingsSyncDi
           candidate,
           existingNameKeysByTargetScope,
           workspacePath,
+          undefined,
+          nativeDirectories,
         )
       ) {
         importableCount += 1;
@@ -1799,9 +1882,10 @@ async function importSkillsForAgent(
   targetScope?: SettingsSyncSourceScope,
   importMode: SettingsSyncImportMode = "symlink",
   skillPaths?: string[],
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<SettingsSyncTaskImportResult> {
   const selectedSkillPaths = skillPaths ? new Set(skillPaths) : null;
-  const candidates = (await collectSkillImportCandidates(workspacePath)).filter(
+  const candidates = (await collectSkillImportCandidates(workspacePath, nativeDirectories)).filter(
     (candidate) =>
       candidate.agent === agent &&
       (!sourceScope || candidate.sourceRootScope === sourceScope) &&
@@ -1815,7 +1899,7 @@ async function importSkillsForAgent(
 
   for (const candidate of candidates) {
     const selectedTargetRoot = targetScope
-      ? resolveTargetRootForScope(targetScope, workspacePath)
+      ? resolveTargetRootForScope(targetScope, workspacePath, nativeDirectories)
       : candidate.targetRoot;
     if (!selectedTargetRoot) {
       skippedCount += 1;
@@ -1895,9 +1979,12 @@ async function importCommandsForAgent(
   targetScope?: SettingsSyncSourceScope,
   importMode: SettingsSyncImportMode = "symlink",
   commandPaths?: string[],
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<SettingsSyncTaskImportResult> {
   const selectedCommandPaths = commandPaths ? new Set(commandPaths) : null;
-  const candidates = (await collectCommandImportCandidates(workspacePath)).filter(
+  const candidates = (
+    await collectCommandImportCandidates(workspacePath, nativeDirectories)
+  ).filter(
     (candidate) =>
       candidate.agent === agent &&
       (!sourceScope || candidate.sourceRootScope === sourceScope) &&
@@ -1911,7 +1998,7 @@ async function importCommandsForAgent(
 
   for (const candidate of candidates) {
     const selectedTargetRoot = targetScope
-      ? resolveCommandTargetRootForScope(targetScope, workspacePath)
+      ? resolveCommandTargetRootForScope(targetScope, workspacePath, nativeDirectories)
       : candidate.targetRoot;
     if (!selectedTargetRoot) {
       skippedCount += 1;
@@ -1987,9 +2074,10 @@ async function importPluginsForAgent(
   targetScope?: SettingsSyncSourceScope,
   importMode: SettingsSyncImportMode = "symlink",
   pluginPaths?: string[],
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<SettingsSyncTaskImportResult> {
   const selectedPluginPaths = pluginPaths ? new Set(pluginPaths) : null;
-  const candidates = (await collectPluginImportCandidates(workspacePath)).filter(
+  const candidates = (await collectPluginImportCandidates(workspacePath, nativeDirectories)).filter(
     (candidate) =>
       candidate.agent === agent &&
       (!sourceScope || candidate.sourceRootScope === sourceScope) &&
@@ -2003,8 +2091,16 @@ async function importPluginsForAgent(
 
   for (const candidate of candidates) {
     const selectedTargetScope = targetScope ?? candidate.sourceRootScope;
-    const selectedTargetRoot = resolvePluginTargetRootForScope(selectedTargetScope, workspacePath);
-    const selectedConfigPath = resolvePluginConfigPathForScope(selectedTargetScope, workspacePath);
+    const selectedTargetRoot = resolvePluginTargetRootForScope(
+      selectedTargetScope,
+      workspacePath,
+      nativeDirectories,
+    );
+    const selectedConfigPath = resolvePluginConfigPathForScope(
+      selectedTargetScope,
+      workspacePath,
+      nativeDirectories,
+    );
     if (!selectedTargetRoot || !selectedConfigPath) {
       skippedCount += 1;
       pluginResults.push({
@@ -2027,6 +2123,7 @@ async function importPluginsForAgent(
       existingPluginIdsByConfigPath,
       workspacePath,
       selectedTargetScope,
+      nativeDirectories,
     );
     if (skipReason) {
       skippedCount += 1;
@@ -2097,6 +2194,7 @@ async function importMcpServersForAgent(
   sourceScope?: SettingsSyncSourceScope,
   targetScope?: SettingsSyncSourceScope,
   mcpServerPaths?: string[],
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<SettingsSyncTaskImportResult> {
   const selectedMcpServerPaths = mcpServerPaths ? new Set(mcpServerPaths) : null;
   const candidates = (await collectMcpImportCandidates(workspacePath)).filter(
@@ -2113,7 +2211,11 @@ async function importMcpServersForAgent(
 
   for (const candidate of candidates) {
     const selectedTargetScope = targetScope ?? candidate.sourceRootScope;
-    const selectedConfigPath = resolveMcpConfigPathForScope(selectedTargetScope, workspacePath);
+    const selectedConfigPath = resolveMcpConfigPathForScope(
+      selectedTargetScope,
+      workspacePath,
+      nativeDirectories,
+    );
     if (!selectedConfigPath) {
       skippedCount += 1;
       mcpServerResults.push({
@@ -2130,6 +2232,7 @@ async function importMcpServersForAgent(
       existingNameKeysByTargetScope,
       workspacePath,
       selectedTargetScope,
+      nativeDirectories,
     );
     if (skipReason) {
       skippedCount += 1;
@@ -2210,10 +2313,12 @@ function shouldScanMcpServers(request: {
   return request.intent === "manualImport" && request.categories?.includes("mcpServers") === true;
 }
 
-async function getClaudeAgentsFileMigrationStatus(): Promise<SettingsSyncClaudeAgentsFileMigrationStatus> {
+async function getClaudeAgentsFileMigrationStatus(
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<SettingsSyncClaudeAgentsFileMigrationStatus> {
   const sourcePath = getClaudeUserAgentsFileSourcePath();
   const sourceExists = await pathExists(sourcePath);
-  const targetPath = getUserZcodeAgentsFilePath();
+  const targetPath = getUserZcodeAgentsFilePath(nativeDirectories);
   const targetExists = await pathExists(targetPath);
 
   return {
@@ -2226,11 +2331,14 @@ async function getClaudeAgentsFileMigrationStatus(): Promise<SettingsSyncClaudeA
   };
 }
 
-async function copyClaudeAgentsFileToZcodeAgentsFile(params: {
-  overwrite?: boolean;
-}): Promise<SettingsSyncClaudeAgentsFileCopyResult> {
+async function copyClaudeAgentsFileToZcodeAgentsFile(
+  params: {
+    overwrite?: boolean;
+  },
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<SettingsSyncClaudeAgentsFileCopyResult> {
   const sourcePath = getClaudeUserAgentsFileSourcePath();
-  const targetPath = getUserZcodeAgentsFilePath();
+  const targetPath = getUserZcodeAgentsFilePath(nativeDirectories);
   const sourceExists = await pathExists(sourcePath);
   const targetExists = await pathExists(targetPath);
 
@@ -2280,15 +2388,18 @@ export function createSettingsSyncService(
     ): Promise<SettingsSyncClaudeAgentsFileMigrationStatus> {
       void request.workspaceIdentity;
       void request.workspacePath;
-      return getClaudeAgentsFileMigrationStatus();
+      return getClaudeAgentsFileMigrationStatus(dependencies.nativeDirectories);
     },
 
     async copyClaudeAgentsFileToZcodeAgentsFile(
       request = {},
     ): Promise<SettingsSyncClaudeAgentsFileCopyResult> {
-      const result = await copyClaudeAgentsFileToZcodeAgentsFile({
-        overwrite: request.overwrite,
-      });
+      const result = await copyClaudeAgentsFileToZcodeAgentsFile(
+        {
+          overwrite: request.overwrite,
+        },
+        dependencies.nativeDirectories,
+      );
       log.info("[settings-sync] Claude AGENTS.md migration completed", {
         workspacePath: request.workspacePath,
         workspaceIdentity: request.workspaceIdentity,
@@ -2303,16 +2414,16 @@ export function createSettingsSyncService(
 
     async detect(request): Promise<SettingsSyncDiscoveryResult> {
       if (shouldScanSkills(request)) {
-        return buildSkillsDiscovery(request.workspacePath);
+        return buildSkillsDiscovery(request.workspacePath, dependencies.nativeDirectories);
       }
       if (shouldScanCommands(request)) {
-        return buildCommandsDiscovery(request.workspacePath);
+        return buildCommandsDiscovery(request.workspacePath, dependencies.nativeDirectories);
       }
       if (shouldScanPlugins(request)) {
-        return buildPluginsDiscovery(request.workspacePath);
+        return buildPluginsDiscovery(request.workspacePath, dependencies.nativeDirectories);
       }
       if (shouldScanMcpServers(request)) {
-        return buildMcpDiscovery(request.workspacePath);
+        return buildMcpDiscovery(request.workspacePath, dependencies.nativeDirectories);
       }
       return buildEmptyDiscoveryResult();
     },
@@ -2333,6 +2444,7 @@ export function createSettingsSyncService(
               selection.targetScope,
               selection.importMode,
               selection.skillPaths,
+              dependencies.nativeDirectories,
             ),
           );
           continue;
@@ -2346,6 +2458,7 @@ export function createSettingsSyncService(
               selection.targetScope,
               selection.importMode,
               selection.commandPaths,
+              dependencies.nativeDirectories,
             ),
           );
           continue;
@@ -2359,6 +2472,7 @@ export function createSettingsSyncService(
               selection.targetScope,
               selection.importMode,
               selection.pluginPaths,
+              dependencies.nativeDirectories,
             ),
           );
           continue;
@@ -2371,6 +2485,7 @@ export function createSettingsSyncService(
               selection.sourceScope,
               selection.targetScope,
               selection.mcpServerPaths,
+              dependencies.nativeDirectories,
             ),
           );
           continue;

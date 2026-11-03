@@ -1,6 +1,11 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
+// XCODE: 会话库位置不变，仅从当前选中资源配置读取显式 sessionDbPath。
+import {
+  nativeUserConfigPath,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
 import { DatabaseSync } from "node:sqlite";
 
 /**
@@ -70,6 +75,7 @@ export interface ResolveAgentSessionDbPathOptions {
   homedirPath?: string;
   /** 默认 ~/.zcode/cli/config.json（CLI createConfig 的默认 user config 位置）。 */
   userConfigPath?: string;
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   readConfigFile?: (path: string) => Promise<string>;
 }
 
@@ -91,7 +97,8 @@ export async function resolveAgentSessionDbPath(
 
   // CLI createConfig 的默认 user config 位置在 home（~/.zcode/cli/config.json），
   // 与 App dataBaseDir 无关（评审三轮 CR-01 第 1 条，zcode-protocol-entrypoint 实证）。
-  const userConfigPath = options.userConfigPath ?? join(home, ".zcode", "cli", "config.json");
+  const userConfigPath =
+    options.userConfigPath ?? nativeUserConfigPath(home, options.nativeDirectories);
   let raw: string;
   try {
     raw = await readConfigFile(userConfigPath);

@@ -58,3 +58,8 @@ export {
 export * from "./packagedAccountOrigin.js";
 // XCODE: 应用内更新 manifest 改用 Aiscoo 账号服务同一 origin。
 export * from "./updateEndpoint.js";
+// XCODE: 原生资源策略与 App/CLI 运行时库存独立，Main 校验一次后供 MCP 与 Host 装配使用。
+export {
+  initializeDesktopNativeResourceDirectories,
+  getDesktopNativeResourceDirectories,
+} from "./nativeResourceDirectories.js";

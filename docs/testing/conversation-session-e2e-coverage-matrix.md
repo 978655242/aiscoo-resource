@@ -1,5 +1,33 @@
 # Conversation Session E2E Coverage Matrix
 
+## NCR 原生资源目录（2026-11-03，accepted / macOS 核心已验证，仍 pending 候选）
+
+产品规则已确认，NCR01–NCR07 见 [case catalog](../conversation-session-case-catalog.md) 与 [验证矩阵](../conversation-session-validation-matrix.md)。候选为 `packages/desktop/test/e2e/conversation-session/manual-review/pending/native-resource-directories.test.ts`，仅使用合成 HOME／项目／App 根。下方原用例表的 pending 表示候选生命周期，断言覆盖以本轮执行表为准；未晋升 formal、Docker 或 CI。
+
+2026-11-03 macOS Electron 两模式均为 1 passed／1 pending：默认 `.aiscoo` 的 [P 工件](../../packages/desktop/.e2e-artifacts/desktop-e2e-20261103-083456-703/native-resource-directories.json)，覆盖 `.native-e2e` 的 [O 工件](../../packages/desktop/.e2e-artifacts/desktop-e2e-20261103-083521-033/native-resource-directories.json)。两者 `corePassed=true`；独立 NCR05 只在当前 Main PID 的精确 RPC 门禁错误得到确认后 pending，不计通过。
+
+| Case | 本轮覆盖状态 | 已执行与未执行边界 |
+| --- | --- | --- |
+| NCR01 | partial（[P](../../packages/desktop/.e2e-artifacts/desktop-e2e-20261103-083456-703/native-resource-directories.json)／[O](../../packages/desktop/.e2e-artifacts/desktop-e2e-20261103-083521-033/native-resource-directories.json)） | Electron 产品／覆盖启动通过；通用、空白和非法输入另由 Node／CLI 入口回归覆盖，未逐一启动 Electron。 |
+| NCR02 | covered（[P](../../packages/desktop/.e2e-artifacts/desktop-e2e-20261103-083456-703/native-resource-directories.json)／[O](../../packages/desktop/.e2e-artifacts/desktop-e2e-20261103-083521-033/native-resource-directories.json)） | 新旧 canary、skills 合并、Host commands native 优先／空时 fallback／恢复、MCP 空 scope fallback 通过；CLI 自身规则另有 CLI 回归。 |
+| NCR03 | partial（[P](../../packages/desktop/.e2e-artifacts/desktop-e2e-20261103-083456-703/native-resource-directories.json)／[O](../../packages/desktop/.e2e-artifacts/desktop-e2e-20261103-083521-033/native-resource-directories.json)） | Main 用户／项目 MCP CRUD、启停和实际文件通过；Host、锁、trust 与过期摘要有补充隔离运行时验证，不把它算作完整 Electron 安全矩阵。 |
+| NCR04 | covered（[P](../../packages/desktop/.e2e-artifacts/desktop-e2e-20261103-083456-703/native-resource-directories.json)／[O](../../packages/desktop/.e2e-artifacts/desktop-e2e-20261103-083521-033/native-resource-directories.json)） | AGENTS 编辑、技能／命令真实刷新及首轮／冷恢复后的实际 Agent 请求来源通过，旧 marker 不进入请求。 |
+| NCR05 | UI blocked / pending（[P](../../packages/desktop/.e2e-artifacts/desktop-e2e-20261103-083456-703/native-resource-directories.json)／[O](../../packages/desktop/.e2e-artifacts/desktop-e2e-20261103-083521-033/native-resource-directories.json)） | 已确认 `AISCOO_OFFICIAL_CLOUD_UNAVAILABLE`；完整 UI watch/save/run 未执行，后端保存库 CLI 回归不代替 UI 证据。 |
+| NCR06 | partial（[P](../../packages/desktop/.e2e-artifacts/desktop-e2e-20261103-083456-703/native-resource-directories.json)／[O](../../packages/desktop/.e2e-artifacts/desktop-e2e-20261103-083521-033/native-resource-directories.json)） | settings、sidecar、DB 路径／inode、原消息及伪库存排除通过；未逐项断言全部 log/session/cache 文件。 |
+| NCR07 | covered（[P](../../packages/desktop/.e2e-artifacts/desktop-e2e-20261103-083456-703/native-resource-directories.json)／[O](../../packages/desktop/.e2e-artifacts/desktop-e2e-20261103-083521-033/native-resource-directories.json)） | 完整退出屏障、新 Main PID、相同 DB／原消息、相同 session 续聊、重启策略及第二轮真实请求来源通过。 |
+
+以上是本地可审阅工件；Windows／Linux、SSH／WSL／Docker 与手机未实机执行。
+
+| Case  | 覆盖目标                                                                                                                     | 状态／证据                                                                                                                                  |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| NCR01 | 产品／通用默认、空白／显式覆盖和非法名称                                                                                     | pending                                                                                                                                     |
+| NCR02 | 新旧 native canary；用户 skills 合并、Host commands 同 scope native 优先／空时 .agents fallback及恢复、CLI commands 既有规则 | pending                                                                                                                                     |
+| NCR03 | Main／Host MCP 配置读写、scope 与安全边界                                                                                    | pending                                                                                                                                     |
+| NCR04 | 用户指令、技能、命令的编辑／发现／真实请求来源；技能／命令沿用初始化与真实 UI 显式刷新，不新增自动监听                       | pending                                                                                                                                     |
+| NCR05 | 独立 it 保留全局／项目工作流完整 watch/save/run；真实产品 UI 可用时执行；核心 NCR01–04/06/07 独立执行                        | UI blocked / pending：AISCOO_OFFICIAL_CLOUD_UNAVAILABLE（既有 Aiscoo 官方云策略），不计 covered；后端 saved-workflow-library CLI 回归仍有效 |
+| NCR06 | App 设置／绑定／DB／日志／插件库存路径保持                                                                                   | pending                                                                                                                                     |
+| NCR07 | 完整冷重启后原会话续聊与策略保持                                                                                             | pending                                                                                                                                     |
+
 ## 会话 ID 兼容 SID（2026-10-28）
 
 SID01–SID05 已接受，候选：

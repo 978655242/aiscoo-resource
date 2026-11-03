@@ -33,6 +33,8 @@ function createPluginFacade(options: CreatePluginFacadeOptions): PluginFacade {
   let suppressedBuiltins = [...options.configResult.config.plugins.suppressedBuiltins];
   const commonOptions = () => ({
     configResult: currentConfigResult(options.configResult, enabledPlugins, suppressedBuiltins),
+    // XCODE: 刷新插件配置保留启动目录快照，库存根单独注入。
+    nativeDirectories: options.configResult.nativeDirectories,
     env: options.env,
     officialPluginRoots: options.officialPluginRoots,
     pluginStorageRoot: options.pluginStorageRoot,

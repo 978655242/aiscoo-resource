@@ -1,3 +1,5 @@
+// XCODE: 同步枚举、安全检查与落盘复用当前 Host 的原生资源策略。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
 import { createHash } from "node:crypto";
 import { dirname } from "node:path";
 import type {
@@ -38,8 +40,10 @@ interface ResolvedUserMcp {
 }
 
 /** 按小写 server name 对齐；同 key 保留第一项。 */
-async function resolveUserMcp(): Promise<ResolvedUserMcp> {
-  const records = await collectEffectiveUserMcpRecords();
+async function resolveUserMcp(
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<ResolvedUserMcp> {
+  const records = await collectEffectiveUserMcpRecords(nativeDirectories);
   const byKey = new Map<string, UserMcpRecord>();
   for (const record of records) {
     const key = normalizeMcpNameKey(record.name);
@@ -100,10 +104,12 @@ function applyImportItem(
 }
 
 /** MCP 分类的数据同步方法，由 createMcpSyncService 组合进 mcp-sync 通道（两端同一实现）。 */
-export function createMcpDataSyncMethods(): IDataSyncCategoryService<McpDataSyncPayload> {
+export function createMcpDataSyncMethods(
+  options: { nativeDirectories?: NativeResourceDirectoryPolicy } = {},
+): IDataSyncCategoryService<McpDataSyncPayload> {
   return {
     async listSyncItems() {
-      const { byKey, usesCompatConfig } = await resolveUserMcp();
+      const { byKey, usesCompatConfig } = await resolveUserMcp(options.nativeDirectories);
       return {
         // 不在 list 中返回哈希：来源端要按目标端 home 改写后才能比较，见 getSyncContentHashes。
         items: [...byKey].map(([key, record]) => ({
@@ -117,7 +123,7 @@ export function createMcpDataSyncMethods(): IDataSyncCategoryService<McpDataSync
     },
 
     async getSyncContentHashes(params) {
-      const { byKey } = await resolveUserMcp();
+      const { byKey } = await resolveUserMcp(options.nativeDirectories);
       const sourceHomeDir = resolveUserHomeDir();
       const hashes: Record<string, string> = {};
       for (const key of params.keys) {
@@ -138,11 +144,13 @@ export function createMcpDataSyncMethods(): IDataSyncCategoryService<McpDataSync
     },
 
     async checkSyncWriteAccess() {
-      return await checkRemoteSyncDirectoryWriteAccess(dirname(getUserZcodeMcpConfigPath()));
+      return await checkRemoteSyncDirectoryWriteAccess(
+        dirname(getUserZcodeMcpConfigPath(options.nativeDirectories)),
+      );
     },
 
     async exportSyncItems(params) {
-      const { byKey } = await resolveUserMcp();
+      const { byKey } = await resolveUserMcp(options.nativeDirectories);
       return {
         sourceHomeDir: resolveUserHomeDir(),
         // 只有带项目上下文的入口才传；目标端两者都有时才做 workspace 改写。
@@ -171,7 +179,8 @@ export function createMcpDataSyncMethods(): IDataSyncCategoryService<McpDataSync
       });
       try {
         // 远端只在使用 ~/.agents 兼容配置时，写入 .zcode 会让它整体失效：整类拒绝。
-        if ((await resolveUserMcp()).usesCompatConfig) return failAll(COMPAT_CONFIG_ERROR);
+        if ((await resolveUserMcp(options.nativeDirectories)).usesCompatConfig)
+          return failAll(COMPAT_CONFIG_ERROR);
         const payloadByKey = new Map(params.payload.items.map((item) => [item.key, item]));
         const paths: McpPathRewrite = {
           sourceHomeDir: params.payload.sourceHomeDir,
@@ -181,16 +190,19 @@ export function createMcpDataSyncMethods(): IDataSyncCategoryService<McpDataSync
         };
         let results: DataSyncImportResultItem[] = [];
         // 写前重读 → 只改选中的 server → 原子替换（0600）；文件损坏时抛错，不写入。
-        await updateJsonObjectFile(getUserZcodeMcpConfigPath(), (config) => {
-          const servers = { ...readZcodeServerMap(config) };
-          results = params.items.map((item) =>
-            applyImportItem(servers, item, payloadByKey.get(item.key), paths),
-          );
-          const changed = results.some(
-            (result) => result.status === "created" || result.status === "updated",
-          );
-          return changed ? writeZcodeServerMap(config, servers) : config;
-        });
+        await updateJsonObjectFile(
+          getUserZcodeMcpConfigPath(options.nativeDirectories),
+          (config) => {
+            const servers = { ...readZcodeServerMap(config) };
+            results = params.items.map((item) =>
+              applyImportItem(servers, item, payloadByKey.get(item.key), paths),
+            );
+            const changed = results.some(
+              (result) => result.status === "created" || result.status === "updated",
+            );
+            return changed ? writeZcodeServerMap(config, servers) : config;
+          },
+        );
         return { results };
       } catch (error) {
         return failAll(errorMessage(error));

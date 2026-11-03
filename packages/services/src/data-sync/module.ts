@@ -4,7 +4,8 @@
  */
 export const dataSyncServiceModule = {
   id: "data-sync-service",
-  requires: ["services", "shared"],
+  // XCODE: 同步资源通过公共目录策略解析，清单显式追加依赖。
+  requires: ["services", "shared", "native-resource-directories"],
   provides: ["data-sync-category-service", "device-sync-state-service", "user-config-sync-service"],
   publicEntrypoints: ["index.ts", "contract.ts", "node.ts"],
 } as const;

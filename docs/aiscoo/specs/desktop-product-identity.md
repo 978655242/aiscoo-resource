@@ -98,6 +98,14 @@ sequenceDiagram
   H->>P: 清空→原 updateDataBaseDir(C)，一次提交与通知
 ```
 
+## 原生资源目录（2026-11-03）
+
+Aiscoo 的原生用户／项目资源目录由产品配置默认 `.aiscoo`，启动时可通过 `ZCODE_NATIVE_RESOURCE_DIR_NAME` 覆盖。通用上游默认仍为 `.zcode`。完整合同见 [Native Resource Directories](../../../apps/zcode-cli/docs/design/v2/native-resource-directories.md)。
+
+该策略只影响配置与资源发现／读写：用户 CLI 配置、AGENTS、skills、commands、agents、保存的 workflows、inline 插件资源和相关信任记录。`.agents` 等通用目录仍按原规则读取。环境变量空白视为未配置，非法目录名在资源初始化前明确失败；改变后完整重启生效。
+
+App 的 C／D／B、固定 settings 与 sidecar、HOME、Application Support 内部 `.zcode/v2` 和 CLI DB／日志／插件库存／缓存完全保持原路径。Host 的插件派生资源必须读取与 CLI 相同的运行时插件库，同时从新资源文件读取启停配置。旧原生资源不自动搬迁或合并，显式绝对路径不重写。
+
 ## 验收
 
 1. 身份工程回归：三个渠道 appId/scheme/dataName 成对唯一，打包和运行时一致，通用未注入配置仍使用上游值。

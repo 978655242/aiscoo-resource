@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { BUILTIN_PROVIDER_TEMPLATE_IDS } from "@zcode/shared";
 import { getDefaultConfigPath } from "@zcode/adapters/config";
+// XCODE: 仅导入选中资源域内的旧配置，不跨旧原生根迁移。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
 import {
   parseLegacyCliModelConfig,
   type LegacyCliModelConfigProjection,
@@ -138,8 +140,9 @@ export function importLegacyCliPersonalProviderConfig(
 
 export async function readLegacyCliPersonalProviderConfig(input: {
   readonly filePath?: string;
+  readonly nativeDirectories?: NativeResourceDirectoryPolicy;
 }): Promise<ProviderConfigLayerUpdate | null> {
-  const filePath = input.filePath ?? getDefaultConfigPath();
+  const filePath = input.filePath ?? getDefaultConfigPath(input.nativeDirectories);
   try {
     const raw = JSON.parse(await readFile(filePath, "utf8")) as unknown;
     return importLegacyCliPersonalProviderConfig({ input: raw });

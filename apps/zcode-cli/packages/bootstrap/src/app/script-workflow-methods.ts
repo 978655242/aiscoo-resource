@@ -34,6 +34,8 @@ export function createScriptWorkflowBridge(deps: ScriptWorkflowBridgeDeps): Scri
     return runtime;
   };
   const workflowPort = createScriptWorkflowToolPort({
+    // XCODE: legacy workflow 名称查询复用父入口策略。
+    nativeDirectories: deps.appOptions.nativeDirectories,
     fileSystemPort: deps.fileSystemPort,
     getRuntime,
     logger: deps.logger,

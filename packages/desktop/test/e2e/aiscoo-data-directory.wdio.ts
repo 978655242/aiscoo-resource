@@ -6,6 +6,12 @@ import { FileSystemPathService } from "@wdio/config/node";
 const desktopDir = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const home = process.env.AISCOO_E2E_STORAGE_HOME?.trim();
 const mode = process.env.AISCOO_E2E_STORAGE_MODE ?? "new";
+// XCODE: 复用已隔离的 HOME/App 根与完整退出屏障，资源验收不改变运行时库存根。
+const nativeMode = process.env.AISCOO_E2E_NATIVE_MODE?.trim();
+if (nativeMode && !["product", "override"].includes(nativeMode)) {
+  throw new Error("Native resource acceptance requires product|override mode");
+}
+const nativeDirectoryName = nativeMode === "override" ? ".native-e2e" : ".aiscoo";
 if (
   !home ||
   !isAbsolute(home) ||
@@ -19,7 +25,9 @@ if (process.env.ZCODE_E2E_SKIP_BUILD !== "1" || process.env.ZCODE_E2E_SKIP_AGENT
 }
 const channel = join(home, "channel");
 const legacy = join(home, "legacy");
-const spec = "./test/e2e/conversation-session/manual-review/pending/aiscoo-data-directory.test.ts";
+const spec = nativeMode
+  ? "./test/e2e/conversation-session/manual-review/pending/native-resource-directories.test.ts"
+  : "./test/e2e/conversation-session/manual-review/pending/aiscoo-data-directory.test.ts";
 process.env.HOME = home;
 process.env.USERPROFILE = home;
 process.env.ZCODE_E2E_HOME_DIR = channel;
@@ -29,7 +37,12 @@ process.env.ZCODE_E2E_KEEP_HOME_ON_FAIL = "1";
 process.env.E2E_PROVIDER_HTTP_MODE = "replay";
 process.env.E2E_PROVIDER_REPLAY_FIXTURE_PATH = [
   join(desktopDir, "test/e2e/fixtures/upstream/common.json"),
-  join(desktopDir, "test/e2e/fixtures/upstream/conversation-session/aiscoo-data-directory.json"),
+  join(
+    desktopDir,
+    nativeMode
+      ? "test/e2e/fixtures/upstream/conversation-session/native-resource-directories.json"
+      : "test/e2e/fixtures/upstream/conversation-session/aiscoo-data-directory.json",
+  ),
 ].join(",");
 
 // 上游 reporter 依赖 CJS named exports；复用 WDIO 自带兼容加载器，避免整个带顶层 await 的 wrapper 被 jiti 重译。
@@ -66,6 +79,7 @@ export const config: WebdriverIO.Config = {
     ZCODE_DESKTOP_HOME_DIR: home,
     AISCOO_E2E_STORAGE_HOME: home,
     AISCOO_E2E_STORAGE_MODE: mode,
+    ...(nativeMode ? { AISCOO_E2E_NATIVE_MODE: nativeMode } : {}),
   },
   async beforeSession(workerConfig, capabilities, specs, cid) {
     await beforeSession.call(this, workerConfig, capabilities, specs, cid);
@@ -73,6 +87,18 @@ export const config: WebdriverIO.Config = {
     process.env.AISCOO_E2E_ACCOUNT_ORIGIN = account.origin;
     const appDir = join(channel, ".zcode/v2");
     await account.seed(join(appDir, "credentials.json"));
+    if (nativeMode) {
+      const { nativeResourceAcceptancePaths, seedNativeResourceAcceptance } =
+        await import("./helpers/native-resource-directories.js");
+      await seedNativeResourceAcceptance(
+        nativeResourceAcceptancePaths(
+          home,
+          channel,
+          join(channel, "ZCodeProject"),
+          nativeDirectoryName,
+        ),
+      );
+    }
     if (mode === "legacy") {
       const settingsFile = join(appDir, "setting.json");
       const settings = JSON.parse(await readFile(settingsFile, "utf8"));
@@ -103,7 +129,11 @@ export const config: WebdriverIO.Config = {
           ZCODE_DESKTOP_HOME_DIR: home,
           ZCODE_DATA_BASE_DIR: channel,
           AISCOO_ADMIN_BASE_URL: account.origin,
+          ...(nativeMode === "override"
+            ? { ZCODE_NATIVE_RESOURCE_DIR_NAME: nativeDirectoryName }
+            : {}),
         })});`,
+        ...(nativeMode === "product" ? ["delete process.env.ZCODE_NATIVE_RESOURCE_DIR_NAME;"] : []),
         `for (const key of ${JSON.stringify([
           "ZCODE_STORAGE_DIR",
           "ZCODE_SESSION_DB_PATH",

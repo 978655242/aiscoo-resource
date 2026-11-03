@@ -1,5 +1,10 @@
 import { open, mkdir, readFile, rename, rm } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
+// XCODE: 稳定来源标签不充当实际目录，写入校验与发现共用原生资源策略。
+import {
+  getNativeResourceDirectoryName,
+  type NativeResourceDirectoryPolicy,
+} from "./native-resource-directories/index.js";
 import type { WorkspaceHookBundleSnapshotData } from "./workspace-hook-digest.js";
 import { createWorkspaceHookDeclarationDigest } from "./workspace-hook-digest.js";
 import {
@@ -60,6 +65,7 @@ export async function atomicWriteWorkspaceHookConfig(
 
 export async function writeWorkspaceHookConfiguredToggle(input: {
   configPath: string;
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   snapshot: WorkspaceHookBundleSnapshotData;
   reviewItemId: string;
   enabled: boolean;
@@ -72,6 +78,8 @@ export async function writeWorkspaceHookConfiguredToggle(input: {
     !entry ||
     !entry.editable ||
     !source?.editable ||
+    basename(dirname(configPath)) !== getNativeResourceDirectoryName(input.nativeDirectories) ||
+    basename(configPath) !== "config.json" ||
     source.configFileKind !== ".zcode/config.json" ||
     resolve(source.canonicalPath) !== configPath
   ) {

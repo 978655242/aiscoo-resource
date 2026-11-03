@@ -7,10 +7,15 @@ const COMMANDS_DIR = "commands";
 const GIT_MARKER = ".git";
 const HOME_PREFIX = "~/";
 const PRIORITY_STEP = 10;
-const ZCODE_DIR = ".zcode";
+// XCODE: 原生根消费已解析策略；.agents 来源、命名空间和合并优先级保持。
+import {
+  getNativeResourceDirectoryName,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories";
 const AGENTS_DIR = ".agents";
 
 export interface CustomCommandRootResolutionOptions {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   additionalDirectories?: readonly string[];
   extraRoots?: string[];
   extraResolvedRoots?: CustomCommandRoot[];
@@ -44,13 +49,15 @@ export async function resolveDefaultCustomCommandRoots(
   }
 
   if (includeZcode) {
-    roots.push(...commandRootsForBase(home, "user", nextPriority));
+    roots.push(...commandRootsForBase(home, "user", nextPriority, options.nativeDirectories));
   }
 
   const projectDirectories = await resolveProjectDirectories(resolvedWorkingDirectory);
   for (const directory of projectDirectories) {
     if (includeZcode) {
-      roots.push(...commandRootsForBase(directory, "project", nextPriority));
+      roots.push(
+        ...commandRootsForBase(directory, "project", nextPriority, options.nativeDirectories),
+      );
     }
   }
 
@@ -59,10 +66,12 @@ export async function resolveDefaultCustomCommandRoots(
   )) {
     if (directory === resolvedWorkingDirectory) continue;
     roots.push(
-      ...commandRootsForBase(directory, "project", nextPriority).map((item) => ({
-        ...item,
-        namespace: basename(directory),
-      })),
+      ...commandRootsForBase(directory, "project", nextPriority, options.nativeDirectories).map(
+        (item) => ({
+          ...item,
+          namespace: basename(directory),
+        }),
+      ),
     );
   }
 
@@ -108,11 +117,17 @@ function commandRootsForBase(
   baseDirectory: string,
   scope: CustomCommandRoot["scope"],
   nextPriority: () => number,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): CustomCommandRoot[] {
   // 合并而不是 fallback：兼容 `.agents` 命令和原生 `.zcode` 命令需要同时可见。
   // 同一级别 `.zcode` 先扫描，命令同名时仍按“先到先赢”处理。
   return [
-    root(join(baseDirectory, ZCODE_DIR, COMMANDS_DIR), scope, "zcode", nextPriority()),
+    root(
+      join(baseDirectory, getNativeResourceDirectoryName(nativeDirectories), COMMANDS_DIR),
+      scope,
+      "zcode",
+      nextPriority(),
+    ),
     root(join(baseDirectory, AGENTS_DIR, COMMANDS_DIR), scope, "agents", nextPriority()),
   ];
 }

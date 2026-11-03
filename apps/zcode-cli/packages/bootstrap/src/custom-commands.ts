@@ -1,3 +1,8 @@
+// XCODE: 管理入口固定原生资源策略，并与运行时插件库存根分离。
+import {
+  resolveNativeResourceDirectoryPolicy,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories";
 import { resolve } from "node:path";
 import { createConfig } from "@zcode/adapters/config";
 import { createNodeCustomCommandAdapter } from "@zcode/adapters/commands";
@@ -11,6 +16,8 @@ import { resolveZCodePlugins } from "./plugins.js";
 import { collectDisabledPaths } from "./skill-command-overrides.js";
 
 export interface ListZCodeCustomCommandsOptions {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
+  pluginStorageRoot?: string;
   env?: NodeJS.ProcessEnv;
   homeDirectory?: string;
   logger?: Logger;
@@ -71,8 +78,15 @@ export async function loadZCodeCustomCommand(
 }
 
 function createCustomCommandDiscovery(options: ListZCodeCustomCommandsOptions) {
+  options = {
+    ...options,
+    nativeDirectories:
+      options.nativeDirectories ??
+      resolveNativeResourceDirectoryPolicy({ env: options.env ?? process.env }),
+  };
   const workingDirectory = resolve(options.workingDirectory ?? process.cwd());
   const configResult = createConfig({
+    nativeDirectories: options.nativeDirectories,
     env: options.env,
     projectConfigPath: options.projectConfigPath,
     workingDirectory,
@@ -81,6 +95,8 @@ function createCustomCommandDiscovery(options: ListZCodeCustomCommandsOptions) {
   });
   const pluginOutcome = resolveZCodePlugins({
     configResult,
+    pluginStorageRoot: options.pluginStorageRoot,
+    nativeDirectories: options.nativeDirectories,
     env: options.env,
     logger: options.logger,
     projectConfigPath: options.projectConfigPath,
@@ -90,6 +106,7 @@ function createCustomCommandDiscovery(options: ListZCodeCustomCommandsOptions) {
   });
   return {
     adapter: createNodeCustomCommandAdapter({
+      nativeDirectories: options.nativeDirectories,
       extraResolvedRoots: pluginOutcome.commandRoots,
       disabledPaths: collectDisabledPaths(configResult.config.commandOverrides),
       homeDirectory: options.homeDirectory,

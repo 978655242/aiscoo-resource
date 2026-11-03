@@ -211,6 +211,8 @@ export function useWorkflowRunSaveSlots(host: WorkflowRunSaveSlotsHost): Workflo
           saving: controller.saving,
           save: controller.save,
           checkNameTaken: controller.checkNameTaken,
+          // XCODE: 落点预览与实际保存从同一目标服务取得。
+          resolveSaveDirectory: controller.resolveSaveDirectory,
           ...(leadHandler === undefined ? {} : { sendLead: leadHandler }),
           onSaved: (saved) => {
             setAnnouncement(

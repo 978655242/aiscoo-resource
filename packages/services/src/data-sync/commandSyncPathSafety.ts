@@ -1,3 +1,7 @@
+import {
+  nativeUserResourcePath,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
 import { lstat } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 import { isPathWithin } from "./directoryContent.js";
@@ -10,9 +14,10 @@ import { isPathWithin } from "./directoryContent.js";
 export async function assertCommandSyncDestination(
   homeDirectory: string,
   targetPath: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<void> {
   const home = resolve(homeDirectory);
-  const root = join(home, ".zcode", "commands");
+  const root = nativeUserResourcePath(home, nativeDirectories, "commands");
   const target = resolve(targetPath);
   if (!isPathWithin(root, target)) {
     throw new Error(`target command is outside the command root: ${targetPath}`);

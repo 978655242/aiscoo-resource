@@ -8,6 +8,12 @@ import {
 } from "@zcode/shared/workspace-hook-discovery";
 import { loadFileConfig, type LoadedConfig } from "./file-config.adapter.js";
 
+// XCODE: 复用既有项目发现顺序，仅注入原生目录及其 baseDir 归属。
+import {
+  getNativeResourceDirectoryName,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories";
+
 const CURRENT_DIRECTORY = ".";
 
 export interface ProjectConfigFile {
@@ -31,16 +37,19 @@ export interface ProjectConfigDiscovery {
 export function loadProjectConfigs(
   workingDirectory?: string,
   explicitProjectConfigPath?: string,
+  options: { nativeDirectories?: NativeResourceDirectoryPolicy } = {},
 ): ProjectConfigDiscovery {
   const resolvedWorkingDirectory = resolve(workingDirectory ?? process.cwd());
   const files = discoverWorkspaceHookConfigPaths({
     workingDirectory: resolvedWorkingDirectory,
+    nativeDirectories: options.nativeDirectories,
     ...(explicitProjectConfigPath ? { explicitProjectConfigPath } : {}),
   }).map((ref, discoveryOrder) =>
     loadProjectConfigFile(ref.path, {
       discoveryOrder,
       explicitProjectConfig: ref.explicitProjectConfig,
       workingDirectory: resolvedWorkingDirectory,
+      nativeDirectories: options.nativeDirectories,
     }),
   );
 
@@ -53,10 +62,11 @@ export function loadProjectConfigFile(
     discoveryOrder?: number;
     explicitProjectConfig?: boolean;
     workingDirectory?: string;
+    nativeDirectories?: NativeResourceDirectoryPolicy;
   } = {},
 ): ProjectConfigFile {
   const result = loadFileConfig(path, { scope: "project" });
-  const baseDir = getProjectConfigBaseDir(result.path);
+  const baseDir = getProjectConfigBaseDir(result.path, options.nativeDirectories);
   const diagnostics = [...result.diagnostics];
   const hooks = result.loaded ? result.config.hooks : undefined;
 
@@ -78,6 +88,7 @@ export function loadProjectConfigFile(
       ? {
           hookCandidate: createWorkspaceHookSourceInput({
             path: result.path,
+            nativeDirectories: options.nativeDirectories,
             workingDirectory: resolve(options.workingDirectory ?? baseDir),
             // hooks 字段已由 loadFileConfig 经 ZCodeConfigFileSchema（shared 单源
             // schema）完成运行时校验；这里的 parse 仅做类型桥接——HooksRuntimeConfigPatch
@@ -114,9 +125,17 @@ export function summarizeProjectConfigs(files: ProjectConfigFile[]): ProjectConf
   };
 }
 
-function getProjectConfigBaseDir(path: string): string {
+function getProjectConfigBaseDir(
+  path: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): string {
   const configDirectory = dirname(path);
-  return basename(configDirectory) === ".zcode" ? dirname(configDirectory) : configDirectory;
+  // XCODE: 显式旧 .zcode 文件保留原 baseDir；自动发现仍只扫描选定原生根。
+  return [".zcode", getNativeResourceDirectoryName(nativeDirectories)].includes(
+    basename(configDirectory),
+  )
+    ? dirname(configDirectory)
+    : configDirectory;
 }
 
 function normalizeProjectConfig(config: RuntimeConfigPatch, baseDir: string): RuntimeConfigPatch {

@@ -14,6 +14,8 @@ import { setZenKeyringModuleLoader } from "@zcode/adapters/auth";
 import { loadCliKeyringModule } from "../sea-keyring/index.js";
 import { parseSlashCommand } from "../command-center/slash-commands.js";
 import { withAiscooTuiCommandCenter } from "./tui-zen.js";
+import { getAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
+import { NATIVE_RESOURCE_DIRECTORY_ENV, resolveNativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
 
 // 撤销请求本身有 15 秒 HTTP 期限；给补偿留出完成时间，超时仍退出不挂起终端。
 const ZEN_LOGIN_SHUTDOWN_TIMEOUT_MS = 16_000;
@@ -68,6 +70,14 @@ function withHelpAppended(ctx: RunContext, text: string): RunContext {
 export async function runAiscoo(ctx: RunContext, deps: AiscooRunDependencies = {}): Promise<number> {
   // Zen 安全存储在 SEA 中从内嵌资源加载原生钥匙串绑定；普通 bundle 仍走 node_modules。
   // 放在所有命令前：TUI、--prompt 与 login/logout zen 都可能读取 Zen 凭据。
+  // 原生资源只选产品默认，不改变运行时 storage、Provider 配置与 HOME。
+  try {
+    const nativeDirectories = deps.nativeDirectories ?? resolveNativeResourceDirectoryPolicy({ env: deps.env ?? process.env, productDirectoryName: getAiscooDesktopIdentity("production").nativeResourceDirectoryName });
+    deps = { ...deps, nativeDirectories, env: { ...(deps.env ?? process.env), [NATIVE_RESOURCE_DIRECTORY_ENV]: nativeDirectories.directoryName } };
+  } catch (error) {
+    ctx.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    return 1;
+  }
   setZenKeyringModuleLoader(() => loadCliKeyringModule());
   const invocation = parseZenInvocation(ctx.argv);
   // 产品依赖固定拒绝官方 polling；通用 run 和第三方 MCP OAuth 实现保持原样。

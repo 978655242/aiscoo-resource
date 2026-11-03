@@ -1,3 +1,5 @@
+// XCODE: 独立会话索引入口解析资源策略，运行时数据库路径保持配置语义。
+import { resolveNativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
 import { createConfig } from "@zcode/adapters/config";
 import { openStartupSqliteSessionStore } from "@zcode/adapters/storage";
 import type { SessionInfo } from "@zcode/contracts";
@@ -10,7 +12,12 @@ export async function resolveLatestSession(
   const ownsStore = options.sessionStore === undefined;
   let sessionStore = options.sessionStore;
   if (!sessionStore) {
-    const configResult = createConfig({ env: options.env });
+    const configResult = createConfig({
+      env: options.env,
+      nativeDirectories:
+        options.nativeDirectories ??
+        resolveNativeResourceDirectoryPolicy({ env: options.env ?? process.env }),
+    });
     sessionStore = await openStartupSqliteSessionStore({ dbPath: getSessionDbPath(configResult) });
   }
 
@@ -34,7 +41,12 @@ export async function listZCodeSessions(
   const ownsStore = options.sessionStore === undefined;
   let sessionStore = options.sessionStore;
   if (!sessionStore) {
-    const configResult = createConfig({ env: options.env });
+    const configResult = createConfig({
+      env: options.env,
+      nativeDirectories:
+        options.nativeDirectories ??
+        resolveNativeResourceDirectoryPolicy({ env: options.env ?? process.env }),
+    });
     sessionStore = await openStartupSqliteSessionStore({ dbPath: getSessionDbPath(configResult) });
   }
 

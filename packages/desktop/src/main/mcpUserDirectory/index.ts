@@ -16,6 +16,12 @@ import type {
   SaveCliMcpToUserDirectoryRequest,
 } from "@zcode/shared";
 import { readJsonObjectFileForUpdate, updateJsonObjectFile } from "@zcode/services/node";
+// XCODE: Main 的 MCP 读写、scope 和锁路径都从入口已校验的同一资源策略派生。
+import {
+  nativeProjectConfigPath,
+  nativeUserConfigPath,
+} from "@zcode/shared/native-resource-directories/node";
+import { getDesktopNativeResourceDirectories } from "../../aiscoo-desktop-identity/index.js";
 import type { McpConfigKeyName } from "./types.js";
 import { isRecord } from "./utils.js";
 import { migrateLegacyCommonMcp } from "./legacy.js";
@@ -39,8 +45,9 @@ interface DirectoryMcpDescriptor {
 const ZCODE_MCP_DESCRIPTOR: DirectoryMcpDescriptor = {
   source: "zcodeagentmcp",
   directorySource: "zcode",
-  userConfigDirSegments: [".zcode", "cli"],
-  workspaceConfigDirSegments: [".zcode"],
+  // XCODE: stable source 标签保留；实际 native 路径由 buildDirectoryConfigPath 使用启动策略生成。
+  userConfigDirSegments: [],
+  workspaceConfigDirSegments: [],
   fileName: "config.json",
   format: "json",
   configKeyName: "mcp.servers",
@@ -81,6 +88,13 @@ function buildDirectoryConfigPath(
     throw new Error(
       `Missing workspace path for ${descriptor.directorySource} workspace MCP config`,
     );
+  }
+  // XCODE: native 全部读写共用此路径，.agents 的空 scope fallback 仍走原描述符。
+  if (descriptor.directorySource === "zcode") {
+    const policy = getDesktopNativeResourceDirectories();
+    return scope === "user"
+      ? nativeUserConfigPath(baseDir, policy)
+      : nativeProjectConfigPath(baseDir, policy);
   }
   const segments =
     scope === "user" ? descriptor.userConfigDirSegments : descriptor.workspaceConfigDirSegments;
@@ -351,7 +365,7 @@ async function readDirectoryServersFromPreferredSources(
     scope,
     workspacePath,
   );
-  // `.zcode` 是强优先级来源；只要读到 MCP server，同 scope 的 `.agents` 就不再参与。
+  // XCODE: 当前 native 根保持强优先级；只要读到 MCP server，同 scope 的 `.agents` 就不再参与。
   if (zcodeServers.length > 0) {
     return zcodeServers;
   }

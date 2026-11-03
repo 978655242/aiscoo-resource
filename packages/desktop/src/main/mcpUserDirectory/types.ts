@@ -3,6 +3,8 @@
  */
 
 import type { CliMcpSource, McpFileFormat } from "@zcode/shared";
+// XCODE: 描述符也消费 Main 的启动策略，不能把 stable source 标签当作实际目录。
+import { getDesktopNativeResourceDirectories } from "../../aiscoo-desktop-identity/index.js";
 
 /**
  * MCP 配置键名类型
@@ -37,7 +39,10 @@ export interface McpSourceDescriptor {
 export const MCP_SOURCE_DESCRIPTORS: McpSourceDescriptor[] = [
   {
     source: "zcodeagentmcp",
-    configDirSegments: [".zcode", "cli"],
+    // XCODE: 延迟到资源入口已初始化之后读取，同一描述符的 load/save 保持一致。
+    get configDirSegments() {
+      return [getDesktopNativeResourceDirectories().directoryName, "cli"];
+    },
     fileName: "config.json",
     format: "json",
     configKeyName: "mcp.servers",

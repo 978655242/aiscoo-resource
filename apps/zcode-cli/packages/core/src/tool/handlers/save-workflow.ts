@@ -53,6 +53,9 @@ import { readWorkflowScriptFile } from "./workflow-path-source.js";
 import { analyzeScript } from "./workflow-script-analysis.js";
 import { requireDynamicWorkflowSkill } from "./workflow-skill-gate.js";
 
+// XCODE: 审批路径、覆盖检测和写库共用原生资源策略。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
+
 const SAVE_WORKFLOW_TIMEOUT_MS = 15_000;
 const SAVE_WORKFLOW_MODEL_BYTES = 24_000;
 const SAVE_WORKFLOW_FAILURE_CODE = 400;
@@ -124,6 +127,7 @@ function validateSaveWorkflowInput(input: unknown): ToolInputValidationResult {
 async function resolveSaveWorkflowInput(
   input: unknown,
   cwd: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<ToolInputResolutionResult> {
   const parsed = SaveWorkflowInputSchema.safeParse(input);
   if (!parsed.success) return { result: true, input };
@@ -140,14 +144,14 @@ async function resolveSaveWorkflowInput(
   }
 
   const { scope, name } = parsed.data;
-  const shadowing = findSavedWorkflowShadowing({ cwd, name, scope });
+  const shadowing = findSavedWorkflowShadowing({ cwd, name, scope, nativeDirectories });
   return {
     result: true,
     input: {
       ...parsed.data,
       ...(script === undefined ? {} : { script }),
-      path: savedWorkflowPath(savedWorkflowRoot(cwd, scope), name),
-      overwrite: savedWorkflowExists({ cwd, name, scope }),
+      path: savedWorkflowPath(savedWorkflowRoot(cwd, scope, { nativeDirectories }), name),
+      overwrite: savedWorkflowExists({ cwd, name, scope, nativeDirectories }),
       // 无同名时省略该键：一个 undefined 会给每次保存挂一个噪音字段。
       ...(shadowing === undefined ? {} : { shadowing }),
     } satisfies SaveWorkflowInput,
@@ -159,7 +163,12 @@ const saveWorkflowHandler: ToolHandler = async (input, context) => {
   const cwd = context.workingDirectory ?? ".";
   const scope = parsed.scope;
   // 落点由归一化填好；缺席只可能是有人绕过了 executor 的生命周期，此时自己算一遍而不是崩。
-  const path = parsed.path ?? savedWorkflowPath(savedWorkflowRoot(cwd, scope), parsed.name);
+  const path =
+    parsed.path ??
+    savedWorkflowPath(
+      savedWorkflowRoot(cwd, scope, { nativeDirectories: context.nativeDirectories }),
+      parsed.name,
+    );
   const script = parsed.script;
   if (script === undefined) {
     // 到不了：validateInput 挡掉「两个都不给」，resolveInput 会把 `script_path` 读成 `script`。
@@ -195,6 +204,7 @@ const saveWorkflowHandler: ToolHandler = async (input, context) => {
   const written = saveSavedWorkflow({
     cwd,
     name: parsed.name,
+    nativeDirectories: context.nativeDirectories,
     meta: toMeta(parsed),
     script,
     scope,
@@ -268,7 +278,7 @@ export const saveWorkflowToolEntry: ToolEntry = {
   resolveInput: (input, context) =>
     // 技能门先于落点解析（handlers/workflow-skill-gate.ts）：保存的也是一段脚本。
     requireDynamicWorkflowSkill(context, SAVE_WORKFLOW_TOOL_NAME) ??
-    resolveSaveWorkflowInput(input, context.workingDirectory ?? "."),
+    resolveSaveWorkflowInput(input, context.workingDirectory ?? ".", context.nativeDirectories),
   prepareApproval: prepareSaveWorkflowApproval,
   inputSchema: SaveWorkflowInputJsonSchema,
   outputSchema: SaveWorkflowOutputJsonSchema,

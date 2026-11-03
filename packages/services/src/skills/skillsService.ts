@@ -16,6 +16,13 @@ import type {
   SkillsCapability,
 } from "@zcode/shared";
 import { DEFAULT_ENABLED_OFFICIAL_PLUGIN_IDS } from "@zcode/shared";
+// XCODE: 原生资源与插件库存分开注入，避免用户配置换根后误扫另一套 cli/plugins。
+import {
+  nativeUserConfigPath,
+  nativeUserResourcePath,
+  nativeProjectResourcePath,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
 import type { ISkillsService } from "./skills.js";
 import { SKILL_FILE_NAME, walkSkillMarkdownPaths } from "./skillDiscoveryWalk.js";
 import { readInstalledPluginRoots } from "#src/plugins/installedPluginRoots.js";
@@ -39,8 +46,6 @@ interface ParsedFrontmatter {
 
 const SKILL_META_FILE_NAME = "_meta.json";
 const SKILL_SETTINGS_DIR = join(resolveUserHomeDir(), ".zcode", "v2");
-const SKILL_CLI_SETTINGS_DIR = join(resolveUserHomeDir(), ".zcode", "cli");
-const SKILL_CLI_CONFIG_FILE = join(SKILL_CLI_SETTINGS_DIR, "config.json");
 const GIT_MARKER = ".git";
 const HOME_PREFIX = "~/";
 const ZCODE_OFFICIAL_PLUGIN_MARKETPLACE = "zcode-plugins-official";
@@ -57,12 +62,17 @@ function resolveUserHomeDir() {
 }
 
 interface SkillsServiceOptions {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
+  pluginStorageRoot?: string;
   isDesktopRuntime?: boolean;
 }
 
 /** ZCode Agent 工作区级技能目录。 */
-function getWorkspaceZcodeSkillRoot(workspacePath: string): string {
-  return join(workspacePath, ".zcode", "skills");
+function getWorkspaceZcodeSkillRoot(
+  workspacePath: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): string {
+  return nativeProjectResourcePath(workspacePath, nativeDirectories, "skills");
 }
 
 /** 兼容目录: workspace 级 `.agents/skills`, 仅在同层 `.zcode/skills` 没读到技能时 fallback。 */
@@ -71,8 +81,8 @@ function getWorkspaceAgentsSkillRoot(workspacePath: string): string {
 }
 
 /** ZCode Agent 用户级技能目录。 */
-function getUserZcodeSkillRoot(): string {
-  return join(resolveUserHomeDir(), ".zcode", "skills");
+function getUserZcodeSkillRoot(nativeDirectories?: NativeResourceDirectoryPolicy): string {
+  return nativeUserResourcePath(resolveUserHomeDir(), nativeDirectories, "skills");
 }
 
 /** 兼容目录: 用户级 `~/.agents/skills`。 */
@@ -111,12 +121,21 @@ async function isUserAgentsSkillCoveredByZcode(params: {
   skillPath: string;
   rootPath: string;
   userZcodeSkillNameKeys: Set<string>;
+  nativeDirectories?: NativeResourceDirectoryPolicy;
 }): Promise<boolean> {
   const { skillPath, rootPath, userZcodeSkillNameKeys } = params;
   if (rootPath !== getUserAgentsSkillRoot()) {
     return false;
   }
-  if (await exists(join(getUserZcodeSkillRoot(), basename(dirname(skillPath)), SKILL_FILE_NAME))) {
+  if (
+    await exists(
+      join(
+        getUserZcodeSkillRoot(params.nativeDirectories),
+        basename(dirname(skillPath)),
+        SKILL_FILE_NAME,
+      ),
+    )
+  ) {
     return true;
   }
   return userZcodeSkillNameKeys.has(await readSkillNameKey(skillPath));
@@ -128,7 +147,10 @@ async function isUserAgentsSkillCoveredByZcode(params: {
  * 对齐 apps/zcode-cli/packages/adapters/src/skills/roots.ts:60-72。
  * 找不到 .git 时退回 workspacePath 自身。
  */
-async function resolveAncestorWorkspaceRoots(workspacePath: string): Promise<string[]> {
+async function resolveAncestorWorkspaceRoots(
+  workspacePath: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<string[]> {
   const worktreeRoot = await findWorktreeRoot(workspacePath);
   const baseDirectories: string[] = [];
   if (!worktreeRoot) {
@@ -148,7 +170,7 @@ async function resolveAncestorWorkspaceRoots(workspacePath: string): Promise<str
     // Agent runtime 会合并扫描两个 workspace skill 根。UI 之前把 `.agents`
     // 当成 `.zcode` 的 fallback，导致同层 `.zcode` 只要有一个技能，`/`、`$` 和设置页
     // 就会整根漏掉 `.agents` 技能，形成“模型可执行但 UI 无法引用”的发现语义分裂。
-    roots.push(getWorkspaceZcodeSkillRoot(dir));
+    roots.push(getWorkspaceZcodeSkillRoot(dir, nativeDirectories));
     roots.push(getWorkspaceAgentsSkillRoot(dir));
   }
   return roots;
@@ -521,9 +543,14 @@ function normalizeSkillConfigPath(path: string): string {
 }
 
 // 只用于列表展示：config.json 损坏时按空配置展示技能，不影响浏览。写入走 writeSkillEnabledMap。
-async function readCliConfigFile(): Promise<Record<string, unknown>> {
+async function readCliConfigFile(
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<Record<string, unknown>> {
   try {
-    const raw = await readFile(SKILL_CLI_CONFIG_FILE, "utf-8");
+    const raw = await readFile(
+      nativeUserConfigPath(resolveUserHomeDir(), nativeDirectories),
+      "utf-8",
+    );
     const parsed = JSON.parse(raw) as unknown;
     return isObjectRecord(parsed) ? parsed : {};
   } catch {
@@ -546,8 +573,10 @@ function readSkillEnabledMapFromConfig(config: Record<string, unknown>): Record<
   return result;
 }
 
-async function readSkillEnabledMap(): Promise<Record<string, boolean>> {
-  return readSkillEnabledMapFromConfig(await readCliConfigFile());
+async function readSkillEnabledMap(
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<Record<string, boolean>> {
+  return readSkillEnabledMapFromConfig(await readCliConfigFile(nativeDirectories));
 }
 
 /**
@@ -555,30 +584,36 @@ async function readSkillEnabledMap(): Promise<Record<string, boolean>> {
  * 整文件写回，config.json 里的 MCP、插件等其他配置会被冲掉；writeFile 也不是原子写。
  * 修法：改用 updateJsonObjectFile——文件损坏时报错不写，写前重读，只改 skills 字段，原子替换。
  */
-async function writeSkillEnabledMap(next: Record<string, boolean>): Promise<void> {
-  await updateJsonObjectFile(SKILL_CLI_CONFIG_FILE, (current) => {
-    const config = { ...current };
-    const skillsConfig = isObjectRecord(config.skills) ? { ...config.skills } : {};
-    for (const [path, enable] of Object.entries(next).sort(([left], [right]) =>
-      left.localeCompare(right),
-    )) {
-      // 技能开关之前分散在 workspace/provider/context 状态文件，导致同一技能在不同入口表现不一致。
-      // 现在只按 SKILL.md 路径写入 CLI config 的 skills 字段，避免额外迁移或旧文件副作用。
-      const normalizedPath = normalizeSkillConfigPath(path);
-      if (enable) {
-        // 开启态是默认值，不应落盘成 `{ enable: true }`；删除 override 才能跟随插件/默认配置变化。
-        delete skillsConfig[normalizedPath];
-      } else {
-        skillsConfig[normalizedPath] = { enable };
+async function writeSkillEnabledMap(
+  next: Record<string, boolean>,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<void> {
+  await updateJsonObjectFile(
+    nativeUserConfigPath(resolveUserHomeDir(), nativeDirectories),
+    (current) => {
+      const config = { ...current };
+      const skillsConfig = isObjectRecord(config.skills) ? { ...config.skills } : {};
+      for (const [path, enable] of Object.entries(next).sort(([left], [right]) =>
+        left.localeCompare(right),
+      )) {
+        // 技能开关之前分散在 workspace/provider/context 状态文件，导致同一技能在不同入口表现不一致。
+        // 现在只按 SKILL.md 路径写入 CLI config 的 skills 字段，避免额外迁移或旧文件副作用。
+        const normalizedPath = normalizeSkillConfigPath(path);
+        if (enable) {
+          // 开启态是默认值，不应落盘成 `{ enable: true }`；删除 override 才能跟随插件/默认配置变化。
+          delete skillsConfig[normalizedPath];
+        } else {
+          skillsConfig[normalizedPath] = { enable };
+        }
       }
-    }
-    if (Object.keys(skillsConfig).length > 0) {
-      config.skills = skillsConfig;
-    } else {
-      delete config.skills;
-    }
-    return config;
-  });
+      if (Object.keys(skillsConfig).length > 0) {
+        config.skills = skillsConfig;
+      } else {
+        delete config.skills;
+      }
+      return config;
+    },
+  );
 }
 
 interface SkillRootDescriptor {
@@ -771,13 +806,16 @@ function resolvePluginSkillRoots(params: {
   return roots;
 }
 
-async function resolvePluginSkillRootDescriptors(): Promise<SkillRootDescriptor[]> {
-  const config = readPluginConfigFromConfig(await readCliConfigFile());
+async function resolvePluginSkillRootDescriptors(
+  options?: SkillsServiceOptions,
+): Promise<SkillRootDescriptor[]> {
+  const config = readPluginConfigFromConfig(await readCliConfigFile(options?.nativeDirectories));
   if (!config.enabled) {
     return [];
   }
 
-  const pluginStorageRoot = resolvePluginStorageRoot(config.storageDir);
+  const pluginStorageRoot =
+    options?.pluginStorageRoot ?? resolvePluginStorageRoot(config.storageDir);
   const officialCacheRoots = await scanOfficialPluginCacheRoots(pluginStorageRoot);
   const installedRoots = await readInstalledPluginRoots(pluginStorageRoot);
   const candidates: PluginRootCandidate[] = [
@@ -837,13 +875,18 @@ async function resolvePluginSkillRootDescriptors(): Promise<SkillRootDescriptor[
   return descriptors;
 }
 
-async function discoverSkills(params: {
-  workspacePath: string;
-  workspaceIdentity?: string;
-  includeUserSkills: boolean;
-  provider: ZCodeProvider;
-}): Promise<DiscoverResult> {
-  const workspaceRoots = dedupeRoots(await resolveAncestorWorkspaceRoots(params.workspacePath));
+async function discoverSkills(
+  params: {
+    workspacePath: string;
+    workspaceIdentity?: string;
+    includeUserSkills: boolean;
+    provider: ZCodeProvider;
+  },
+  options?: SkillsServiceOptions,
+): Promise<DiscoverResult> {
+  const workspaceRoots = dedupeRoots(
+    await resolveAncestorWorkspaceRoots(params.workspacePath, options?.nativeDirectories),
+  );
   const roots: SkillRootDescriptor[] = workspaceRoots.map((rootPath) => ({
     scope: "workspace" as const,
     rootPath,
@@ -853,20 +896,20 @@ async function discoverSkills(params: {
     // `.agents/skills` 会导致外部 Agent 的全局技能在导入后从设置页消失。
     roots.push({
       scope: "user" as const,
-      rootPath: getUserZcodeSkillRoot(),
+      rootPath: getUserZcodeSkillRoot(options?.nativeDirectories),
     });
     roots.push({
       scope: "user" as const,
       rootPath: getUserAgentsSkillRoot(),
     });
   }
-  roots.push(...(await resolvePluginSkillRootDescriptors()));
+  roots.push(...(await resolvePluginSkillRootDescriptors(options)));
 
   const diagnostics: SkillDiagnostic[] = [];
   const skills: SkillSummary[] = [];
   const seenSkillPaths = new Set<string>();
   const userZcodeSkillNameKeys = params.includeUserSkills
-    ? await collectSkillNameKeysInRoot(getUserZcodeSkillRoot())
+    ? await collectSkillNameKeysInRoot(getUserZcodeSkillRoot(options?.nativeDirectories))
     : new Set<string>();
   const scanRootPaths = await dedupeScanRootsByRealpath(roots.map((root) => root.rootPath));
   const rootByPath = new Map(roots.map((root) => [root.rootPath, root]));
@@ -887,6 +930,7 @@ async function discoverSkills(params: {
           skillPath,
           rootPath: root.rootPath,
           userZcodeSkillNameKeys,
+          nativeDirectories: options?.nativeDirectories,
         })
       ) {
         continue;
@@ -1033,13 +1077,16 @@ export function createSkillsService(options?: SkillsServiceOptions): ISkillsServ
     }): Promise<SkillsListResult> {
       const capability = resolveCapabilities(options);
       const provider = "glm";
-      const { skills: discovered, diagnostics } = await discoverSkills({
-        workspacePath: params.workspacePath,
-        workspaceIdentity: params.workspaceIdentity,
-        includeUserSkills: capability.userScopeAvailable,
-        provider,
-      });
-      const enabledByPath = await readSkillEnabledMap();
+      const { skills: discovered, diagnostics } = await discoverSkills(
+        {
+          workspacePath: params.workspacePath,
+          workspaceIdentity: params.workspaceIdentity,
+          includeUserSkills: capability.userScopeAvailable,
+          provider,
+        },
+        options,
+      );
+      const enabledByPath = await readSkillEnabledMap(options?.nativeDirectories);
       return {
         skills: attachEnabledState(discovered, enabledByPath),
         capability,
@@ -1058,19 +1105,22 @@ export function createSkillsService(options?: SkillsServiceOptions): ISkillsServ
       const runUpdate = async () => {
         const provider = "glm";
         const capability = resolveCapabilities(options);
-        const { skills } = await discoverSkills({
-          workspacePath: params.workspacePath,
-          workspaceIdentity: params.workspaceIdentity,
-          includeUserSkills: capability.userScopeAvailable,
-          provider,
-        });
+        const { skills } = await discoverSkills(
+          {
+            workspacePath: params.workspacePath,
+            workspaceIdentity: params.workspaceIdentity,
+            includeUserSkills: capability.userScopeAvailable,
+            provider,
+          },
+          options,
+        );
         const skill = skills.find((item) => item.id === params.skillId);
         if (!skill) {
           throw new Error(`Skill not found: ${params.skillId}`);
         }
-        const enabledByPath = await readSkillEnabledMap();
+        const enabledByPath = await readSkillEnabledMap(options?.nativeDirectories);
         enabledByPath[normalizeSkillConfigPath(skill.path)] = params.enabled;
-        await writeSkillEnabledMap(enabledByPath);
+        await writeSkillEnabledMap(enabledByPath, options?.nativeDirectories);
       };
 
       const queued = writeQueue.then(runUpdate, runUpdate);
@@ -1133,8 +1183,8 @@ export function createSkillsService(options?: SkillsServiceOptions): ISkillsServ
       // 通用目录根据 skill 原 scope 确定 user 还是 workspace 级
       const commonRoot =
         skill.scope === "workspace"
-          ? getWorkspaceZcodeSkillRoot(params.workspacePath)
-          : getUserZcodeSkillRoot();
+          ? getWorkspaceZcodeSkillRoot(params.workspacePath, options?.nativeDirectories)
+          : getUserZcodeSkillRoot(options?.nativeDirectories);
       const targetDir = join(commonRoot, basename(sourceDir));
       // 不覆盖已有目录
       if (await exists(targetDir)) {
@@ -1159,8 +1209,13 @@ export function createSkillsService(options?: SkillsServiceOptions): ISkillsServ
         throw new Error(`Skill not found: ${params.skillId}`);
       }
       const normalizedPath = skill.path.replaceAll("\\", "/").toLowerCase();
-      const userCommonRoot = getUserZcodeSkillRoot().replaceAll("\\", "/").toLowerCase();
-      const workspaceCommonRoot = getWorkspaceZcodeSkillRoot(params.workspacePath)
+      const userCommonRoot = getUserZcodeSkillRoot(options?.nativeDirectories)
+        .replaceAll("\\", "/")
+        .toLowerCase();
+      const workspaceCommonRoot = getWorkspaceZcodeSkillRoot(
+        params.workspacePath,
+        options?.nativeDirectories,
+      )
         .replaceAll("\\", "/")
         .toLowerCase();
       const inUserCommon = normalizedPath.includes(`${userCommonRoot}/`);
@@ -1205,8 +1260,11 @@ export function createSkillsService(options?: SkillsServiceOptions): ISkillsServ
 
       // 安全护栏：删除是 `rm -rf` 目录的破坏性操作，仅允许命中受控技能根。
       // 收集工作区各层级（沿 worktree 向上）的 .zcode/skills 与 .agents/skills，外加用户级两根。
-      const allowedRootCandidates = await resolveAncestorWorkspaceRoots(params.workspacePath);
-      allowedRootCandidates.push(getUserZcodeSkillRoot());
+      const allowedRootCandidates = await resolveAncestorWorkspaceRoots(
+        params.workspacePath,
+        options?.nativeDirectories,
+      );
+      allowedRootCandidates.push(getUserZcodeSkillRoot(options?.nativeDirectories));
       allowedRootCandidates.push(getUserAgentsSkillRoot());
 
       // 用 realpath 后的父目录与 realpath 后的根比较：父目录必须落在（或等于）某个受控根内。

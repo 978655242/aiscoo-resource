@@ -1,5 +1,7 @@
 # Skill Integration Plan
 
+原生 HOME／项目技能与用户 AGENTS 目录接入可选 [Native Resource Directories](native-resource-directories.md) 策略。通用 `.zcode` 默认与 `.agents` 合并、来源、优先级和端口语义保持；主会话、草稿、list/inspect 与子运行时使用相同策略。
+
 ## 文档定位
 
 本文是 ZCode v2 接入 skill 的实现级规划。它遵循当前 v2 架构原则：

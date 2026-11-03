@@ -47,6 +47,8 @@ export function resolveDynamicWorkflowConfigMockScenario(
       spec.endsWith("conversation-session-dynamic-workflow-holes.test.ts") ||
       // PLUS05 明确以 catalog 含 workflow 为前置，不能依赖线上灰度值。
       spec.endsWith("conversation-session-plus-menu.test.ts") ||
+      // XCODE: 资源目录验收需真实工作流中枢，使用同一服务端开启前置，不依赖线上灰度。
+      spec.endsWith("native-resource-directories.test.ts") ||
       spec.replaceAll("\\", "/").split("/").at(-1) === "automations-workflows-hub.test.ts",
   );
   if (disabled && alwaysOn) {

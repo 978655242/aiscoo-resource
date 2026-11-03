@@ -1,5 +1,8 @@
 import { ISettingService, ISystemService, type ServiceCollection } from "@zcode/services";
 
+/** XCODE: 库存路径独立于可切换的资源策略，Host 从 Main 已装配的运行时 env 解析。 */
+export { resolveDesktopPluginStorageRoot } from "./runtimePluginStorage.js";
+
 /** 在本地 Host 暴露服务前包装 system/setting；defaultDataBaseDir 为 undefined 时保持上游服务。 */
 export function registerAiscooDataDirectoryServices(
   services: ServiceCollection,

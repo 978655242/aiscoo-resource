@@ -1,5 +1,8 @@
+// XCODE: 同步枚举、安全检查与落盘复用当前 Host 的原生资源策略。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
 import { createHash } from "node:crypto";
-import { dirname, join } from "node:path";
+import { nativeUserConfigPath } from "@zcode/shared/native-resource-directories/node";
+import { dirname } from "node:path";
 import type {
   DataSyncImportItem,
   DataSyncImportResult,
@@ -36,8 +39,8 @@ interface HookEntry {
 }
 
 /** 只同步用户级 `~/.zcode/cli/config.json` 的 hooks；`~/.agents`、`~/.claude` 下的只读来源不读。 */
-function userConfigPath(): string {
-  return join(resolveUserHomeDir(), ".zcode", "cli", "config.json");
+function userConfigPath(nativeDirectories?: NativeResourceDirectoryPolicy): string {
+  return nativeUserConfigPath(resolveUserHomeDir(), nativeDirectories);
 }
 
 function sha256(value: string): string {
@@ -105,8 +108,8 @@ function collectHookEntries(hooks: RawHooks): Map<string, HookEntry> {
   return entries;
 }
 
-async function readUserHooks(): Promise<RawHooks> {
-  const path = userConfigPath();
+async function readUserHooks(nativeDirectories?: NativeResourceDirectoryPolicy): Promise<RawHooks> {
+  const path = userConfigPath(nativeDirectories);
   return parseRawHooks((await readJsonObjectFileForUpdate(path)).hooks, path);
 }
 
@@ -207,10 +210,12 @@ function planImport(
 }
 
 /** 钩子分类的数据同步方法，登记在 user-config-sync 通道（两端同一实现）。工作区信任记录不同步。 */
-export function createHookDataSyncMethods(): IDataSyncCategoryService<HookDataSyncPayload> {
+export function createHookDataSyncMethods(
+  options: { nativeDirectories?: NativeResourceDirectoryPolicy } = {},
+): IDataSyncCategoryService<HookDataSyncPayload> {
   return {
     async listSyncItems() {
-      const entries = collectHookEntries(await readUserHooks());
+      const entries = collectHookEntries(await readUserHooks(options.nativeDirectories));
       const items: DataSyncListItem[] = [...entries.values()].map((entry) => {
         const definition = entry.group.hooks[entry.index]!;
         return {
@@ -226,7 +231,7 @@ export function createHookDataSyncMethods(): IDataSyncCategoryService<HookDataSy
     },
 
     async getSyncContentHashes(params) {
-      const entries = collectHookEntries(await readUserHooks());
+      const entries = collectHookEntries(await readUserHooks(options.nativeDirectories));
       const hashes: Record<string, string> = {};
       for (const key of params.keys) {
         const entry = entries.get(key);
@@ -236,11 +241,13 @@ export function createHookDataSyncMethods(): IDataSyncCategoryService<HookDataSy
     },
 
     async checkSyncWriteAccess() {
-      return await checkRemoteSyncDirectoryWriteAccess(dirname(userConfigPath()));
+      return await checkRemoteSyncDirectoryWriteAccess(
+        dirname(userConfigPath(options.nativeDirectories)),
+      );
     },
 
     async exportSyncItems(params) {
-      const hooks = await readUserHooks();
+      const hooks = await readUserHooks(options.nativeDirectories);
       const entries = collectHookEntries(hooks);
       return {
         sourceHomeDir: resolveUserHomeDir(),
@@ -259,7 +266,7 @@ export function createHookDataSyncMethods(): IDataSyncCategoryService<HookDataSy
     },
 
     async importSyncItems(params): Promise<DataSyncImportResult> {
-      const path = userConfigPath();
+      const path = userConfigPath(options.nativeDirectories);
       try {
         // 先在当前内容上试算：没有任何写入项（冲突、校验失败）时不碰文件。
         const preview = planImport(await readJsonObjectFileForUpdate(path), path, params);

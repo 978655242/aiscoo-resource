@@ -1,3 +1,5 @@
+// XCODE: 协议入口校验原生资源目录。
+import { resolveNativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
 // XCODE: 自有静态展示模板读取共享品牌；用户内容与稳定标识保持原样。
 import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
@@ -297,9 +299,16 @@ export class ZCodeProtocolAgentServer {
   private nextClientRequestId = 1;
 
   constructor(deps: ZCodeProtocolAgentDependencies) {
-    this.runtimeResources = new ProtocolRuntimeResources(deps.createZCodeApp);
+    // XCODE: catalog、主会话及冷恢复固定同一策略，不随进程环境后续变化。
+    const nativeDirectories =
+      deps.nativeDirectories ??
+      resolveNativeResourceDirectoryPolicy({ env: deps.env ?? process.env });
+    this.runtimeResources = new ProtocolRuntimeResources((options) =>
+      deps.createZCodeApp({ ...options, nativeDirectories }),
+    );
     const resolvedDeps = {
       ...deps,
+      nativeDirectories,
       createZCodeApp: this.runtimeResources.create,
       // 默认 turn 窗口保留策略。
       createSessionEventStore:

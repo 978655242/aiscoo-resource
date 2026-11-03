@@ -2953,6 +2953,8 @@ export async function generateWorkspaceText(
   const app =
     active?.app ??
     (await createWorkspaceZCodeApp(context, params.workspace, {
+      // XCODE: 协议目录与会话使用同一原生资源策略。
+      nativeDirectories: context.deps.nativeDirectories,
       env: context.deps.env,
       eventStore: context.deps.createSessionEventStore("workspace-generate-text"),
       runtimeConfig: {
@@ -3564,6 +3566,7 @@ async function createRecord(
   // 用可变持有者做惰性绑定：CronCreate 在 turn 中调用 create() 时 record 早已就绪。
   let ownSessionRecord: ZCodeProtocolSessionRecord | undefined;
   const app = await createWorkspaceZCodeApp(context, workspace, {
+    nativeDirectories: context.deps.nativeDirectories,
     env: context.deps.env,
     eventStore,
     resume,
@@ -3858,6 +3861,8 @@ async function snapshotWithDiagnostics(
       // session snapshot 的 `/` 目录与 workspace presentation 必须给出同一份灰度结论，
       // 否则关闭态下侧栏面板还能看到 `workflow`。
       dynamicWorkflowEnabled: context.appRuntimePreferences.dynamicWorkflowEnabled,
+      // XCODE: 协议目录与会话使用同一原生资源策略。
+      nativeDirectories: context.deps.nativeDirectories,
       env: context.deps.env,
       logger: context.logger,
     },

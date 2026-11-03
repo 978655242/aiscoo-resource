@@ -1,3 +1,5 @@
+// XCODE: 只读资源策略贯穿运行时与工具归一化，不改变执行产物路径。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
 import type { ToolSearchExecutionContext, ToolSearchMode } from "@zcode/contracts";
 import type { RequestVerificationReason } from "@zcode/shared";
 import type { GetAgentDefinitions, LoadAgentDefinitions } from "../subagent/definitions.js";
@@ -331,6 +333,7 @@ export interface MemoryRuntimeConfig {
 }
 
 export interface AgentRuntimeDeps {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   /** 只读目录入口；必须同步读取内存，不在请求收集阶段进行 I/O。 */
   getAgentDefinitions?: GetAgentDefinitions;
   /** 新父上下文读取一次；子执行不得继承此加载器。 */

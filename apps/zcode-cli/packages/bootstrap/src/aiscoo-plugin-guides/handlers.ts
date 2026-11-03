@@ -17,11 +17,15 @@ import {
 import { createWorkspaceZCodeApp } from "../zcode-protocol/workspace-model-runtime.js";
 
 export async function readPluginSource(
-  _context: ZCodeProtocolAgentServerContext,
+  context: ZCodeProtocolAgentServerContext,
   rawParams: unknown,
 ) {
   const params = parseParams(pluginGuideSourceParamsSchema, rawParams);
-  const config = createConfig({ workingDirectory: params.workspace.workspacePath });
+  const config = createConfig({
+    workingDirectory: params.workspace.workspacePath,
+    env: context.deps.env,
+    nativeDirectories: context.deps.nativeDirectories,
+  });
   const storageRoot = getPluginStorageRoot(
     getCliStorageRoot(resolvePath(config.config.storage.dir)),
   );

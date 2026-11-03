@@ -1,3 +1,5 @@
+// XCODE: 管理命令沿用入口的原生资源策略与显式配置路径。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
 import type { Logger } from "@zcode/contracts";
 import type { listZCodePlugins } from "@zcode/bootstrap";
 import { createInterface } from "node:readline";
@@ -34,6 +36,7 @@ export type PluginDepFn<K extends PluginDepName> =
 export type PluginsCommandOverrides = { [K in PluginDepName]?: PluginDepFn<K> };
 
 export interface PluginsCommandDependencies extends PluginsCommandOverrides {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   cwd?: () => string;
   env?: CliEnv;
   logger?: Logger;
@@ -74,6 +77,7 @@ export async function resolveDep<K extends PluginDepName>(
 export function baseOptions(deps: PluginsCommandDependencies) {
   return {
     env: deps.env ?? process.env,
+    nativeDirectories: deps.nativeDirectories,
     logger: deps.logger,
     projectConfigPath: deps.projectConfigPath,
     skipUserConfig: deps.skipUserConfig,

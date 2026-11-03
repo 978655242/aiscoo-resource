@@ -1,5 +1,10 @@
 /* eslint-disable max-lines -- Source Server transport 在同一适配器内汇合安装、daemon、channel 与 target 生命周期，继续拆分会割裂取消边界。 */
 import { Duplex } from "node:stream";
+// XCODE: 仅复用公共目录名校验；远端资源根仍由目标 Host 的 HOME 解析。
+import {
+  NATIVE_RESOURCE_DIRECTORY_ENV,
+  resolveNativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories";
 import {
   isPublicZCodeErrorCode,
   normalizeRemoteConnectionError,
@@ -163,6 +168,8 @@ export interface SourceServerTransportAdapter {
 
 export interface CreateSourceServerTransportAdapterOptions {
   createBackend?: (target: RemoteTarget) => Promise<IRemoteBackend>;
+  // XCODE: 可选非敏感目录名仅用于新 daemon；未配置时保持上游命令和目标启动策略。
+  nativeResourceDirectoryName?: string;
 }
 
 const SERVER_ROOT_READ_PATH = "~/.zcode/server";
@@ -187,6 +194,8 @@ class BackendSourceServerTransportAdapter implements SourceServerTransportAdapte
   public constructor(
     public readonly kind: "ssh" | "wsl" | "docker",
     private readonly createBackend: (target: RemoteTarget) => Promise<IRemoteBackend>,
+    // XCODE: 工厂校验后固定启动环境，不为已有共享 daemon 热切换策略。
+    private readonly nativeResourceEnvironment: string,
   ) {}
 
   public createFileTransfer(target: RemoteTarget): SourceServerFileTransfer {
@@ -361,7 +370,8 @@ class BackendSourceServerTransportAdapter implements SourceServerTransportAdapte
       `tar -xzf ${remoteArchiveShell} -C ${bootstrapDirShell} --strip-components=1`,
       // Bug 原因：update 现在会重启完整 daemon；若不把既有 transport 能力边界传给目标
       // bootstrap CLI，WSL/Docker 会在 handoff 时误尝试注册不可用的 systemd user service。
-      `${this.kind === "ssh" ? "" : "ZCODE_SERVER_SKIP_SERVICE_REGISTRATION=1 "}${bootstrapDirShell}/bin/zcode update --from-archive ${remoteArchiveShell}${options.force ? " --force" : ""}${options.allowDowngrade ? " --allow-downgrade" : ""} --server-root ${SERVER_ROOT_SHELL} --json --progress`,
+      // XCODE: installer 可能启动新 daemon；只传目录名，不移动 Server 安装、日志或数据库根。
+      `${this.nativeResourceEnvironment}${this.kind === "ssh" ? "" : "ZCODE_SERVER_SKIP_SERVICE_REGISTRATION=1 "}${bootstrapDirShell}/bin/zcode update --from-archive ${remoteArchiveShell}${options.force ? " --force" : ""}${options.allowDowngrade ? " --allow-downgrade" : ""} --server-root ${SERVER_ROOT_SHELL} --json --progress`,
     ].join(" && ");
     // 上传完成后命令仍需解压、整树校验和 daemon 换代；必须实时消费阶段，不能等退出才显示。
     const result = await collectCommand(await backend.exec(command), (line) => {
@@ -495,7 +505,8 @@ class BackendSourceServerTransportAdapter implements SourceServerTransportAdapte
     const command = [
       // Bug 原因：WSL/Docker 没有稳定的用户级服务管理器；若沿用 SSH 命令会尝试
       // 注册 systemd user service 并在常见环境中失败。两者必须显式进入 detached fallback。
-      `${daemonEnvironment}${SERVER_BIN_SHELL}`,
+      // XCODE: 只有显式启动／重启继承目录策略；探测、状态和独立 Source 的现有策略不受影响。
+      `${daemonEnvironment}${startsDaemon ? this.nativeResourceEnvironment : ""}${SERVER_BIN_SHELL}`,
       ...argv.map(quoteShellArg),
       ...(hasServerRoot ? [] : ["--server-root", SERVER_ROOT_SHELL]),
     ].join(" ");
@@ -546,8 +557,14 @@ export function createSourceServerTransportAdapter(
   kind: "ssh" | "wsl" | "docker",
   options: CreateSourceServerTransportAdapterOptions = {},
 ): SourceServerTransportAdapter {
+  // XCODE: 非空配置在任何远端 IO 前校验；未设置时不注入默认值，保留目标自身启动环境。
+  const directoryName = options.nativeResourceDirectoryName?.trim();
+  const nativeResourceEnvironment = directoryName
+    ? `${NATIVE_RESOURCE_DIRECTORY_ENV}=${quoteShellArg(resolveNativeResourceDirectoryPolicy({ env: { [NATIVE_RESOURCE_DIRECTORY_ENV]: directoryName } }).directoryName)} `
+    : "";
   return new BackendSourceServerTransportAdapter(
     kind,
     options.createBackend ?? createRemoteBackend,
+    nativeResourceEnvironment,
   );
 }

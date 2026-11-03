@@ -20,6 +20,13 @@ import {
   type ZCodeCommand,
 } from "@zcode/shared";
 import { DEFAULT_ENABLED_OFFICIAL_PLUGIN_IDS } from "@zcode/shared";
+// XCODE: 来源枚举保持兼容，实际原生目录由注入策略解析；插件库存独立绑定。
+import {
+  nativeUserConfigPath,
+  nativeUserResourcePath,
+  nativeProjectResourcePath,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
 import type { ICommandsService } from "./commands.js";
 import { CommandFileParser, type CommandFileFormat } from "./commandFileParser.js";
 import { readInstalledPluginRoots } from "#src/plugins/installedPluginRoots.js";
@@ -81,13 +88,16 @@ function getCommandSourceDescriptor(
   return COMMAND_AGENT_SOURCE_DESCRIPTORS[agentSource];
 }
 
-function getUserCommandsRoot(agentSource?: CommandAgentSource): string {
+function getUserCommandsRoot(
+  agentSource?: CommandAgentSource,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): string {
   const descriptor = getCommandSourceDescriptor(agentSource);
-  return join(resolveUserHomeDir(), ...descriptor.userDirectorySegments);
+  return getUserCommandsRootForDescriptor(descriptor, nativeDirectories);
 }
 
-function getUserCliConfigPath(): string {
-  return join(resolveUserHomeDir(), ".zcode", "cli", "config.json");
+function getUserCliConfigPath(nativeDirectories?: NativeResourceDirectoryPolicy): string {
+  return nativeUserConfigPath(resolveUserHomeDir(), nativeDirectories);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -95,9 +105,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 // 只用于列表展示：config.json 损坏时按空配置展示命令，不影响浏览。写入一律走 updateUserCliConfig。
-async function readUserCliConfig(): Promise<Record<string, unknown>> {
+async function readUserCliConfig(
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<Record<string, unknown>> {
   try {
-    const content = await readFile(getUserCliConfigPath(), "utf-8");
+    const content = await readFile(getUserCliConfigPath(nativeDirectories), "utf-8");
     const parsed = JSON.parse(content) as unknown;
     return isRecord(parsed) ? parsed : {};
   } catch {
@@ -112,8 +124,9 @@ async function readUserCliConfig(): Promise<Record<string, unknown>> {
  */
 async function updateUserCliConfig(
   update: (config: Record<string, unknown>) => Record<string, unknown>,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<void> {
-  await updateJsonObjectFile(getUserCliConfigPath(), update);
+  await updateJsonObjectFile(getUserCliConfigPath(nativeDirectories), update);
 }
 
 function readCommandEnabledOverrides(config: Record<string, unknown>): Map<string, boolean> {
@@ -132,8 +145,10 @@ function readCommandEnabledOverrides(config: Record<string, unknown>): Map<strin
 }
 
 /** 键为命令文件的绝对路径；数据同步列表也复用这份读取（只读展示，config.json 损坏时视为全部启用）。 */
-export async function readCommandEnabledOverridesFromUserConfig(): Promise<Map<string, boolean>> {
-  return readCommandEnabledOverrides(await readUserCliConfig());
+export async function readCommandEnabledOverridesFromUserConfig(
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<Map<string, boolean>> {
+  return readCommandEnabledOverrides(await readUserCliConfig(nativeDirectories));
 }
 
 function getCommandEnabled(filePath: string, overrides: ReadonlyMap<string, boolean>): boolean {
@@ -165,12 +180,15 @@ function setCommandEnabledOverride(
 /** 一次写入多条启用覆盖（数据同步新建命令时使用），写入路径与 setCommandEnabled 相同。 */
 export async function setUserCommandEnabledOverrides(
   entries: ReadonlyArray<{ filePath: string; enabled: boolean }>,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<void> {
-  await updateUserCliConfig((config) =>
-    entries.reduce(
-      (next, entry) => setCommandEnabledOverride(next, entry.filePath, entry.enabled),
-      config,
-    ),
+  await updateUserCliConfig(
+    (config) =>
+      entries.reduce(
+        (next, entry) => setCommandEnabledOverride(next, entry.filePath, entry.enabled),
+        config,
+      ),
+    nativeDirectories,
   );
 }
 
@@ -367,13 +385,16 @@ function resolvePluginCommandRoots(params: {
   return roots;
 }
 
-async function resolvePluginCommandRootDescriptors(): Promise<PluginCommandRootDescriptor[]> {
-  const config = readPluginConfigFromConfig(await readUserCliConfig());
+async function resolvePluginCommandRootDescriptors(
+  options?: CommandsServiceOptions,
+): Promise<PluginCommandRootDescriptor[]> {
+  const config = readPluginConfigFromConfig(await readUserCliConfig(options?.nativeDirectories));
   if (!config.enabled) {
     return [];
   }
 
-  const pluginStorageRoot = resolvePluginStorageRoot(config.storageDir);
+  const pluginStorageRoot =
+    options?.pluginStorageRoot ?? resolvePluginStorageRoot(config.storageDir);
   const officialCacheRoots = await scanOfficialPluginCacheRoots(pluginStorageRoot);
   const installedRoots = await readInstalledPluginRoots(pluginStorageRoot);
   const candidates: PluginRootCandidate[] = [
@@ -436,14 +457,30 @@ async function resolvePluginCommandRootDescriptors(): Promise<PluginCommandRootD
   return descriptors;
 }
 
-function getUserCommandsRootForDescriptor(descriptor: CommandAgentSourceDescriptor): string {
-  return join(resolveUserHomeDir(), ...descriptor.userDirectorySegments);
+function getUserCommandsRootForDescriptor(
+  descriptor: CommandAgentSourceDescriptor,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): string {
+  return descriptor.directorySource === "zcode"
+    ? nativeUserResourcePath(resolveUserHomeDir(), nativeDirectories, "commands")
+    : join(resolveUserHomeDir(), ...descriptor.userDirectorySegments);
+}
+
+function getWorkspaceCommandsRootForDescriptor(
+  workspacePath: string,
+  descriptor: CommandAgentSourceDescriptor,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): string {
+  return descriptor.directorySource === "zcode"
+    ? nativeProjectResourcePath(workspacePath, nativeDirectories, "commands")
+    : join(workspacePath, ...descriptor.workspaceDirectorySegments);
 }
 
 function getCommandsRootForStorage(params: {
   descriptor: CommandAgentSourceDescriptor;
   storageLevel?: "user" | "project";
   workspacePath?: string;
+  nativeDirectories?: NativeResourceDirectoryPolicy;
 }): {
   commandsRoot: string;
   scope: UserCommand["scope"];
@@ -454,14 +491,18 @@ function getCommandsRootForStorage(params: {
       throw new Error("Missing workspace path for project command");
     }
     return {
-      commandsRoot: join(params.workspacePath, ...params.descriptor.workspaceDirectorySegments),
+      commandsRoot: getWorkspaceCommandsRootForDescriptor(
+        params.workspacePath,
+        params.descriptor,
+        params.nativeDirectories,
+      ),
       scope: "project",
       projectPath: params.workspacePath,
     };
   }
 
   return {
-    commandsRoot: getUserCommandsRootForDescriptor(params.descriptor),
+    commandsRoot: getUserCommandsRootForDescriptor(params.descriptor, params.nativeDirectories),
     scope: "global",
   };
 }
@@ -489,6 +530,8 @@ function buildCommandLocation(params: {
 // ============================================================================
 
 interface CommandsServiceOptions {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
+  pluginStorageRoot?: string;
   isDesktopRuntime?: boolean;
 }
 
@@ -533,7 +576,7 @@ function buildCommandId(
   return `${agentSource}:${location.source}:${scope}:${name}`;
 }
 
-export function createCommandsService(_options?: CommandsServiceOptions): ICommandsService {
+export function createCommandsService(options?: CommandsServiceOptions): ICommandsService {
   async function list(params: {
     agentSource?: CommandAgentSource;
     workspacePath?: string;
@@ -541,7 +584,9 @@ export function createCommandsService(_options?: CommandsServiceOptions): IComma
   }): Promise<CommandsListResult> {
     const userCommands: UserCommand[] = [];
     const agentSources = getCommandAgentSources(params.agentSource);
-    const enabledOverrides = await readCommandEnabledOverridesFromUserConfig();
+    const enabledOverrides = await readCommandEnabledOverridesFromUserConfig(
+      options?.nativeDirectories,
+    );
 
     // ZCode Agent 需要先合并所有 workspace 目录，再合并所有 user 目录；
     // 按每个目录交错读取 project/user 会让 user .zcode 抢在 workspace .agents 前面。
@@ -556,7 +601,11 @@ export function createCommandsService(_options?: CommandsServiceOptions): IComma
         await discoverCommandsFromDirectorySources({
           descriptors,
           commandsRootForDescriptor: (descriptor) =>
-            join(workspacePath, ...descriptor.workspaceDirectorySegments),
+            getWorkspaceCommandsRootForDescriptor(
+              workspacePath,
+              descriptor,
+              options?.nativeDirectories,
+            ),
           commands: userCommands,
           enabledOverrides,
           projectPath: workspacePath,
@@ -566,7 +615,8 @@ export function createCommandsService(_options?: CommandsServiceOptions): IComma
 
       await discoverCommandsFromDirectorySources({
         descriptors,
-        commandsRootForDescriptor: getUserCommandsRootForDescriptor,
+        commandsRootForDescriptor: (descriptor) =>
+          getUserCommandsRootForDescriptor(descriptor, options?.nativeDirectories),
         commands: userCommands,
         enabledOverrides,
         scope: "global",
@@ -576,7 +626,7 @@ export function createCommandsService(_options?: CommandsServiceOptions): IComma
     const dedupedUserCommands = dedupeCommandsByName(userCommands);
     const pluginCommands =
       !params.agentSource || params.agentSource === ZCODE_COMMAND_AGENT_SOURCE
-        ? await discoverPluginCommands(enabledOverrides)
+        ? await discoverPluginCommands(enabledOverrides, options)
         : [];
 
     return {
@@ -593,6 +643,7 @@ export function createCommandsService(_options?: CommandsServiceOptions): IComma
     const target = getCommandsRootForStorage({
       descriptor,
       storageLevel: params.storageLevel,
+      nativeDirectories: options?.nativeDirectories,
       workspacePath: params.workspacePath,
     });
     const { commandsRoot } = target;
@@ -617,7 +668,10 @@ export function createCommandsService(_options?: CommandsServiceOptions): IComma
       descriptor.format,
     );
     await writeFile(filePath, content, "utf-8");
-    await updateUserCliConfig((config) => setCommandEnabledOverride(config, filePath, true));
+    await updateUserCliConfig(
+      (config) => setCommandEnabledOverride(config, filePath, true),
+      options?.nativeDirectories,
+    );
 
     const parsed = CommandFileParser.parseCommandFile(content, filePath, descriptor.format);
     if (!parsed) {
@@ -652,12 +706,15 @@ export function createCommandsService(_options?: CommandsServiceOptions): IComma
     const target = getCommandsRootForStorage({
       descriptor,
       storageLevel: params.storageLevel,
+      nativeDirectories: options?.nativeDirectories,
       workspacePath: params.workspacePath,
     });
     const { commandsRoot } = target;
     const newFileName = getCommandFileName(params.config, agentSource);
     const newFilePath = join(commandsRoot, newFileName);
-    const enabledOverrides = await readCommandEnabledOverridesFromUserConfig();
+    const enabledOverrides = await readCommandEnabledOverridesFromUserConfig(
+      options?.nativeDirectories,
+    );
     const existingContent = params.oldFilePath
       ? await readFile(params.oldFilePath, "utf-8").catch(() => undefined)
       : undefined;
@@ -700,12 +757,14 @@ export function createCommandsService(_options?: CommandsServiceOptions): IComma
       // 禁用状态按命令文件路径存放；编辑命令改名会换文件路径，必须迁移 override，
       // 否则用户刚禁用的命令会因为改名重新启用。
       const oldFilePath = params.oldFilePath;
-      await updateUserCliConfig((config) =>
-        setCommandEnabledOverride(
-          setCommandEnabledOverride(config, oldFilePath, true),
-          newFilePath,
-          enabledOverrides.get(oldFilePath) ?? true,
-        ),
+      await updateUserCliConfig(
+        (config) =>
+          setCommandEnabledOverride(
+            setCommandEnabledOverride(config, oldFilePath, true),
+            newFilePath,
+            enabledOverrides.get(oldFilePath) ?? true,
+          ),
+        options?.nativeDirectories,
       );
     }
 
@@ -728,7 +787,10 @@ export function createCommandsService(_options?: CommandsServiceOptions): IComma
       location,
       id: buildCommandId(agentSource, target.scope, name, location),
       source: "user",
-      enabled: getCommandEnabled(newFilePath, await readCommandEnabledOverridesFromUserConfig()),
+      enabled: getCommandEnabled(
+        newFilePath,
+        await readCommandEnabledOverridesFromUserConfig(options?.nativeDirectories),
+      ),
       scope: target.scope,
       ...(target.projectPath ? { projectPath: target.projectPath } : {}),
     };
@@ -747,19 +809,23 @@ export function createCommandsService(_options?: CommandsServiceOptions): IComma
         throw error;
       }
     }
-    await updateUserCliConfig((config) => setCommandEnabledOverride(config, params.filePath, true));
+    await updateUserCliConfig(
+      (config) => setCommandEnabledOverride(config, params.filePath, true),
+      options?.nativeDirectories,
+    );
   }
 
   async function setCommandEnabled(params: CommandSetEnabledParams): Promise<void> {
-    await updateUserCliConfig((config) =>
-      setCommandEnabledOverride(config, params.filePath, params.enabled),
+    await updateUserCliConfig(
+      (config) => setCommandEnabledOverride(config, params.filePath, params.enabled),
+      options?.nativeDirectories,
     );
   }
 
   async function getPrimaryUserCommandsDirectory(params?: {
     agentSource?: CommandAgentSource;
   }): Promise<{ path: string }> {
-    const path = getUserCommandsRoot(params?.agentSource);
+    const path = getUserCommandsRoot(params?.agentSource, options?.nativeDirectories);
     // open-in-file-manager 在 Windows 上不能可靠打开不存在的路径，
     // 这里先确保命令目录落盘，再把路径交给系统文件管理器。
     await mkdir(path, { recursive: true });
@@ -797,8 +863,9 @@ function buildPluginCommandId(params: {
 
 async function discoverPluginCommands(
   enabledOverrides: ReadonlyMap<string, boolean>,
+  options?: CommandsServiceOptions,
 ): Promise<PluginCommand[]> {
-  const rootDescriptors = await resolvePluginCommandRootDescriptors();
+  const rootDescriptors = await resolvePluginCommandRootDescriptors(options);
   const commands: PluginCommand[] = [];
   const seenFilePaths = new Set<string>();
   for (const descriptor of rootDescriptors) {

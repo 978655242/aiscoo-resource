@@ -14,7 +14,7 @@
   "scripts": {
     "test:zen": "node --import tsx --test tests/zen-login.test.ts",
     "posttest": "pnpm run test:aiscoo",
-    "test:aiscoo": "node --disable-warning=DEP0205 --import tsx --test tests/zen-login.test.ts tests/sea-keyring-runtime.test.ts tests/sea-keyring-assets.test.mjs src/sea-keyring/contract.test.ts",
+    "test:aiscoo": "node --disable-warning=DEP0205 --import tsx --test tests/zen-login.test.ts tests/sea-keyring-runtime.test.ts tests/sea-keyring-assets.test.mjs src/sea-keyring/contract.test.ts tests/native-resource-directories.node-test.ts",
     "build": "node scripts/build.mjs",
     "build:desktop-agent": "node scripts/build.mjs --desktop-agent",
     "build:sea": "pnpm --dir ../../../.. exec turbo --skip-infer --cwd apps/zcode-cli run build --filter=!@zcode/cli --force && pnpm build && node scripts/build-sea.mjs --all",

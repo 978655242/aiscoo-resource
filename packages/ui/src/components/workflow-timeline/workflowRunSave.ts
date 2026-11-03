@@ -19,13 +19,16 @@ export function isValidSavedWorkflowNameText(name: string): boolean {
   return name.replaceAll(".", "").length > 0;
 }
 
-/**
- * 落点预览。项目档写相对路径（用户在自己的仓库里看到的就是它），全局档写 `~` 开头的家目录路径
- * ——那是 **agent 机器**的家目录，远程项目因此根本不给全局档这个选项。
- */
-export function savedWorkflowPathPreview(scope: ZCodeSavedWorkflowScope, name: string): string {
+/** XCODE: 目录由目标 Host 的 list 结果提供；未取得前只显示文件名，不推断资源策略。 */
+export function savedWorkflowPathPreview(
+  _scope: ZCodeSavedWorkflowScope,
+  name: string,
+  directory?: string,
+): string {
   const file = `${name}.dwf.ts`;
-  return scope === "global" ? `~/.zcode/workflows/${file}` : `.zcode/workflows/${file}`;
+  if (!directory) return file;
+  const separator = directory.includes("\\") && !directory.includes("/") ? "\\" : "/";
+  return `${directory.replace(/[\\/]+$/u, "")}${separator}${file}`;
 }
 
 export interface WorkflowSaveDraft {

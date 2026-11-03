@@ -50,6 +50,8 @@ export function createWorkspaceMcpTrust(
     join(
       dirname(
         await resolveWorkspaceHookTrustStorePath({
+          // XCODE: MCP 与 Hooks 使用同一原生用户资源策略作为信任根。
+          nativeDirectories: options.nativeDirectories,
           userConfigPath: options.userConfigPath,
         }),
       ),

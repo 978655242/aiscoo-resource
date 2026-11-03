@@ -37,7 +37,11 @@ import {
 
 /** XCODE: 账号解析结果；下游来源在同一轮次内合并，保持 AccountProviderService 为唯一发布者。 */
 export type ProcessAccountResolution = Awaited<ReturnType<AccountProviderResolver>>;
+// XCODE: 进程入口快照供 standalone 用户配置导入和网络读取复用。
+import { resolveNativeResourceDirectoryPolicy, type NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
+
 export interface ProcessProviderRegistryRuntimeOptions {
+  readonly nativeDirectories?: NativeResourceDirectoryPolicy;
   /** Standalone Prompt CLI / TUI 自己拥有账号凭据与旧配置的一次性导入。 */
   readonly standalone?: {
     readonly credentialStore?: SharedZCodeCredentialStore;
@@ -60,6 +64,7 @@ export async function startProcessProviderRegistryRuntime(
   env: Readonly<Record<string, string | undefined>>,
   options: ProcessProviderRegistryRuntimeOptions = {},
 ) {
+  const nativeDirectories = options.nativeDirectories ?? resolveNativeResourceDirectoryPolicy({ env });
   const paths = resolveNodeProviderRuntimePaths(env);
   if (!paths) {
     throw new Error(`缺少进程 Provider Registry 的 ${PRODUCT_NAME} Built-in / Personal Config 路径`);
@@ -142,6 +147,7 @@ export async function startProcessProviderRegistryRuntime(
       ? {
           importLegacy: () =>
             readLegacyCliPersonalProviderConfig({
+              nativeDirectories,
               ...(options.standalone?.legacyCliUserConfigFilePath
                 ? { filePath: options.standalone.legacyCliUserConfigFilePath }
                 : {}),
@@ -161,7 +167,7 @@ export async function startProcessProviderRegistryRuntime(
     : undefined;
   // 复用 AccountService 的串行、过期结果丢弃机制，凭据变化与 Built-in 变化不能各自发布。
   const standaloneHeaders = credentialStore
-    ? createStandaloneProviderRuntimeHeadersPort(credentialStore, env)
+    ? createStandaloneProviderRuntimeHeadersPort(credentialStore, env, undefined, nativeDirectories)
     : undefined;
   const disposeCredentialSubscription = credentialStore?.onDidChange?.(async () => {
     await standaloneHeaders?.invalidateChangedCredentials();

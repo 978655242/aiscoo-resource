@@ -32,6 +32,13 @@ import { createGenUiService } from "./gen-ui/node.js";
 import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
+// XCODE: Host 入口只解析一次原生资源策略；运行时存储与插件库存保持独立注入。
+import {
+  nativeUserConfigPath,
+  resolveNativeResourceDirectoryPolicy,
+  NATIVE_RESOURCE_DIRECTORY_ENV,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
 import { join } from "node:path";
 import {
   createNodeProviderRuntimePathEnv,
@@ -1199,9 +1206,12 @@ export function resolveBundledCuaHelperAppPath(
 
 export { isOfficialCuaPluginEnabledForWorkspace };
 
-export function hasGlobalCliZCodeCuaServer(env: NodeJS.ProcessEnv = process.env): boolean {
-  const home = env.HOME?.trim() || homedir();
-  const configPath = join(home, ".zcode", "cli", "config.json");
+export function hasGlobalCliZCodeCuaServer(
+  env: NodeJS.ProcessEnv = process.env,
+  nativeDirectories: NativeResourceDirectoryPolicy = resolveNativeResourceDirectoryPolicy({ env }),
+): boolean {
+  const home = env.HOME?.trim() || env.USERPROFILE?.trim() || homedir();
+  const configPath = nativeUserConfigPath(home, nativeDirectories);
   let parsed: unknown;
   try {
     parsed = JSON.parse(readFileSync(configPath, "utf8"));
@@ -1244,6 +1254,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  *        用于 BroadcastService 跨窗口中转。传 null 则广播为空操作。
  */
 export function createLocalServices(options: {
+  // XCODE: 资源目录与运行时库存分别注入，产品默认只在装配入口提供。
+  nativeDirectories?: NativeResourceDirectoryPolicy;
+  pluginStorageRoot?: string;
   /** 已鉴权 Desktop stdio 连接提供的私有回查频道；不作为公共 service 暴露。 */
   topicResourceRelayChannel?: (request: unknown) => IChannel;
   parentPort?: Parameters<typeof createBroadcastService>[0];
@@ -1373,6 +1386,9 @@ export function createLocalServices(options: {
   /** Windows desktop-local Host 的 CUA turn 状态投影；其它 authority 会在装配层拒绝。 */
   cuaOperationStateReporter?: CuaOperationStateReporter;
 }): ServiceCollection {
+  const nativeDirectories =
+    options.nativeDirectories ?? resolveNativeResourceDirectoryPolicy({ env: process.env });
+  const resourceOptions = { nativeDirectories, pluginStorageRoot: options.pluginStorageRoot };
   const isDesktopAttachedRemote = options?.serviceAuthorityMode === "desktop-attached-remote";
   // host / remote server 以前直接沿用当前进程环境启动后续服务。
   // GUI 启动的 desktop、SSH/WSL/Docker 拉起的 remote server 往往拿不到用户 login shell 里的 PATH，
@@ -1398,7 +1414,9 @@ export function createLocalServices(options: {
     console.error(formatLogPrefix("appCaCert", process.pid), "ensure app CA cert failed:", error);
   }
 
-  const localSettings = options?.settingService ? null : createSettingServiceWithMigrations();
+  const localSettings = options?.settingService
+    ? null
+    : createSettingServiceWithMigrations({ nativeDirectories });
   const settingService = createObservableSettingService(
     options?.settingService ?? localSettings!.service,
   );
@@ -1536,7 +1554,7 @@ export function createLocalServices(options: {
       // 跳过/命中各留一条 debug（评审 SG-02）：判定每登录一次至多一条，线上复核
       // "走了哪个证据源"有据可依；不记录完整路径，避免 home 路径进日志。
       hasAgentSessionRow: async () => {
-        const sessionDbPath = await resolveAgentSessionDbPath();
+        const sessionDbPath = await resolveAgentSessionDbPath({ nativeDirectories });
         if (sessionDbPath === null) {
           onboardingEvidenceLogger.debug(
             "onboarding 会话证据源跳过：会话库路径不可镜像（相对路径或 project 级覆盖）",
@@ -1873,13 +1891,14 @@ export function createLocalServices(options: {
       ),
   };
   // mcpSync/hooks 里引用 zcodeAgentService 的闭包是惰性调用，声明顺序不影响初始化。
-  const skillsService = createSkillsService({ isDesktopRuntime: true });
+  const skillsService = createSkillsService({ isDesktopRuntime: true, ...resourceOptions });
   const mcpSyncService = createMcpSyncService({
+    nativeDirectories,
     // mcp/list 的 host 消费点收拢到 mcpSync 服务；真实状态检查仍在 agent 进程。
     listMcpServerStatuses: (params) => zcodeAgentService.listMcpServerStatuses(params),
     setWorkspaceMcpTrust: (params) => zcodeAgentService.setWorkspaceMcpTrust(params),
   });
-  const pluginSyncService = createPluginSyncService();
+  const pluginSyncService = createPluginSyncService({ nativeDirectories });
   const pluginUiAccounts = createPluginUiAccountBindings({
     async readAccount() {
       // XCODE: 新插件实例绑定当前 Native 身份代次，不能借用遗留官方账号或跨 SID 复用。
@@ -1923,10 +1942,12 @@ export function createLocalServices(options: {
     resolveAppToolCallForUi: (params) => zcodeAgentService.resolveAppToolCallForUi(params),
   });
   const subagentsService = createSubagentsService({
+    ...resourceOptions,
     isDesktopRuntime: true,
   });
-  const commandsService = createCommandsService({ isDesktopRuntime: true });
+  const commandsService = createCommandsService({ isDesktopRuntime: true, ...resourceOptions });
   const hooksService = createHooksService({
+    nativeDirectories,
     grantWorkspaceHookTrust: (params) => zcodeAgentService.grantWorkspaceHookTrust(params),
   });
   const memoryService = createMemoryService();
@@ -2673,6 +2694,8 @@ export function createLocalServices(options: {
       // 先拿到尚不存在的 provider_config.json 并发布短暂空 Registry。
       await providerConfigRuntime.start();
       return {
+        // XCODE: 派生 Agent 与 Host 复用同一已解析目录名，不携带本机绝对资源路径。
+        [NATIVE_RESOURCE_DIRECTORY_ENV]: nativeDirectories.directoryName,
         ...buildAgentRuntimeEnv({
           httpProxy: agentNetwork.httpProxy,
           noProxy: agentNetwork.noProxy,
@@ -3255,7 +3278,7 @@ export function createLocalServices(options: {
       })(),
     )
     .register(ISkillsService, skillsService)
-    .register(ISkillSyncService, createSkillSyncService())
+    .register(ISkillSyncService, createSkillSyncService({ nativeDirectories }))
     .register(IMcpSyncService, mcpSyncService)
     .register(
       IGenUiService,
@@ -3268,7 +3291,7 @@ export function createLocalServices(options: {
     // RemoteServiceAccess 仍会请求该频道，导致本地候选枚举超时、远端同步无法开始。
     .register(IPluginSyncService, pluginSyncService)
     // 数据同步：子智能体 / 命令 / 钩子共用的用户配置同步通道，本机与远端 Host 都经此注册。
-    .register(IUserConfigSyncService, createUserConfigSyncService())
+    .register(IUserConfigSyncService, createUserConfigSyncService({ nativeDirectories }))
     .register(IPluginsService, createPluginsService({ isDesktopRuntime: true }))
     // 设置页插件管理薄服务——plugins/* 旧协议词的 host 侧唯一消费点。
     .register(
@@ -3288,16 +3311,14 @@ export function createLocalServices(options: {
       }),
     )
     .register(ISubagentsService, subagentsService)
-    .register(ICommandsService, createCommandsService({ isDesktopRuntime: true }))
-    .register(
-      IHooksService,
-      createHooksService({
-        grantWorkspaceHookTrust: (params) => zcodeAgentService.grantWorkspaceHookTrust(params),
-      }),
-    )
+    .register(ICommandsService, commandsService)
+    .register(IHooksService, hooksService)
     .register(IMemoryService, createMemoryService())
     .register(IOutputStyleService, createOutputStyleService())
-    .register(ISettingsSyncService, createSettingsSyncService({ settingService }))
+    .register(
+      ISettingsSyncService,
+      createSettingsSyncService({ settingService, nativeDirectories }),
+    )
     .register(
       IFeedbackService,
       createFeedbackService({

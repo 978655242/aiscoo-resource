@@ -134,7 +134,11 @@ export type RevokeWorkspaceHookTrustInput =
 /** 新 Session 可使用 Environment 默认选择；恢复 Session 允许保持未绑定，不补默认模型。 */
 export type ZCodeAppRuntimeConfigInput = AgentRuntimeConfig;
 
+// XCODE: 原生资源策略由入口解析后贯穿会话及子运行时。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
+
 export interface ZCodeAppOptions {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   /** 独立 CLI 的配置菜单编辑输入默认值；其他装配保留显式 Session 配置语义。 */
   modelSelectionMode?: "cli-default";
   /** Host 在运行实例创建时传入，运行中不刷新。 */
@@ -835,12 +839,14 @@ export interface ZCodeApp {
 }
 
 export interface ResolveLatestSessionOptions {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   directory: string;
   env?: NodeJS.ProcessEnv;
   sessionStore?: SessionStorePort;
 }
 
 export interface RunZCodeProtocolAgentOptions {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   /** 入口拥有退出时限；bootstrap 只编排取消和资源清理，不直接退出进程。 */
   lifecycle?: {
     readonly signal: AbortSignal;
@@ -859,6 +865,7 @@ export interface RunZCodeProtocolAgentOptions {
 }
 
 export interface ListZCodeSessionsOptions {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   directory?: string;
   env?: NodeJS.ProcessEnv;
   limit?: number;

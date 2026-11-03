@@ -374,6 +374,9 @@ modules:
   - id: project-workflow
     roots:
       - packages/ui/src/project-workflow
+      # XCODE: 既有工作流保存 UI 接线纳入同一受管合同，目录由服务返回。
+      - packages/ui/src/components/workflow-timeline/WorkflowSavePopover.tsx
+      - packages/ui/src/components/workflow-timeline/workflowRunSave.ts
     managed: true
     requires:
       - shared
@@ -384,6 +387,8 @@ modules:
       - packages/ui/src/project-workflow/useWorkflowRunSave.ts
       - packages/ui/src/project-workflow/WorkflowRunSaveControls.tsx
       - packages/ui/src/project-workflow/WorkflowRunPaneSaveSlots.tsx
+      - packages/ui/src/components/workflow-timeline/WorkflowSavePopover.tsx
+      - packages/ui/src/components/workflow-timeline/workflowRunSave.ts
     layers:
       app: .
     owner: conversation
@@ -881,6 +886,8 @@ modules:
     requires:
       - services
       - shared
+      # XCODE: 原生资源路径从独立策略传入，运行时存储不变。
+      - native-resource-directories
     publicEntrypoints:
       - packages/services/src/data-sync/index.ts
       - packages/services/src/data-sync/contract.ts
