@@ -2,7 +2,7 @@
 import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import type { NewApiSessionBundle } from "@zcode/shared";
+import type { AiscooAdminSessionBundle } from "@zcode/shared";
 import { ZenClient } from "./client.js";
 import { createZenAuthorization } from "./authorization.js";
 import { createZenCredentialStore, createZenSystemKeyStore } from "./store.js";
@@ -19,7 +19,7 @@ export async function createZenDefaultDependencies(
     : homedir();
   const client = new ZenClient(origin);
   const directory = join(root, ".zcode", "cli", "zen");
-  const store = createZenCredentialStore<NewApiSessionBundle>({
+  const store = createZenCredentialStore<AiscooAdminSessionBundle>({
     directory,
     keyStore: await createZenSystemKeyStore(directory),
   });

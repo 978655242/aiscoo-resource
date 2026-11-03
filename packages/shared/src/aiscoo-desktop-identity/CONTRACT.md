@@ -10,4 +10,4 @@
 - `AISCOO_DESKTOP_DEFAULT_DATA_BASE_DIR_ENV` 只定义 Main 向本地 Host 传递渠道默认 App 根的环境变量名；取值由 Main 写入，本模块不读取。
 - `nativeResourceDirectoryName` 为三个 Aiscoo 渠道提供 `.aiscoo` 产品默认。启动装配按独立原生资源策略处理环境覆盖；该字段不改变 `dataName`、固定 CLI 根、App 数据目录或 HOME。
 
-装配点：Desktop tsup/Vite 固化渠道、packaging 和 Dev bundle 选定 profile、Main 协议注册/解析、Host New API redirect 注入。上游默认 zcode 不由本模块改写。数据迁移由独立命令完成，不在读取身份配置时发生。
+装配点：Desktop tsup/Vite 固化渠道、packaging 和 Dev bundle 选定 profile、Main 协议注册/解析、Host aiscoo-admin redirect 注入。上游默认 zcode 不由本模块改写。数据迁移由独立命令完成，不在读取身份配置时发生。

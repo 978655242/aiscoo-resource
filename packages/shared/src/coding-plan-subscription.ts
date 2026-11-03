@@ -3,7 +3,7 @@ import type { RequestVerificationProof } from "./request-security-edition/verifi
 import type { Locale } from "./protocol.js";
 import type { ProviderFamilyDomain } from "./model-provider-family.js";
 import type { BUILTIN_MODEL_PROVIDER_IDS } from "./model-provider-types.js";
-import type { NewApiEntitlements, NewApiPlans } from "./new-api.js";
+import type { AiscooAdminEntitlements, AiscooAdminPlans } from "./aiscoo-admin.js";
 
 export type SelfServiceReadResult<T> =
   | { availability: "available"; data: T }
@@ -19,15 +19,15 @@ export interface NativeCodingPlanReadSnapshot {
     subtitle: string;
     priceAmount: string;
     currency: string;
-    durationUnit: NewApiPlans["items"][number]["duration_unit"];
+    durationUnit: AiscooAdminPlans["items"][number]["duration_unit"];
     durationValue: string;
     durationCustomSeconds: string;
     totalQuota: string;
-    resetPeriod: NewApiPlans["items"][number]["reset_period"];
+    resetPeriod: AiscooAdminPlans["items"][number]["reset_period"];
     resetCustomSeconds: string;
     enabled: boolean;
   }>;
-  entitlement: NewApiEntitlements;
+  entitlement: AiscooAdminEntitlements;
 }
 
 export type CodingPlanReadResult<T> = T | NativeCodingPlanReadSnapshot;

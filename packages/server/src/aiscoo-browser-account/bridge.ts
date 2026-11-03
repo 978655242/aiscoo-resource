@@ -1,6 +1,10 @@
 import { Emitter, type IChannel, type IChannelClient, type IDisposable } from "@zcode/rpc";
 import type { IOAuthService } from "@zcode/services";
-import { normalizeNewApiOrigin, type NewApiOwner, type OAuthSessionState } from "@zcode/shared";
+import {
+  normalizeAiscooAdminOrigin,
+  type AiscooAdminOwner,
+  type OAuthSessionState,
+} from "@zcode/shared";
 import {
   BROWSER_ACCOUNT_CHANNEL,
   BROWSER_ACCOUNT_OAUTH_METHODS,
@@ -29,8 +33,8 @@ type Attachment = {
   channel: IChannel;
   ready: Promise<void>;
   subscription?: IDisposable;
-  owner?: NewApiOwner | null;
-  observedOwner?: NewApiOwner | null;
+  owner?: AiscooAdminOwner | null;
+  observedOwner?: AiscooAdminOwner | null;
   events: number;
   invalidations: Emitter<BrowserAccountInvalidationReason>;
 };
@@ -39,10 +43,10 @@ export function createBrowserAccountBridge(
   configuredOrigin: string,
   options: BrowserAccountBridgeOptions = {},
 ): BrowserAccountBridge {
-  const origin = normalizeNewApiOrigin(configuredOrigin);
+  const origin = normalizeAiscooAdminOrigin(configuredOrigin);
   const changes = new Emitter<OAuthSessionState>();
   const attachments = new Set<Attachment>();
-  let owner: NewApiOwner | null = null;
+  let owner: AiscooAdminOwner | null = null;
   let revision = 0;
   let disposed = false;
   let ownerAcceptance: Promise<void> = Promise.resolve();
@@ -88,7 +92,7 @@ export function createBrowserAccountBridge(
     if (reason) source.invalidations.fire(reason);
     source.invalidations.dispose();
   }
-  function transition(next: NewApiOwner | null, source?: Attachment): Promise<void> {
+  function transition(next: AiscooAdminOwner | null, source?: Attachment): Promise<void> {
     if (source) {
       live(source);
       source.owner = next;

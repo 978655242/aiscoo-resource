@@ -693,13 +693,13 @@ try {
             );
           }
           if (file === resolve(root, "packages/web/src/aiscoo-browser-account/account.ts")) {
-            const target = "export function createBrowserNewApiAccount(";
+            const target = "export function createBrowserAiscooAdminAccount(";
             assert.ok(code.includes(target), "browser account observation point moved");
             return (
-              code.replace(target, "function createObservedBrowserNewApiAccount(") +
+              code.replace(target, "function createObservedBrowserAiscooAdminAccount(") +
               `
-            export function createBrowserNewApiAccount(options) {
-              const account = createObservedBrowserNewApiAccount(options);
+            export function createBrowserAiscooAdminAccount(options) {
+              const account = createObservedBrowserAiscooAdminAccount(options);
               globalThis.__aiscooE2EAccount = account;
               return account;
             }`

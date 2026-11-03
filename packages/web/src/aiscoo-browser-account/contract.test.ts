@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createBrowserNewApiAccount } from "./index.js";
-import type { BrowserNewApiAccount, BrowserNewApiAccountOptions } from "./contract.js";
+import { createBrowserAiscooAdminAccount } from "./index.js";
+import type { BrowserAiscooAdminAccount, BrowserAiscooAdminAccountOptions } from "./contract.js";
 
 describe("browser account public contract", () => {
   it("starts signed out and exposes OAuth without leaking bundle storage", async () => {
-    const options: BrowserNewApiAccountOptions = {
-      origin: "https://new-api.example.test",
+    const options: BrowserAiscooAdminAccountOptions = {
+      origin: "https://aiscoo-admin.example.test",
       browserOrigin: "http://127.0.0.1:5173",
       localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
       sessionStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
@@ -14,7 +14,7 @@ describe("browser account public contract", () => {
         throw new Error("unexpected network access");
       },
     };
-    const account: BrowserNewApiAccount = createBrowserNewApiAccount(options);
+    const account: BrowserAiscooAdminAccount = createBrowserAiscooAdminAccount(options);
     expect(account.getOwner()).toBeNull();
     expect(account.getStorageIdentity()).toBeNull();
     expect(await account.oauth.restoreCachedSessionState()).toEqual({ status: "signed-out" });

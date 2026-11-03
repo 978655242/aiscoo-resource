@@ -339,7 +339,7 @@ export function spawnHostProcess(
     if (result.data.type === HostResponseTypes.PrivateAccountOwnerChanged) {
       if (dependencies.windowHostProcessMap.get(win.webContents.id) !== child) return;
       void setNativePlanWebviewOwner(win.id, result.data.owner).catch(() => {
-        dependencies.logger.warn("[new-api] failed to clear private plan WebView partition");
+        dependencies.logger.warn("[aiscoo-admin] failed to clear private plan WebView partition");
       });
       return;
     }

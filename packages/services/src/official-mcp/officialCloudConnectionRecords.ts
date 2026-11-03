@@ -4,8 +4,8 @@ import {
   officialCloudCatalogSchema,
   officialCloudFamilySchema,
   zcodeAccountAccessSchema,
-  normalizeNewApiOrigin,
-  type NewApiOwner,
+  normalizeAiscooAdminOrigin,
+  type AiscooAdminOwner,
   type OfficialCloudConnectionSnapshot,
   type OfficialCloudFamily,
   type UserInfo,
@@ -54,13 +54,13 @@ export type StoredConnection = z.infer<typeof recordSchema>;
 export function ownerChanged(): Error {
   return new Error("Official cloud owner or credential generation changed");
 }
-export function prefix(owner: NewApiOwner): string {
+export function prefix(owner: AiscooAdminOwner): string {
   return `official-cloud:${createHash("sha256").update(owner.origin).digest("hex")}:${encodeURIComponent(owner.userId)}:`;
 }
 export function fingerprint(record: StoredConnection): string {
   return createHash("sha256").update(JSON.stringify(record)).digest("hex");
 }
-export function validateRecord(value: unknown, owner: NewApiOwner): StoredConnection {
+export function validateRecord(value: unknown, owner: AiscooAdminOwner): StoredConnection {
   // XCODE: 丢弃旧版落盘执行 Key，保留严格校验的登录身份与 owner，不再恢复过期凭据。
   const { codingPlanApiKey: _legacyKey, ...connection } = z
     .record(z.string(), z.unknown())
@@ -75,17 +75,17 @@ export function validateRecord(value: unknown, owner: NewApiOwner): StoredConnec
     throw ownerChanged();
   return record;
 }
-function recordKey(owner: NewApiOwner, record: StoredConnection): string {
+function recordKey(owner: AiscooAdminOwner, record: StoredConnection): string {
   return `${prefix(owner)}${record.family}:${encodeURIComponent(record.identity.id)}:${record.credentialGeneration}`;
 }
 
 /** Persistence admits commits synchronously against the Host's single lifetime owner. */
 export function createOfficialCloudConnectionRecords(
   store: HostCredentialStoreDependencies,
-  current: (owner: NewApiOwner, capturedEpoch: number) => boolean,
+  current: (owner: AiscooAdminOwner, capturedEpoch: number) => boolean,
   onCommit: () => void,
 ) {
-  const read = (owner: NewApiOwner): Promise<StoredConnection | null> =>
+  const read = (owner: AiscooAdminOwner): Promise<StoredConnection | null> =>
     readHostCredentialRecords((load) => {
       const active = load(`${prefix(owner)}active`);
       if (!active) return null;
@@ -97,7 +97,7 @@ export function createOfficialCloudConnectionRecords(
       return record;
     }, store);
   const commit = async (
-    owner: NewApiOwner,
+    owner: AiscooAdminOwner,
     record: StoredConnection,
     expected: StoredConnection | null,
     capturedEpoch: number,
@@ -129,7 +129,7 @@ export function createOfficialCloudConnectionRecords(
     );
   };
   const revert = async (
-    owner: NewApiOwner,
+    owner: AiscooAdminOwner,
     committed: StoredConnection,
     previous: StoredConnection | null,
   ): Promise<void> => {
@@ -151,7 +151,7 @@ export function createOfficialCloudConnectionRecords(
       store,
     );
   };
-  const remove = async (owner: NewApiOwner, record: StoredConnection): Promise<void> => {
+  const remove = async (owner: AiscooAdminOwner, record: StoredConnection): Promise<void> => {
     const key = recordKey(owner, record),
       activeKey = `${prefix(owner)}active`;
     await updateHostCredentialRecords(
@@ -180,7 +180,7 @@ export function createOfficialCloudConnectionRecords(
 
 // XCODE: Native 身份只参与不透明缓存 key，完整 owner 不得跨 Renderer RPC。
 export function projectOfficialCloudConnection(
-  owner: NewApiOwner,
+  owner: AiscooAdminOwner,
   record: StoredConnection,
   pendingFamily: OfficialCloudFamily | null,
 ): OfficialCloudConnectionSnapshot {
@@ -216,12 +216,15 @@ export function projectOfficialCloudConnection(
   };
 }
 
-export function officialCloudRecordOwnerKey(owner: NewApiOwner, record: StoredConnection): string {
+export function officialCloudRecordOwnerKey(
+  owner: AiscooAdminOwner,
+  record: StoredConnection,
+): string {
   const access = record.access;
   return createHash("sha256")
     .update(
       JSON.stringify([
-        normalizeNewApiOrigin(owner.origin),
+        normalizeAiscooAdminOrigin(owner.origin),
         owner.userId,
         record.family,
         record.identity.id,
@@ -235,12 +238,12 @@ export function officialCloudRecordOwnerKey(owner: NewApiOwner, record: StoredCo
 }
 
 export function createOfficialCloudCredentialResolver(options: {
-  getOwner(): NewApiOwner | null;
-  current(owner: NewApiOwner, capturedEpoch?: number): boolean;
-  isBlocked(owner: NewApiOwner): boolean;
+  getOwner(): AiscooAdminOwner | null;
+  current(owner: AiscooAdminOwner, capturedEpoch?: number): boolean;
+  isBlocked(owner: AiscooAdminOwner): boolean;
   getEpoch(): number;
   getLifetime(): number;
-  read(owner: NewApiOwner): Promise<StoredConnection | null>;
+  read(owner: AiscooAdminOwner): Promise<StoredConnection | null>;
   now(): number;
 }) {
   const { getOwner, current, isBlocked, getEpoch, getLifetime, read, now } = options;
@@ -297,7 +300,7 @@ export function officialCloudLoginIdentity(profile: UserInfo): UserInfo {
 }
 
 export function createOfficialCloudConnectionRecord(
-  owner: NewApiOwner,
+  owner: AiscooAdminOwner,
   family: OfficialCloudFamily,
   identity: UserInfo,
   tokens: OAuthTokenSet,

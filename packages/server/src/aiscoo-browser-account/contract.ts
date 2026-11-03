@@ -1,6 +1,6 @@
 import type { Event, IChannelClient, IDisposable } from "@zcode/rpc";
 import type { IOAuthService } from "@zcode/services";
-import type { NewApiOwner, OAuthCachedSessionRestoreResult } from "@zcode/shared";
+import type { AiscooAdminOwner, OAuthCachedSessionRestoreResult } from "@zcode/shared";
 
 export const BROWSER_ACCOUNT_CHANNEL = "aiscoo/browser-account" as const;
 
@@ -28,7 +28,7 @@ export type BrowserAccountOAuthResult<M extends BrowserAccountOAuthMethod> = Awa
 >;
 
 export interface BrowserAccountSessionEvent {
-  owner: NewApiOwner | null;
+  owner: AiscooAdminOwner | null;
 }
 
 export interface BrowserAccountRestoreResult extends BrowserAccountSessionEvent {
@@ -36,16 +36,16 @@ export interface BrowserAccountRestoreResult extends BrowserAccountSessionEvent 
 }
 
 export interface BrowserAccountControlRequest {
-  owner: NewApiOwner;
+  owner: AiscooAdminOwner;
 }
 
 export interface BrowserAccountControlResult {
-  owner: NewApiOwner;
+  owner: AiscooAdminOwner;
   accessToken: string;
 }
 
 export interface BrowserAccountRelayRequest {
-  owner: NewApiOwner;
+  owner: AiscooAdminOwner;
 }
 
 export interface BrowserAccountRelayResult {
@@ -58,7 +58,7 @@ export interface BrowserAccountWireCommands {
   restore: { arg: undefined; result: BrowserAccountRestoreResult };
   control: { arg: BrowserAccountControlRequest; result: BrowserAccountControlResult };
   relay: { arg: BrowserAccountRelayRequest; result: BrowserAccountRelayResult };
-  invalidateCredential: { arg: { owner: NewApiOwner }; result: void };
+  invalidateCredential: { arg: { owner: AiscooAdminOwner }; result: void };
   oauth: {
     arg: BrowserAccountOAuthRequest;
     result: BrowserAccountOAuthResult<BrowserAccountOAuthMethod>;
@@ -67,16 +67,16 @@ export interface BrowserAccountWireCommands {
 
 export interface BrowserAccountAuthority {
   readonly oauth: IOAuthService;
-  getOwner(): NewApiOwner | null;
-  isCurrent(owner: NewApiOwner): boolean;
+  getOwner(): AiscooAdminOwner | null;
+  isCurrent(owner: AiscooAdminOwner): boolean;
   withControlSession<T>(
-    action: (accessToken: string, owner: NewApiOwner) => Promise<T>,
+    action: (accessToken: string, owner: AiscooAdminOwner) => Promise<T>,
   ): Promise<T>;
-  getRelayCredential(owner: NewApiOwner): Promise<BrowserAccountRelayResult>;
+  getRelayCredential(owner: AiscooAdminOwner): Promise<BrowserAccountRelayResult>;
 }
 
 export interface BrowserAccountBridgeOptions {
-  onOwnerChanged?: (owner: NewApiOwner | null) => void | Promise<void>;
+  onOwnerChanged?: (owner: AiscooAdminOwner | null) => void | Promise<void>;
 }
 
 export type BrowserAccountInvalidationReason = "owner-changed" | "account-mismatch" | "unavailable";

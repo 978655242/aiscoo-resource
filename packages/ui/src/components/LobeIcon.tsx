@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/components/lib/utils.js";
 
-// XCODE: 与 New API 管理端 getLobeIcon 同规则解析 @lobehub/icons 图标名（如 "Claude.Color"、"OpenAI"）：
+// XCODE: 与 Aiscoo 管理端 getLobeIcon 同规则解析 @lobehub/icons 图标名（如 "Claude.Color"、"OpenAI"）：
 // 取首段为图标 ID，第二段为 Color 且存在彩色资源时用彩色，否则用单色。资源来自同版本图标的静态 SVG。
 // 相对路径：desktop/web/vitest 的 Vite root 不同，只有相对本文件的 glob 在各端一致；依赖由 node-linker=hoisted 提升到仓库根。
 // 懒加载：全部 950 个图标内联会让主包增加约 1.5MB，这里只在用到时加载单个 SVG。

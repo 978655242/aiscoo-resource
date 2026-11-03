@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { NewApiOwner } from "@zcode/shared";
+import type { AiscooAdminOwner } from "@zcode/shared";
 import { restoreZen } from "./contract.example.js";
 import type { ZenAccountContract } from "./contract.js";
 
 // 契约测试只 import contract 与 example，不依赖具体实现；由 tests/zen-contract.test.ts 纳入 CLI 测试入口。
 describe("cli-zen-account contract", () => {
-  const owner: NewApiOwner = { origin: "https://zen.example.com", userId: "1", sid: "s", authGeneration: 1 };
+  const owner: AiscooAdminOwner = { origin: "https://zen.example.com", userId: "1", sid: "s", authGeneration: 1 };
   const account = (restored: boolean): ZenAccountContract => ({
     getOwner: () => (restored ? owner : null),
     restore: async () =>

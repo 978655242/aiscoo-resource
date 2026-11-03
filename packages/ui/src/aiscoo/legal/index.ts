@@ -1,5 +1,5 @@
 import { createElement, type MouseEvent } from "react";
-import { NEW_API_PROVIDER_ID, normalizeNewApiOrigin } from "@zcode/shared";
+import { AISCOO_ADMIN_PROVIDER_ID, normalizeAiscooAdminOrigin } from "@zcode/shared";
 import { PRODUCT_BRAND } from "@zcode/shared/aiscoo-brand";
 import { Button } from "@/components/ui/button.js";
 import { useOAuth } from "@/hooks/useOAuth.js";
@@ -8,20 +8,22 @@ import { ServiceProvider } from "@/hooks/useServices.js";
 import { useOptionalBaseWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { SettingsGroupCard, SettingsRow } from "@/settings/SettingsPageParts.js";
-import type { NewApiLegalLinks, AiscooLegalLinksProps } from "./contract.js";
+import type { AiscooAdminLegalLinks, AiscooLegalLinksProps } from "./contract.js";
 
 export type { AiscooLegalLinksProps } from "./contract.js";
 
 /** 接受当前 Host 的完整公开页面对，拒绝任何授权参数、凭据或跨源链接。 */
-function publicLegalLinks(providers: AiscooLegalLinksProps["providers"]): NewApiLegalLinks | null {
+function publicLegalLinks(
+  providers: AiscooLegalLinksProps["providers"],
+): AiscooAdminLegalLinks | null {
   const links = providers.find(
-    (provider) => provider.id === NEW_API_PROVIDER_ID && provider.enabled,
+    (provider) => provider.id === AISCOO_ADMIN_PROVIDER_ID && provider.enabled,
   )?.legalLinks;
   if (!links) return null;
   try {
     const agreement = new URL(links.userAgreementUrl);
     const privacy = new URL(links.privacyPolicyUrl);
-    const origin = normalizeNewApiOrigin(agreement.origin);
+    const origin = normalizeAiscooAdminOrigin(agreement.origin);
     if (
       privacy.origin !== origin ||
       links.userAgreementUrl !== `${origin}/user-agreement` ||

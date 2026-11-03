@@ -11,7 +11,7 @@ import { importLegacyPersonalProviderConfig } from "./legacyPersonalProviderConf
 
 export interface ProviderConfigRuntimeOptions {
   readonly zcodeBuiltinFilePath: string;
-  readonly newApiOrigin?: string;
+  readonly aiscooAdminOrigin?: string;
   readonly zcodeBuiltinActiveFilePath?: string;
   readonly zcodeBuiltinRemote?: NodeProviderConfigRuntimeOptions["zcodeBuiltinRemote"];
   readonly zcodeBuiltinEnvironment?: NodeProviderConfigRuntimeOptions["zcodeBuiltinEnvironment"];
@@ -35,7 +35,7 @@ export class ProviderConfigRuntime {
   constructor(options: ProviderConfigRuntimeOptions) {
     const runtimeOptions: NodeProviderConfigRuntimeOptions = {
       zcodeBuiltinFilePath: options.zcodeBuiltinFilePath,
-      newApiOrigin: options.newApiOrigin,
+      aiscooAdminOrigin: options.aiscooAdminOrigin,
       zcodeBuiltinActiveFilePath: options.zcodeBuiltinActiveFilePath,
       zcodeBuiltinRemote: options.zcodeBuiltinRemote,
       zcodeBuiltinEnvironment: options.zcodeBuiltinEnvironment,

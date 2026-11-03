@@ -391,7 +391,7 @@ describe("Aiscoo Root 登录展示", () => {
       oauthService: {
         getProviders: vi.fn(async () => [
           { id: "zai", displayName: "Z.ai", enabled: true, order: 0 },
-          { id: "new-api", displayName: "New API", enabled: true, order: 1 },
+          { id: "new-api", displayName: "Aiscoo", enabled: true, order: 1 },
         ]),
       },
     } as unknown as IServiceAccessor;
@@ -441,7 +441,7 @@ describe("Aiscoo Root 登录展示", () => {
                 ? [
                     {
                       id: "new-api",
-                      displayName: "New API",
+                      displayName: "Aiscoo",
                       enabled: mode !== "disabled",
                       order: 1,
                     },
@@ -486,11 +486,12 @@ describe("Aiscoo Root 登录展示", () => {
   it.each(["restoreCachedSessionState", "restoreSession"] as const)(
     "真实 Native owner 冷启动经 %s 恢复既有会话",
     async (method) => {
-      const { NewApiAccountService } =
-        await import("../../services/src/new-api/newApiAccountService.js");
-      const { NewApiClient } = await import("../../services/src/new-api/newApiClient.js");
-      const { NewApiProviderAdapter } =
-        await import("../../services/src/oauth/providers/newApiProviderAdapter.js");
+      const { AiscooAdminAccountService } =
+        await import("../../services/src/aiscoo-admin/aiscooAdminAccountService.js");
+      const { AiscooAdminClient } =
+        await import("../../services/src/aiscoo-admin/aiscooAdminClient.js");
+      const { AiscooAdminProviderAdapter } =
+        await import("../../services/src/oauth/providers/aiscooAdminProviderAdapter.js");
       const now = 1_800_000_000_000;
       const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
       const bundle = {
@@ -527,14 +528,14 @@ describe("Aiscoo Root 登录展示", () => {
           bundle,
         })),
       };
-      const owner = new NewApiAccountService({
-        adapter: new NewApiProviderAdapter(
-          new NewApiClient("https://native.example", {
+      const owner = new AiscooAdminAccountService({
+        adapter: new AiscooAdminProviderAdapter(
+          new AiscooAdminClient("https://native.example", {
             fetch: fetch as typeof globalThis.fetch,
             now: () => now,
           }),
         ),
-        repo: repo as unknown as ConstructorParameters<typeof NewApiAccountService>[0]["repo"],
+        repo: repo as unknown as ConstructorParameters<typeof AiscooAdminAccountService>[0]["repo"],
         now: () => now,
       });
       expect(await owner.oauth.getActiveProvider()).toBeNull();
@@ -559,11 +560,12 @@ describe("Aiscoo Root 登录展示", () => {
     ["logoutAll", "pending"],
     ["cancelPending", "pending"],
   ] as const)("真实 Native %s 同步失效 %s，迟到结果不可重新登录", async (command, phase) => {
-    const { NewApiAccountService } =
-      await import("../../services/src/new-api/newApiAccountService.js");
-    const { NewApiClient } = await import("../../services/src/new-api/newApiClient.js");
-    const { NewApiProviderAdapter } =
-      await import("../../services/src/oauth/providers/newApiProviderAdapter.js");
+    const { AiscooAdminAccountService } =
+      await import("../../services/src/aiscoo-admin/aiscooAdminAccountService.js");
+    const { AiscooAdminClient } =
+      await import("../../services/src/aiscoo-admin/aiscooAdminClient.js");
+    const { AiscooAdminProviderAdapter } =
+      await import("../../services/src/oauth/providers/aiscooAdminProviderAdapter.js");
     const now = 1_800_000_000_000;
     const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
     const bundle = {
@@ -620,14 +622,14 @@ describe("Aiscoo Root 登录展示", () => {
         return previous;
       }),
     };
-    const owner = new NewApiAccountService({
-      adapter: new NewApiProviderAdapter(
-        new NewApiClient("https://native.example", {
+    const owner = new AiscooAdminAccountService({
+      adapter: new AiscooAdminProviderAdapter(
+        new AiscooAdminClient("https://native.example", {
           fetch: fetch as typeof globalThis.fetch,
           now: () => now,
         }),
       ),
-      repo: repo as unknown as ConstructorParameters<typeof NewApiAccountService>[0]["repo"],
+      repo: repo as unknown as ConstructorParameters<typeof AiscooAdminAccountService>[0]["repo"],
       now: () => now,
     });
     const service = createAiscooAccountLoginServices({
@@ -665,7 +667,7 @@ describe("Aiscoo Root 登录展示", () => {
   });
 
   it.each(["only-official", "mixed-official"])(
-    "%s 的退出始终限制 new-api 作用域，不删除官方凭据",
+    "%s 的退出始终限制 aiscoo-admin 作用域，不删除官方凭据",
     async (mode) => {
       const legacy = { token: "untouched-official", pending: true };
       const scopedLogout = vi.fn(async (provider?: string) => {
@@ -712,7 +714,7 @@ describe("Aiscoo Root 登录展示", () => {
       });
       const underlying = {
         getProviders: vi.fn(async () => [
-          { id: "new-api", displayName: "New API", enabled: true, order: 0 },
+          { id: "new-api", displayName: "Aiscoo", enabled: true, order: 0 },
         ]),
         getActiveProvider: vi.fn(async () => active),
         restoreCachedSessionState,
@@ -743,7 +745,7 @@ describe("Aiscoo Root 登录展示", () => {
     const service = createAiscooAccountLoginServices({
       oauthService: {
         getProviders: async () => [
-          { id: "new-api", displayName: "New API", enabled: true, order: 0 },
+          { id: "new-api", displayName: "Aiscoo", enabled: true, order: 0 },
         ],
         getActiveProvider: async () => null,
         restoreCachedSessionState: async () => result,
@@ -756,7 +758,7 @@ describe("Aiscoo Root 登录展示", () => {
     const userInfo = { id: "native", username: "native", displayName: "native" };
     const underlying = {
       getProviders: vi.fn(async () => [
-        { id: "new-api", displayName: "New API", enabled: true, order: 0 },
+        { id: "new-api", displayName: "Aiscoo", enabled: true, order: 0 },
       ]),
       getActiveProvider: vi.fn(async () => "new-api"),
       restoreCachedSessionState: vi.fn(async () => ({ status: "authenticated", userInfo })),

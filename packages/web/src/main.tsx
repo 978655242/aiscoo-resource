@@ -49,9 +49,9 @@ import {
   resolveAiscooWebEntry,
   createAiscooBrowserWebStartup,
 } from "./aiscoo-account-login/index.js";
-// XCODE: 本机 Web 沿用唯一 New API 浏览器账号 owner。
+// XCODE: 本机 Web 沿用唯一 Aiscoo 浏览器账号 owner。
 import {
-  createBrowserNewApiAccount,
+  createBrowserAiscooAdminAccount,
   type BrowserAccountWebConnection,
 } from "./aiscoo-browser-account/index.js";
 import { WEB_ZAI_OAUTH_CONFIG, resolveWebAuthDevReturnTo } from "./auth/webZaiOAuthConfig.js";
@@ -247,10 +247,10 @@ const root = createRoot(document.getElementById("root")!);
 const webAuthService = createWebAuthService();
 // XCODE: 显式开关不影响远控/分享；PKCE 和凭据只由浏览器账号模块持有。
 const browserAccountOrigin = import.meta.env.VITE_AISCOO_BROWSER_NEW_API_ORIGIN?.trim();
-let browserAccount: ReturnType<typeof createBrowserNewApiAccount> | undefined;
+let browserAccount: ReturnType<typeof createBrowserAiscooAdminAccount> | undefined;
 function getBrowserAccount() {
   if (!browserAccountOrigin) return undefined;
-  return (browserAccount ??= createBrowserNewApiAccount({
+  return (browserAccount ??= createBrowserAiscooAdminAccount({
     origin: browserAccountOrigin,
     browserOrigin: window.location.origin,
     localStorage: window.localStorage,
@@ -1869,7 +1869,7 @@ async function bootstrapWebApp() {
     return;
   }
 
-  // XCODE: 本机回调复用原页面，只适配 New API 的返回形状。
+  // XCODE: 本机回调复用原页面，只适配 Aiscoo 的返回形状。
   const account = getBrowserAccount();
   if (account && window.location.pathname === "/oauth/callback") {
     root.render(

@@ -4,8 +4,8 @@ import {
   BUILTIN_MODEL_PROVIDER_IDS,
   type OAuthProviderId,
   ZAI_PROVIDER_ID,
-  NEW_API_PROVIDER_ID,
-  isNewApiModelProviderId,
+  AISCOO_ADMIN_PROVIDER_ID,
+  isAiscooAdminModelProviderId,
 } from "@zcode/shared";
 import { ChevronRightIcon, Loader2 } from "lucide-react";
 import { useMemo } from "react";
@@ -74,7 +74,7 @@ function UsageDetailsButton({ label, onUsageClick }: { label: string; onUsageCli
 }
 
 function resolveCodingPlanTabProviderIcon(providerId: string): OAuthProviderId {
-  if (isNewApiModelProviderId(providerId)) return NEW_API_PROVIDER_ID;
+  if (isAiscooAdminModelProviderId(providerId)) return AISCOO_ADMIN_PROVIDER_ID;
   if (providerId === BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan) {
     return ZAI_PROVIDER_ID;
   }

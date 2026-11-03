@@ -14,7 +14,7 @@ import type {
   UsageEntitlementSnapshot,
   UsageStatsRequest,
   UsageStatsSnapshot,
-  NewApiAccountUsageSnapshot,
+  AiscooAdminAccountUsageSnapshot,
   CodingPlanResetHistoryReadResult,
 } from "@zcode/shared";
 import { ServiceChannels } from "@zcode/shared";
@@ -34,7 +34,9 @@ export interface IUsageStatsService {
   markCodingPlanResetHistoryRead(
     request: CodingPlanResetScopeRequest,
   ): Promise<CodingPlanResetHistoryReadResult>;
-  getSnapshot(request: UsageStatsRequest): Promise<UsageStatsSnapshot | NewApiAccountUsageSnapshot>;
+  getSnapshot(
+    request: UsageStatsRequest,
+  ): Promise<UsageStatsSnapshot | AiscooAdminAccountUsageSnapshot>;
   getEntitlementSnapshot(request?: UsageEntitlementRequest): Promise<UsageEntitlementSnapshot>;
 }
 

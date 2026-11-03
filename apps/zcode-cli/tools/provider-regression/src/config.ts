@@ -89,7 +89,7 @@ export async function loadConfiguration(providersFile: string, listFile: string)
   const secrets: string[] = [];
   const rules = original.toJSON().map((rule) => {
     const access = rule.config.access;
-    // XCODE: 账号凭据只能由请求期 owner 解析，不能为 New API / OAuth 账号合成静态占位 Key。
+    // XCODE: 账号凭据只能由请求期 owner 解析，不能为 Aiscoo / OAuth 账号合成静态占位 Key。
     if (access && access.type !== "api-key" && access.type !== "zhipu-coding-plan-api-key")
       throw new Error("此测试入口只支持 API Key Provider");
     const key = access?.apiKey?.trim();

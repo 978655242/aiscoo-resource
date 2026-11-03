@@ -40,7 +40,7 @@ App 业务单测已退役，不新增或恢复 App 业务单测 test/spec 或 `c
 
 <!-- XCODE: 保留已批准的 Aiscoo 扩展回归，不恢复上游已退役的 App 套件。 -->
 
-Aiscoo 的既有品牌、New API 与归属隔离回归使用独立 `pnpm test:aiscoo <文件>` 显式清单及 `pnpm test:unit:node`；它们不加入上游工程测试清单，按对应下游变更执行并进入 Aiscoo CI。
+Aiscoo 的既有品牌、aiscoo-admin 与归属隔离回归使用独立 `pnpm test:aiscoo <文件>` 显式清单及 `pnpm test:unit:node`；它们不加入上游工程测试清单，按对应下游变更执行并进入 Aiscoo CI。
 
 测试入口以目标包当前的 `package.json` 和实际测试文件为准，不假定存在统一的单测或 E2E 命令。
 

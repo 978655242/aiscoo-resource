@@ -45,7 +45,7 @@ Windows PowerShell 示例：
 ### Aiscoo Zen Plan
 
 服务器需已启用 `xwork-cli` 授权；旧的仅支持桌面深链的服务器需要先升级。
-显式配置 `AISCOO_ADMIN_BASE_URL` 为你的 New API origin，然后运行：
+显式配置 `AISCOO_ADMIN_BASE_URL` 为你的 aiscoo-admin origin，然后运行：
 
 ```sh
 zcode login zen

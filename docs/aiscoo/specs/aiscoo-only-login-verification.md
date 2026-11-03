@@ -4,7 +4,7 @@
 
 ## 1. 行为与边界
 
-Aiscoo Desktop、Web、CLI 产品入口只允许 Aiscoo/New API，CLI 使用既有 Zen 授权。删除官方主登录回退、polling、独立官方连接卡与 hook、官方 callback 产品装配和旧身份恢复。合法 Aiscoo 账号继续使用原有 owner、精确 callback、PKCE、generation 与持久化接口。
+Aiscoo Desktop、Web、CLI 产品入口只允许 Aiscoo/aiscoo-admin，CLI 使用既有 Zen 授权。删除官方主登录回退、polling、独立官方连接卡与 hook、官方 callback 产品装配和旧身份恢复。合法 Aiscoo 账号继续使用原有 owner、精确 callback、PKCE、generation 与持久化接口。
 
 缺失、空或非法账号配置进入不可用投影：Host 不创建旧 OAuth owner，不恢复或解密历史官方身份；UI 无官方登录按钮，Main 不登记或投递官方 state，scheduler 无官方执行 owner。Main 的远控与遥测凭据读取也使用同一产品策略，缺配置不初始化私有 OS 加密 key。
 
@@ -14,13 +14,13 @@ Web 的旧远控登录及分享回调页显示不可用，不扩展公网 Aiscoo
 
 ## 2. 根因与修复证据
 
-| 触发场景                                  | 已确认原因                                                                                      | 修复与验证                                                                                                                                   |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| 缺少 Aiscoo 配置仍看到 Z.ai/BigModel 登录 | 服务组合以 origin 是否存在选择 Native 或旧官方 owner；品牌包装没有限制服务能力                  | 产品入口固定注入不可变策略；缺配置使用无状态不可用 authority，目录、用量、套餐和官方能力不再走旧身份分支                                     |
-| 新包装阻止合法冷恢复                      | `getActiveProvider` 只在 Native 恢复建立 owner 后返回 new-api；包装提前要求 active 已为 new-api | 有合法 enabled 来源且没有明确官方 active 时委托原 owner 恢复；authenticated 后再确认来源。实际 Native owner 的 cached/validated 冷启动均通过 |
-| 带首尾空白的官方凭据 key 可绕过           | 包装先比较原 key，底层随后 trim；纯内存复现读出了被禁历史值                                     | Host 在同样 trim 语义下检查；CLI 先规范化再检查所有单项/批量 key 与 manual 来源。回归证明禁用 key 不触发 backing IO                          |
-| 恢复或 pending 期间退出，迟到结果重新登录 | 包装因 active 为 null 跳过 owner.logout；实际 held `/me` 复现 authenticated 与 signed-in        | logout/logoutAll/cancelPending 立即委托原 owner 的 new-api 作用域方法；真实 Native 挂起恢复、pending callback 与同步失效回归通过             |
-| Vite preview 新中间件无法启动             | configure hook 隐式返回 Connect app，被 Vite 当作后置 hook 无请求调用                           | hook 显式返回 void；真实 Vite preview 启动与 HTTP 403 回归通过，完整产品 preview 上的两组浏览器验收通过                                      |
+| 触发场景                                  | 已确认原因                                                                                                | 修复与验证                                                                                                                                   |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 缺少 Aiscoo 配置仍看到 Z.ai/BigModel 登录 | 服务组合以 origin 是否存在选择 Native 或旧官方 owner；品牌包装没有限制服务能力                            | 产品入口固定注入不可变策略；缺配置使用无状态不可用 authority，目录、用量、套餐和官方能力不再走旧身份分支                                     |
+| 新包装阻止合法冷恢复                      | `getActiveProvider` 只在 Native 恢复建立 owner 后返回 aiscoo-admin；包装提前要求 active 已为 aiscoo-admin | 有合法 enabled 来源且没有明确官方 active 时委托原 owner 恢复；authenticated 后再确认来源。实际 Native owner 的 cached/validated 冷启动均通过 |
+| 带首尾空白的官方凭据 key 可绕过           | 包装先比较原 key，底层随后 trim；纯内存复现读出了被禁历史值                                               | Host 在同样 trim 语义下检查；CLI 先规范化再检查所有单项/批量 key 与 manual 来源。回归证明禁用 key 不触发 backing IO                          |
+| 恢复或 pending 期间退出，迟到结果重新登录 | 包装因 active 为 null 跳过 owner.logout；实际 held `/me` 复现 authenticated 与 signed-in                  | logout/logoutAll/cancelPending 立即委托原 owner 的 aiscoo-admin 作用域方法；真实 Native 挂起恢复、pending callback 与同步失效回归通过        |
+| Vite preview 新中间件无法启动             | configure hook 隐式返回 Connect app，被 Vite 当作后置 hook 无请求调用                                     | hook 显式返回 void；真实 Vite preview 启动与 HTTP 403 回归通过，完整产品 preview 上的两组浏览器验收通过                                      |
 
 上述修复均先复现再改实现。账号事实仍由既有 owner 持有；适配器不新增登录队列、会话缓存或第二身份所有者。
 
@@ -59,7 +59,7 @@ Web 的旧远控登录及分享回调页显示不可用，不扩展公网 Aiscoo
 
 ## 4. 上游文件与扩展理由
 
-本次以独立 `aiscoo-account-policy`、`aiscoo/account-login`、Web 账号入口模块及既有 CLI Zen 包装实现产品差异。架构登记仅追加到 `architecture-policy.xwork.yaml`。通用 OAuth 状态机和 New API owner 未改写。下表逐个列出本次与 `upstream/main` 同路径的已修改文件；其中删除的连接卡、专属文案和官方连接回调分支是先前下游追加内容。
+本次以独立 `aiscoo-account-policy`、`aiscoo/account-login`、Web 账号入口模块及既有 CLI Zen 包装实现产品差异。架构登记仅追加到 `architecture-policy.xwork.yaml`。通用 OAuth 状态机和 aiscoo-admin owner 未改写。下表逐个列出本次与 `upstream/main` 同路径的已修改文件；其中删除的连接卡、专属文案和官方连接回调分支是先前下游追加内容。
 
 | 上游同路径文件                                                                  | 最小变更与理由                                                                             |
 | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |

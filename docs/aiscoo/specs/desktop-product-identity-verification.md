@@ -4,7 +4,7 @@
 
 ## 本地 release 合并后验证（本次交付）
 
-客户端身份提交 `654fef2e` 合入最新 `b4aeece7`，得到 `3f28e90c`；架构模块追加保留双方清单，NewApiClient 同时保留桌面绑定 redirect 与已有本地 Web 参数。之后提交 keyring 外置修复 `e2642c10`、PTY 执行权限修复 `e5a3687d`，均以 merge commit 合入本地 release。实际最终编译、测试与打包源码为 `9932e0532e3d74ca6e7c2d7dbf4379030e2bff4a`；后续验证记录只改本文档，不改变运行源码。
+客户端身份提交 `654fef2e` 合入最新 `b4aeece7`，得到 `3f28e90c`；架构模块追加保留双方清单，AiscooAdminClient 同时保留桌面绑定 redirect 与已有本地 Web 参数。之后提交 keyring 外置修复 `e2642c10`、PTY 执行权限修复 `e5a3687d`，均以 merge commit 合入本地 release。实际最终编译、测试与打包源码为 `9932e0532e3d74ca6e7c2d7dbf4379030e2bff4a`；后续验证记录只改本文档，不改变运行源码。
 
 Admin 身份提交 `92682035ad707c5d87371e78cafdb2d862dfad26` 合入最新 `d24f6994`，实际编译测试 merge 为 `c3a3fd7bb474485e9213c2ea052edd5ea3019e41`；最终本地 release `37c87abd6c7b327f914dd8b18c6f22a8845b35a1` 只追加既有 spec 验证记录。两仓均未 push、未部署或重启真实 3001。
 
@@ -31,7 +31,7 @@ OS 最终查询：aiscoo 指向上述9932包，zcode 仍指向 `/Applications/ZC
 
 私有登录第一次启动（5c3872c9 的本地签名包）在 macOS `SecItemCopyMatching` / `CSSM_DecryptDataFinal` 等待系统钥匙串；正常终止无响应后仅结束该一次性测试进程。未输入密码、未修改钥匙串，也未注入测试 AES secret。之后用既有显式空 `AISCOO_ADMIN_BASE_URL` 关闭私有登录，验证最终9932包的主窗口/Host/数据库/协议。因此当前包私有凭据恢复及真实授权不能计为通过；上一阶段成功不能覆盖本次限制。
 
-Native 九项失败分为：历史 LocalWebAccount 的六项 logout（后继 refresh 持久化/撤销、忽略 abort、冷恢复 active pointer、失效与授权补偿失败）；另三项旧 factory/provider 装配测试仍假设已退役的 Host 凭据方案。e272 五个源码/测试文件在临时影子目录复验得到26/20/6，重写相对 import、其余依赖沿用当前，**不是全仓历史 checkout**；六项同名失败均复现。旧 factory/provider 与 `b4aeece7` 的现行 browser authority 装配不匹配，未为绿灯恢复已退役入口或修改断言。初次 QueuedCapability 失败是旧 core dist 混用新 contracts；有序重建后2/2通过。现行 Web 规范为 [browser-new-api.md](browser-new-api.md)。
+Native 九项失败分为：历史 LocalWebAccount 的六项 logout（后继 refresh 持久化/撤销、忽略 abort、冷恢复 active pointer、失效与授权补偿失败）；另三项旧 factory/provider 装配测试仍假设已退役的 Host 凭据方案。e272 五个源码/测试文件在临时影子目录复验得到26/20/6，重写相对 import、其余依赖沿用当前，**不是全仓历史 checkout**；六项同名失败均复现。旧 factory/provider 与 `b4aeece7` 的现行 browser authority 装配不匹配，未为绿灯恢复已退役入口或修改断言。初次 QueuedCapability 失败是旧 core dist 混用新 contracts；有序重建后2/2通过。现行 Web 规范为 [browser-aiscoo-admin.md](browser-aiscoo-admin.md)。
 
 打包首轮另外发现两项实际问题并修复：共享服务图将原生 keyring 内联导致解析其他平台 `.node`，改为追加现有 runtime externals；asar 重打包丢失 macOS PTY helper 执行位，改为最终 repack 后、签名前恢复，真实 final `.app` PTY 已通过。仅给源 node_modules chmod 的中间尝试仍失败，不作为最终验收。
 
@@ -56,7 +56,7 @@ Native 九项失败分为：历史 LocalWebAccount 的六项 logout（后继 ref
 
 正式版为 `dev.aiscoo.app` / `aiscoo://oauth/callback`；Dev 为 `dev.aiscoo.app.dev` / `aiscoo-dev://oauth/callback`；Preview 为 `dev.aiscoo.app.preview` / `aiscoo-preview://oauth/callback`。构建、Main、Host、Renderer 与系统声明复用只读 profile。
 
-New API authorize、严格 callback parser 与 token exchange 绑定同一精确 redirect；保留内部 client ID 和 refresh/logout。Aiscoo Admin 的服务端与网页同时允许三个新完整回调及旧 `zcode://oauth/callback`，不放宽 CLI 回环和 Web origin。
+aiscoo-admin authorize、严格 callback parser 与 token exchange 绑定同一精确 redirect；保留内部 client ID 和 refresh/logout。Aiscoo Admin 的服务端与网页同时允许三个新完整回调及旧 `zcode://oauth/callback`，不放宽 CLI 回环和 Web origin。
 
 Electron/业务数据、设置文件、Agent storage/db/log 按渠道隔离。设置队列/锁、账号 owner 和窗口路由沿用现有实现。早期硬件加速也读取选定设置文件；审查发现的旧 HOME 误读已用 RED→GREEN 回归修复。
 

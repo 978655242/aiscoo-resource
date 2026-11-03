@@ -16,14 +16,14 @@
 
 Desktop Aiscoo 渠道始终启用产品账号限制。Main、Host、scheduler 对同一配置作一致决策；未配置或非法配置显示稳定且不含实际地址的配置错误，不能创建旧官方 OAuth owner、恢复旧官方会话或出站请求。设置和会话数据仍由既有 owner 持有。正式包没有运行账号配置时也必须失败关闭，不能依赖开发 `.env` 存在。
 
-本机 Web 复用已实现的浏览器 New API authority、同源控制 API 代理和严格 loopback PKCE callback；未启用/未配置显示不可用。远控/分享原有 Z.ai/BigModel 浏览器登录入口停止使用；不在本次绕过或改写现有 relay、配对、权限、Host attachment、回调或 CORS 边界。已有可用 attachment 的恢复链路与公开只读分享尽量保持，不支持 Aiscoo 身份的路由明确不可用，不静默读取旧官方浏览器登录态。
+本机 Web 复用已实现的浏览器 aiscoo-admin authority、同源控制 API 代理和严格 loopback PKCE callback；未启用/未配置显示不可用。远控/分享原有 Z.ai/BigModel 浏览器登录入口停止使用；不在本次绕过或改写现有 relay、配对、权限、Host attachment、回调或 CORS 边界。已有可用 attachment 的恢复链路与公开只读分享尽量保持，不支持 Aiscoo 身份的路由明确不可用，不静默读取旧官方浏览器登录态。
 
 ### 正式安装包的账号源（构建期编译）
 
 正式安装包从 Finder 或开始菜单启动，不继承构建 shell 的环境变量，打包态也不读取开发 `.env`。因此公开账号源在构建时编译进 Desktop 包，运行时不再依赖用户机器上的环境。
 
 - 构建输入仍是 `AISCOO_ADMIN_BASE_URL`，由 `packages/desktop/tsup.config.ts` 在已有产品渠道定义旁追加只读编译常量 `__AISCOO_ADMIN_BASE_URL__`。源码不写任何默认地址。
-- 构建期使用与运行期相同的严格解析器（`normalizeNewApiOrigin`）。`production` 渠道缺失、非法，或为非回环 HTTP 时，构建直接失败，不产出一个运行时才报"配置不可用"的包。`development` 与 `preview` 渠道不强制，沿用现有环境变量行为。
+- 构建期使用与运行期相同的严格解析器（`normalizeAiscooAdminOrigin`）。`production` 渠道缺失、非法，或为非回环 HTTP 时，构建直接失败，不产出一个运行时才报"配置不可用"的包。`development` 与 `preview` 渠道不强制，沿用现有环境变量行为。
 - 打包态（`app.isPackaged`）且编译了账号源时，Main 在最早期的 bootstrap 把编译值写入 `process.env.AISCOO_ADMIN_BASE_URL`，覆盖继承到的值。依据与"环境变量不能改写已打包渠道"相同：用户机器上的环境变量不应让正式包改连别的账号服务。Main、Host、scheduler 与 Agent 子进程经现有 `buildHostProcessEnv` 继承同一个值，各读取点和 `createAiscooAccountPolicy` 保持原样。
 - 未打包的开发运行不被覆盖，继续使用环境变量或 `.env`。未编译账号源的构建（上游通用构建）不改变任何行为。
 - 编译值是公开 origin，不含凭据。它同时是凭据命名空间的一部分，因此更换账号服务域名需要发新版本，旧 origin 下的登录不会迁移。
@@ -35,7 +35,7 @@ Aiscoo CLI 复用已有 Zen/Aiscoo 命令与安全存储。默认登录只引导
 
 ## 3. 唯一状态所有者与事件顺序
 
-有效配置下仍由 Desktop `NewApiAccountService`、Web 浏览器 New API authority、CLI Zen credential owner 分别持有自身既有会话；不新建第二份 accepted login 状态。配置不可用适配器只提供不可用投影，不伪造账号、SID、token 或授权流程。Renderer 通过服务 hook 投影。
+有效配置下仍由 Desktop `AiscooAdminAccountService`、Web 浏览器 aiscoo-admin authority、CLI Zen credential owner 分别持有自身既有会话；不新建第二份 accepted login 状态。配置不可用适配器只提供不可用投影，不伪造账号、SID、token 或授权流程。Renderer 通过服务 hook 投影。
 
 ```mermaid
 sequenceDiagram
@@ -48,7 +48,7 @@ sequenceDiagram
         P-->>U: 配置不可用、无官方渠道、无凭据恢复
     else 配置合法
         E->>H: 装配既有 authority / PKCE
-        U->>H: start new-api
+        U->>H: start aiscoo-admin
         H->>H: pending / state / generation / owner fence
         H-->>U: 真实 Aiscoo 会话投影
     end
@@ -70,9 +70,9 @@ sequenceDiagram
 
 ## 5. 已验证新登录的定向凭据恢复
 
-2026-10-31 运行日志确认：授权码兑换和真实 Me 校验之后，读取已有 New API 登录记录发生 `ZCODE_CREDENTIAL_DECRYPT_FAILED`，新登录在提交前失败。单独忽略 `loadActive()` 错误仍会在覆盖 active 指针时再次解密失败；具体密钥失配或密文损坏来源尚未确认。
+2026-10-31 运行日志确认：授权码兑换和真实 Me 校验之后，读取已有 aiscoo-admin 登录记录发生 `ZCODE_CREDENTIAL_DECRYPT_FAILED`，新登录在提交前失败。单独忽略 `loadActive()` 错误仍会在覆盖 active 指针时再次解密失败；具体密钥失配或密文损坏来源尚未确认。
 
-- `NewApiAccountService` 仍是唯一账号 owner。只有当前代次的交互式登录完成 PKCE 换码、bundle 校验与真实 Me 身份核对后，才允许调用 repo 的已验证登录提交端口；冷恢复、刷新、退出和公共凭据 RPC 不获得该能力。
+- `AiscooAdminAccountService` 仍是唯一账号 owner。只有当前代次的交互式登录完成 PKCE 换码、bundle 校验与真实 Me 身份核对后，才允许调用 repo 的已验证登录提交端口；冷恢复、刷新、退出和公共凭据 RPC 不获得该能力。
 - 提交在现有凭据文件跨进程锁内读取最新 active 指针及其精确 owner 记录，并只替换当前 origin 的 active 指针和新授权的精确 `userId:sid` 记录。旧记录不可解密、明文、schema 无效或 owner 不一致时可恢复；无关 SID、其他 origin、官方历史及第三方凭据逐字节保留，不遍历解密、不重建安全库密钥。
 - 发生定向恢复时，先使用现有私有备份机制保存完整原始密文字节（0600），备份成功才允许原子替换；备份失败、文件 IO、整份 JSON/schema 损坏或安全库不可用均失败关闭，不能视为空 store 覆盖。
 - 在锁内读取后、备份后和写入前核对 pending/generation/到期。写入期间的取消、退出或换号继续执行现有 CAS 补偿和未发布 SID 撤销；另一窗口已提交的不同 owner 不可被迟到补偿删除，恢复不发布第二份登录状态。
@@ -81,9 +81,9 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant U as 登录界面
-    participant A as NewApiAccountService 唯一 owner
+    participant A as AiscooAdminAccountService 唯一 owner
     participant N as Aiscoo 后台
-    participant R as NewApiSessionRepo
+    participant R as AiscooAdminSessionRepo
     participant F as 现有凭据文件与跨进程锁
     U->>A: 当前代次 PKCE 回调
     A->>N: exchange + Me
@@ -224,13 +224,13 @@ sequenceDiagram
 
 基线为本地 `release@d0a250ca`，改动位于 `fix/aiscoo-root-account-assembly`，本轮未提交、推送或合并。开工新鲜度检查发现本地 release 相对 origin/release 领先 21、落后 2；两个新增远端提交为品牌/桌面身份与 PTY 的独立 PR 集成，合并预演产生 23 个冲突文件。本轮保留该已知分叉，仅优化当前本地产品源码，不将历史集成冲突混入本次行为重构；原品牌素材及未跟踪文件未纳入任务范围。
 
-| 验证                | 实际结果与范围                                                                                                                                                                                                                                                                              |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 默认 / 产品接线回归 | 先运行新增默认行为对照，4 项均失败；实现后 Root 29/29、Web callback 13/13 通过。SSR 使用受控组件，真实 provider 委托由下面的 runtime 对照补充。                                                                                                                                             |
-| 登录与恢复 runtime  | 12 个 Chrome 尺寸/语言/主题、4 个产品 provider admission、2 个隔离 Electron 场景通过；未装配的轻量 Root 实际委托 Z.ai/BigModel polling 并保留 API key 与 New API 原文，产品只启动 new-api。真实 WelcomeScreen → 原账号服务/PKCE/Me/repo 加密恢复 → 冷恢复通过；后端与凭据均为合成隔离数据。 |
-| 退出 runtime        | 14/14 完整矩阵通过，最终 runtimeErrors 为空；覆盖确认/取消、清理失败、成功持续遮挡、新 Root、普通 Web、远控与通用对照。props/Context 同实例，父重渲染及 busy/失败不重建适配器或订阅；Win/Linux 窗控在 macOS Electron 渲染，图标线宽 1.5 断言通过，不代表真实两平台或 OS 重启验收。          |
-| Web 边界            | 9/9 profile 工程检查、32 项真实浏览器首页/旧回调/远控拒绝及 6 项公开匿名分享检查通过；缺配置不回退、旧 JWT 不消费、公开只读分享可用。                                                                                                                                                       |
-| 工程门禁与构建      | Node 24.14.0 / pnpm 10.33.2：typecheck、lint（308 warnings / 0 errors）、architecture（0 violations）、任务文件格式与 diff 空白检查通过；最终 Desktop renderer 与 Web 均构建成功。未重打 DMG 或运行全 Native 套件。                                                                         |
+| 验证                | 实际结果与范围                                                                                                                                                                                                                                                                                        |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 默认 / 产品接线回归 | 先运行新增默认行为对照，4 项均失败；实现后 Root 29/29、Web callback 13/13 通过。SSR 使用受控组件，真实 provider 委托由下面的 runtime 对照补充。                                                                                                                                                       |
+| 登录与恢复 runtime  | 12 个 Chrome 尺寸/语言/主题、4 个产品 provider admission、2 个隔离 Electron 场景通过；未装配的轻量 Root 实际委托 Z.ai/BigModel polling 并保留 API key 与 aiscoo-admin 原文，产品只启动 aiscoo-admin。真实 WelcomeScreen → 原账号服务/PKCE/Me/repo 加密恢复 → 冷恢复通过；后端与凭据均为合成隔离数据。 |
+| 退出 runtime        | 14/14 完整矩阵通过，最终 runtimeErrors 为空；覆盖确认/取消、清理失败、成功持续遮挡、新 Root、普通 Web、远控与通用对照。props/Context 同实例，父重渲染及 busy/失败不重建适配器或订阅；Win/Linux 窗控在 macOS Electron 渲染，图标线宽 1.5 断言通过，不代表真实两平台或 OS 重启验收。                    |
+| Web 边界            | 9/9 profile 工程检查、32 项真实浏览器首页/旧回调/远控拒绝及 6 项公开匿名分享检查通过；缺配置不回退、旧 JWT 不消费、公开只读分享可用。                                                                                                                                                                 |
+| 工程门禁与构建      | Node 24.14.0 / pnpm 10.33.2：typecheck、lint（308 warnings / 0 errors）、architecture（0 violations）、任务文件格式与 diff 空白检查通过；最终 Desktop renderer 与 Web 均构建成功。未重打 DMG 或运行全 Native 套件。                                                                                   |
 
 首次完整退出矩阵在普通 Web 品牌角色可见断言失败。夹具原先只等待登录 test-id 可见，但运行证据显示品牌节点已经存在且 CSS 可见，确认弹窗仍在 `closed/exit` 动画期、品牌祖先仍 `aria-hidden`；等待真实确认控件卸载后，品牌恢复可访问，原断言及 14 项完整矩阵通过。快捷键夹具的重复初始 `page.goto` 与 Main `loadURL` 竞争也已移除，改为等待同一次导航的订阅就绪及退出按钮可见，不增加 sleep 或放宽产品断言。
 
@@ -242,13 +242,13 @@ sequenceDiagram
 
 用户明确要求清理兼容残留。以当前检出的源码为准，残留分三类；每类只清理已确认无生产调用方或仅为转发的部分，持久化身份与协议名保持原样。
 
-**A. 旧本机 Web 方案（Host 持有凭据）。** 现行本机 Web 规范是 [browser-new-api.md](browser-new-api.md)：浏览器持有凭据，产品 HTTP 入口 `entry-http.ts` 装配 `aiscoo-browser-account`，没有任何生产代码调用 `startAiscooLocalWebHttpEntry`、`createLocalWebNewApiAccountFactory` 或 `oauthLifecycle` 工厂。以下仅被旧方案使用，整体删除：`services/local-web-new-api`、`server/aiscoo-local-web`、`ui/aiscoo/local-web-oauth`、`scripts/aiscoo/dev-web*` 与 `pnpm dev:aiscoo:web`、`oauth-lifecycle` 中的 `OAuthLifecycleExtension` 及其 Login/Session/Logout 上下文，以及对应下游回归与 4 个违反 App 单测退役规格的 `contract.test.ts`。通用文件中仅为它保留的可选钩子随之回到上游形态：`http.ts` 的 `localWeb` 选项与子协议处理、`node.ts` 的工厂导出、`newApiAccountService.ts` 的回环授权/本机退出状态与 `onDidFailAuthorization`、`oauth.ts` 的同名可选成员、`platform.ts` 的 `prepareLocalWebOAuthWindow`、`useOAuth.ts` 与 `WelcomeScreen.tsx` 的手动授权链接和用户手势入口、`useRootOAuthEffects.ts` 的会话生命周期、`useRootWorkspaceActions.ts` 的 `logoutOverride`、`web/env.d.ts` 的 `VITE_AISCOO_LOCAL_WEB`。**保留**浏览器账号 authority、`acceptRequest`/`attachBrowserPeer`、`oauthAccountPolicy` 准入、`onLogoutConfirmed`、Native 身份观察与 `purpose`/provider 过滤。
+**A. 旧本机 Web 方案（Host 持有凭据）。** 现行本机 Web 规范是 [browser-aiscoo-admin.md](browser-aiscoo-admin.md)：浏览器持有凭据，产品 HTTP 入口 `entry-http.ts` 装配 `aiscoo-browser-account`，没有任何生产代码调用 `startAiscooLocalWebHttpEntry`、`createLocalWebAiscooAdminAccountFactory` 或 `oauthLifecycle` 工厂。以下仅被旧方案使用，整体删除：`services/local-web-aiscoo-admin`、`server/aiscoo-local-web`、`ui/aiscoo/local-web-oauth`、`scripts/aiscoo/dev-web*` 与 `pnpm dev:aiscoo:web`、`oauth-lifecycle` 中的 `OAuthLifecycleExtension` 及其 Login/Session/Logout 上下文，以及对应下游回归与 4 个违反 App 单测退役规格的 `contract.test.ts`。通用文件中仅为它保留的可选钩子随之回到上游形态：`http.ts` 的 `localWeb` 选项与子协议处理、`node.ts` 的工厂导出、`aiscooAdminAccountService.ts` 的回环授权/本机退出状态与 `onDidFailAuthorization`、`oauth.ts` 的同名可选成员、`platform.ts` 的 `prepareLocalWebOAuthWindow`、`useOAuth.ts` 与 `WelcomeScreen.tsx` 的手动授权链接和用户手势入口、`useRootOAuthEffects.ts` 的会话生命周期、`useRootWorkspaceActions.ts` 的 `logoutOverride`、`web/env.d.ts` 的 `VITE_AISCOO_LOCAL_WEB`。**保留**浏览器账号 authority、`acceptRequest`/`attachBrowserPeer`、`oauthAccountPolicy` 准入、`onLogoutConfirmed`、Native 身份观察与 `purpose`/provider 过滤。
 
 **B. 品牌与插件引导旧路径转发（`xwork-*` → `aiscoo-*`）。** 当前 111 个文件相对上游全是新增，约 60 处消费者仍经旧入口。先把全部消费者迁到 `aiscoo-*` 公开入口，再删除纯转发文件与 `package.json` 的 `./xwork-*` 子路径及 9 条架构别名；UI 品牌资源和 `brand.json` 迁到 `aiscoo` 目录并保持字节一致，路径由资源生成与锁定脚本同步。该例外只适用于本次用户明确授权的下游废弃条目清理：UPSTREAM-EXTENSION 的“共享清单只追加”约束对象是上游文件，下游废弃条目可以在 PR 描述中逐条登记后删除。
 
 **C. 必须保留的持久化与协议身份（不属于兼容残留）。** RPC 通道 `xwork-plugin-guides`、`zcodeProtocolMethods`/`Notifications` 中 `xwork*` 与 `aiscoo*` 的同值对照、`xwork/plugins/*` 与 `xwork/workspace/*` 线路名、macOS 钥匙串 `XWork`/`XWork Dev`/`XWork Preview`、CLI Zen 钥匙串 service `XWork CLI Zen` 与 AAD `xwork-cli`、`client_id=xcode-desktop`/`xwork-cli`、`LEGACY_PRODUCT_NAME` 展示投影、`@zcode/*` 包名、数据目录与应用 ID 的既有兼容标识。历史规格保留当时事实并标明被取代。
 
-事件顺序不变：账号 owner 仍只有 Desktop `NewApiAccountService` 与浏览器 authority；本次不新增 owner、不改变 desktop-continuous 与 web-remote-replayable 语义，也不改后端协议、API 路径或凭据格式。
+事件顺序不变：账号 owner 仍只有 Desktop `AiscooAdminAccountService` 与浏览器 authority；本次不新增 owner、不改变 desktop-continuous 与 web-remote-replayable 语义，也不改后端协议、API 路径或凭据格式。
 
 验收：删除前对每个符号做无范围引用确认；删除后 `typecheck`、`lint`、`architecture:check` 无新增违规；精简后的下游回归（Root、品牌入口、命名兼容、公开导出、品牌资源、浏览器 profile）与 Electron 登录/退出/快捷键/恢复矩阵通过；Desktop、Web、web-share、Server 与 CLI 品牌入口各完成一次构建；未被验证的平台、真实 OS 钥匙串、真实账号与 DMG 重打如实记录。
 
@@ -274,7 +274,7 @@ flowchart LR
 
 用户要求清理旧方案残留、非必需不改上游、不改上游测试。以当前源码为准，按"产品差异只在一处执行"收口；行为不变，只删除重复判断和无调用方的接点。
 
-**provider ID 说明。** `new-api` 是 Aiscoo 账号的内部稳定 provider ID，写入凭据键（`new-api:<origin hash>:`）、OAuth 回调参数 `provider=new-api` 与协议字段 `accountType`；CLI Zen 与 Desktop/Web 账号访问同一后端 `/api/xcode/v1/`。改名会使已有登录失效并破坏后端已登记的回调，因此 ID 保留；代码命名、文件名与用户可见文案统一用 Aiscoo，不新增 `newApiAiscoo*` 这类组合命名。
+**provider ID 说明。** `new-api` 是 Aiscoo 账号的内部稳定 provider ID，写入凭据键（`new-api:<origin hash>:`）、OAuth 回调参数 `provider=new-api` 与协议字段 `accountType`；CLI Zen 与 Desktop/Web 账号访问同一后端 `/api/xcode/v1/`。改名会使已有登录失效并破坏后端已登记的回调，因此 ID 保留；代码命名、文件名与用户可见文案统一用 Aiscoo，不新增 `aiscooAdminAiscoo*` 这类组合命名。
 
 **唯一执行点。** "只接受 Aiscoo 账号"由以下两处执行，其他上游文件不再重复判断：
 
@@ -305,6 +305,6 @@ flowchart LR
 | `packages/web/test/e2e/manual-review/pending/remote-login-v2.mjs`、`share-oauth-callback.mjs` | 恢复上游；产品断言迁到同目录 `aiscoo-remote-login-admission.mjs`、`aiscoo-share-entry.mjs`，截图目录独立                                                                                                         |
 | `apps/zcode-cli/packages/core/tests/provider-request-messages.test.ts`                        | 保留 5 行：源码 `incoming-message.ts` 的提示文案由品牌常量投影，上游测试写死 "ZCode"。不改断言即需撤回源码品牌投影，属于产品取舍，留待确认                                                                       |
 
-`newApiAiscooOnlyHost.test.ts` 改名为 `aiscooOnlyHost.test.ts`，显式登记到 `scripts/run-native-unit-tests.mjs`（原 `newApi*` glob 不再匹配）；历史凭据改用内存端口模拟，不再依赖上游凭据服务的文件路径注入。
+`aiscooAdminAiscooOnlyHost.test.ts` 改名为 `aiscooOnlyHost.test.ts`，显式登记到 `scripts/run-native-unit-tests.mjs`（原 `aiscooAdmin*` glob 不再匹配）；历史凭据改用内存端口模拟，不再依赖上游凭据服务的文件路径注入。
 
 验收：`typecheck`（根与 CLI）、`lint`（0 error，warning 数与 origin/release 一致）、`architecture:check`、`format-changed`、`test:unit:node`、`test:aiscoo`、CLI `test`/`test:aiscoo` 与 `git merge-tree` 对 `upstream/main` 无冲突。

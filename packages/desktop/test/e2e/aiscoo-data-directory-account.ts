@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import { createServer } from "node:http";
-import { NewApiSessionRepo } from "@zcode/services/node";
-import type { NewApiSessionBundle } from "@zcode/shared";
+import { AiscooAdminSessionRepo } from "@zcode/services/node";
+import type { AiscooAdminSessionBundle } from "@zcode/shared";
 
 /** 下游目录验收只替换账号 HTTP；真实 Host 仍解密缓存并校验 Me 后才开放工作区。 */
 export async function startAiscooDirectoryAccountFixture() {
@@ -31,7 +31,7 @@ export async function startAiscooDirectoryAccountFixture() {
     }),
   ).toString("base64url");
   const token = `${header}.${payload}.${createHmac("sha256", "aiscoo-directory-e2e-signing-key").update(`${header}.${payload}`).digest("base64url")}`;
-  const bundle: NewApiSessionBundle = {
+  const bundle: AiscooAdminSessionBundle = {
     schema_version: 1,
     server_time: now,
     access_token: token,
@@ -128,7 +128,7 @@ export async function startAiscooDirectoryAccountFixture() {
     origin,
     seed: async (credentialsFile: string) => {
       // 复用公开 repository 和现有 enc:v1 cipher；不注入 Renderer/Host 登录投影。
-      const repo = new NewApiSessionRepo(origin, { credentialsFile });
+      const repo = new AiscooAdminSessionRepo(origin, { credentialsFile });
       await repo.commit({ schemaVersion: 1, origin, bundle });
     },
     close: () =>

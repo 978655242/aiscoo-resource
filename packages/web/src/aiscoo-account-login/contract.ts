@@ -1,6 +1,6 @@
 import type { ComponentProps, ReactNode } from "react";
 import type {
-  BrowserNewApiAccount,
+  BrowserAiscooAdminAccount,
   BrowserAccountConnectionFailure,
 } from "../aiscoo-browser-account/index.js";
 import type { WebAuthService } from "#src/auth/webAuthService.js";
@@ -29,7 +29,7 @@ export interface AiscooWebConnectionPageProps {
 
 /** 组合连接状态与本页登录命令，不持有或清除账号凭据。 */
 export interface AiscooBrowserWebStartupOptions {
-  account: BrowserNewApiAccount;
+  account: BrowserAiscooAdminAccount;
   render(node: ReactNode): void;
   isPageUnloading(): boolean;
   locale?: string;

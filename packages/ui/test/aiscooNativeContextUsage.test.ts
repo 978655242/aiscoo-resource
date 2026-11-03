@@ -84,7 +84,7 @@ function renderNative(native: {
               source: "new-api",
               generatedAt: 1,
               authenticated: true,
-              provider: { id: providerId, name: "New API" },
+              provider: { id: providerId, name: "Aiscoo" },
               remaining: null,
               subscription: {
                 identityType: "unknown",

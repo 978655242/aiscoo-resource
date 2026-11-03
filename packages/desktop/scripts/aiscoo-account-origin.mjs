@@ -2,7 +2,7 @@
  * 构建期解析随正式包编译的 Aiscoo 账号源（AISCOO_ADMIN_BASE_URL）。
  *
  * tsup 会先打包配置文件，因此这里不能导入 @zcode/shared 里的 TypeScript 校验器。
- * 校验规则必须与 normalizeNewApiOrigin（packages/shared/src/new-api.ts）逐项一致，
+ * 校验规则必须与 normalizeAiscooAdminOrigin（packages/shared/src/aiscoo-admin.ts）逐项一致，
  * 由 packages/desktop/test/aiscooPackagedAccountOrigin.test.ts 的对照矩阵固定，防止两份实现漂移。
  */
 export const AISCOO_ADMIN_BASE_URL_ENV = "AISCOO_ADMIN_BASE_URL";

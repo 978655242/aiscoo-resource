@@ -1,24 +1,24 @@
 import { createHash } from "node:crypto";
 import {
-  NewApiAccountAccessConfig,
+  AiscooAdminAccountAccessConfig,
   ProviderConfig,
   ProviderConfigMap,
   type AccountProviderStates,
   type AccountModelPresentation,
 } from "@zcode/provider";
 import {
-  NEW_API_MODEL_PROVIDER_IDS,
-  type NewApiOwner,
-  type NewApiEntitlements,
-  type NewApiCatalog,
-  type NewApiCatalogIssue,
+  AISCOO_ADMIN_MODEL_PROVIDER_IDS,
+  type AiscooAdminOwner,
+  type AiscooAdminEntitlements,
+  type AiscooAdminCatalog,
+  type AiscooAdminCatalogIssue,
 } from "@zcode/shared";
 
 // XCODE: CLI 套餐目录只投影 canonical 的成员与展示字段，不能合成个人 API Key 或自动迁移旧模型。
 export function resolveZenAccountProviders(input: {
-  owner: NewApiOwner | null;
-  entitlements?: NewApiEntitlements;
-  catalog?: NewApiCatalog;
+  owner: AiscooAdminOwner | null;
+  entitlements?: AiscooAdminEntitlements;
+  catalog?: AiscooAdminCatalog;
   configRevision?: string;
 }) {
   const { owner, entitlements, catalog } = input;
@@ -31,10 +31,10 @@ export function resolveZenAccountProviders(input: {
   const entitled =
     owner !== null && entitlements?.status === "active" && entitlements.subscription !== null;
   const modelPresentation: Record<string, Record<string, AccountModelPresentation[string][string]>> = {};
-  const catalogIssues: NewApiCatalogIssue[] = [];
+  const catalogIssues: AiscooAdminCatalogIssue[] = [];
   const ids: Record<string, string[]> = {};
   const seen = new Set<string>();
-  for (const id of Object.values(NEW_API_MODEL_PROVIDER_IDS)) {
+  for (const id of Object.values(AISCOO_ADMIN_MODEL_PROVIDER_IDS)) {
     ids[id] = [];
     modelPresentation[id] = Object.create(null);
   }
@@ -50,7 +50,7 @@ export function resolveZenAccountProviders(input: {
       });
       continue;
     }
-    const id = NEW_API_MODEL_PROVIDER_IDS[model.api_type];
+    const id = AISCOO_ADMIN_MODEL_PROVIDER_IDS[model.api_type];
     ids[id]!.push(model.model_id);
     modelPresentation[id]![model.model_id] = {
       displayName: model.display_name,
@@ -62,7 +62,7 @@ export function resolveZenAccountProviders(input: {
     : undefined;
   const states: Record<string, AccountProviderStates[string]> = {};
   const providers = new ProviderConfigMap(
-    Object.values(NEW_API_MODEL_PROVIDER_IDS).map((id) => {
+    Object.values(AISCOO_ADMIN_MODEL_PROVIDER_IDS).map((id) => {
       states[id] = {
         availability: entitled ? "available" : "unavailable",
         entitled,
@@ -72,7 +72,7 @@ export function resolveZenAccountProviders(input: {
       return [
         id,
         new ProviderConfig({
-          access: new NewApiAccountAccessConfig({ entitled }),
+          access: new AiscooAdminAccountAccessConfig({ entitled }),
           builtinModelIds: ids[id],
         }),
       ] as const;

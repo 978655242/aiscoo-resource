@@ -10,7 +10,7 @@ import { Loader2Icon, LoaderIcon, TriangleAlertIcon } from "lucide-react";
 import {
   type OAuthProviderMeta,
   BIGMODEL_PROVIDER_ID,
-  NEW_API_PROVIDER_ID,
+  AISCOO_ADMIN_PROVIDER_ID,
   ZAI_PROVIDER_ID,
 } from "@zcode/shared";
 import {
@@ -574,7 +574,7 @@ function LoginPanelLogo() {
 
 function getLoginOAuthButtonMessageId(providerId: string): string {
   switch (providerId) {
-    case NEW_API_PROVIDER_ID:
+    case AISCOO_ADMIN_PROVIDER_ID:
       return "login.oauth.button.native";
     case ZAI_PROVIDER_ID:
       return "login.oauth.button.zai";
@@ -627,7 +627,7 @@ function getProviderPriority(provider: OAuthProviderMeta): number {
 
 export function resolveVisibleLoginProviders(providers: OAuthProviderMeta[]): OAuthProviderMeta[] {
   // XCODE: Private mode exposes only its primary identity; official cloud connects separately.
-  const native = providers.find((provider) => provider.id === NEW_API_PROVIDER_ID);
+  const native = providers.find((provider) => provider.id === AISCOO_ADMIN_PROVIDER_ID);
   return native
     ? [native]
     : [...providers].sort((left, right) => getProviderPriority(left) - getProviderPriority(right));

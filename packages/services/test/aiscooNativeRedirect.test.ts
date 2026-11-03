@@ -1,13 +1,13 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
-  NEW_API_CALLBACK_URI,
-  NEW_API_CLIENT_ID,
-  parseNewApiAuthorizationCallback,
-  type NewApiSessionBundle,
+  AISCOO_ADMIN_CALLBACK_URI,
+  AISCOO_ADMIN_CLIENT_ID,
+  parseAiscooAdminAuthorizationCallback,
+  type AiscooAdminSessionBundle,
 } from "@zcode/shared";
-import { NewApiClient } from "../src/new-api/newApiClient.js";
-import { NewApiProviderAdapter } from "../src/oauth/providers/newApiProviderAdapter.js";
+import { AiscooAdminClient } from "../src/aiscoo-admin/aiscooAdminClient.js";
+import { AiscooAdminProviderAdapter } from "../src/oauth/providers/aiscooAdminProviderAdapter.js";
 
 const redirects = [
   "zcode://oauth/callback",
@@ -22,7 +22,7 @@ const code = "c".repeat(43);
 const callback = (redirectUri: string, callbackState = state) =>
   `${redirectUri}?provider=new-api&state=${callbackState}&code=${code}`;
 const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
-const session: NewApiSessionBundle = {
+const session: AiscooAdminSessionBundle = {
   schema_version: 1,
   server_time: now,
   access_token: `${encode({ alg: "HS256", typ: "JWT" })}.${encode({
@@ -70,27 +70,27 @@ const invalidRedirects = [
 
 describe("Native authorization binds the exact desktop redirect", () => {
   it("keeps the upstream callback and client defaults without channel injection", () => {
-    const client = new NewApiClient(origin, {
+    const client = new AiscooAdminClient(origin, {
       fetch: async () => {
         throw new Error("Default authorization must not request the backend");
       },
     });
-    const adapter = new NewApiProviderAdapter(client);
+    const adapter = new AiscooAdminProviderAdapter(client);
     const authorizeUrl = new URL(adapter.createAuthorization().authorizeUrl);
 
-    expect(NEW_API_CALLBACK_URI).toBe("zcode://oauth/callback");
-    expect(NEW_API_CLIENT_ID).toBe("xcode-desktop");
-    expect(client.redirectUri).toBe(NEW_API_CALLBACK_URI);
-    expect(adapter.redirectUri).toBe(NEW_API_CALLBACK_URI);
-    expect(authorizeUrl.searchParams.get("redirect_uri")).toBe(NEW_API_CALLBACK_URI);
-    expect(authorizeUrl.searchParams.get("client_id")).toBe(NEW_API_CLIENT_ID);
-    expect(parseNewApiAuthorizationCallback(callback(NEW_API_CALLBACK_URI))).toEqual({
+    expect(AISCOO_ADMIN_CALLBACK_URI).toBe("zcode://oauth/callback");
+    expect(AISCOO_ADMIN_CLIENT_ID).toBe("xcode-desktop");
+    expect(client.redirectUri).toBe(AISCOO_ADMIN_CALLBACK_URI);
+    expect(adapter.redirectUri).toBe(AISCOO_ADMIN_CALLBACK_URI);
+    expect(authorizeUrl.searchParams.get("redirect_uri")).toBe(AISCOO_ADMIN_CALLBACK_URI);
+    expect(authorizeUrl.searchParams.get("client_id")).toBe(AISCOO_ADMIN_CLIENT_ID);
+    expect(parseAiscooAdminAuthorizationCallback(callback(AISCOO_ADMIN_CALLBACK_URI))).toEqual({
       state,
       code,
     });
-    expect(adapter.parseCallback(callback(NEW_API_CALLBACK_URI))).toEqual({ state, code });
+    expect(adapter.parseCallback(callback(AISCOO_ADMIN_CALLBACK_URI))).toEqual({ state, code });
     for (const redirectUri of redirects.slice(1)) {
-      expect(parseNewApiAuthorizationCallback(callback(redirectUri))).toBeNull();
+      expect(parseAiscooAdminAuthorizationCallback(callback(redirectUri))).toBeNull();
       expect(() => adapter.parseCallback(callback(redirectUri))).toThrow();
     }
   });
@@ -110,8 +110,8 @@ describe("Native authorization binds the exact desktop redirect", () => {
           return new Response(JSON.stringify({ success: true, data }));
         }) as typeof globalThis.fetch,
       };
-      const client = new NewApiClient(origin, dependencies);
-      const adapter = new NewApiProviderAdapter(client);
+      const client = new AiscooAdminClient(origin, dependencies);
+      const adapter = new AiscooAdminProviderAdapter(client);
       // XCODE: 渠道必须在构造时绑定，调用方后续改注入对象不能改变本轮 PKCE 的回调。
       dependencies.redirectUri = redirectUri === redirects[0] ? redirects[1] : redirects[0];
       const authorization = adapter.createAuthorization();
@@ -130,7 +130,10 @@ describe("Native authorization binds the exact desktop redirect", () => {
         createHash("sha256").update(authorization.codeVerifier).digest("base64url"),
       );
       expect(
-        parseNewApiAuthorizationCallback(callback(redirectUri, authorization.state), redirectUri),
+        parseAiscooAdminAuthorizationCallback(
+          callback(redirectUri, authorization.state),
+          redirectUri,
+        ),
       ).toEqual({ state: authorization.state, code });
       expect(adapter.parseCallback(callback(redirectUri, authorization.state))).toEqual({
         state: authorization.state,
@@ -165,15 +168,15 @@ describe("Native authorization binds the exact desktop redirect", () => {
   );
 
   it.each(redirects)("rejects every other channel when bound to %s", (redirectUri) => {
-    const adapter = new NewApiProviderAdapter(new NewApiClient(origin, { redirectUri }));
+    const adapter = new AiscooAdminProviderAdapter(new AiscooAdminClient(origin, { redirectUri }));
     for (const other of redirects.filter((candidate) => candidate !== redirectUri)) {
-      expect(parseNewApiAuthorizationCallback(callback(other), redirectUri)).toBeNull();
+      expect(parseAiscooAdminAuthorizationCallback(callback(other), redirectUri)).toBeNull();
       expect(() => adapter.parseCallback(callback(other))).toThrow("XCODE_AUTH_REQUEST_INVALID");
     }
   });
 
   it.each(redirects)("preserves strict callback syntax when bound to %s", (redirectUri) => {
-    const adapter = new NewApiProviderAdapter(new NewApiClient(origin, { redirectUri }));
+    const adapter = new AiscooAdminProviderAdapter(new AiscooAdminClient(origin, { redirectUri }));
     const valid = callback(redirectUri);
     const invalid = [
       valid.replace("://oauth/", "://other/"),
@@ -205,7 +208,7 @@ describe("Native authorization binds the exact desktop redirect", () => {
       `${valid}#fragment`,
     ];
     for (const raw of invalid) {
-      expect(parseNewApiAuthorizationCallback(raw, redirectUri), raw).toBeNull();
+      expect(parseAiscooAdminAuthorizationCallback(raw, redirectUri), raw).toBeNull();
       expect(() => adapter.parseCallback(raw), raw).toThrow("XCODE_AUTH_REQUEST_INVALID");
     }
   });
@@ -213,18 +216,20 @@ describe("Native authorization binds the exact desktop redirect", () => {
   it("rejects non-string injected redirects instead of silently selecting a channel", () => {
     for (const value of [null, false, 0, {}, []]) {
       const redirectUri = value as unknown as string;
-      expect(parseNewApiAuthorizationCallback(callback(redirects[1]), redirectUri)).toBeNull();
-      expect(() => new NewApiClient(origin, { redirectUri })).toThrow("XCODE_AUTH_REQUEST_INVALID");
+      expect(parseAiscooAdminAuthorizationCallback(callback(redirects[1]), redirectUri)).toBeNull();
+      expect(() => new AiscooAdminClient(origin, { redirectUri })).toThrow(
+        "XCODE_AUTH_REQUEST_INVALID",
+      );
     }
   });
 
   it("rejects any redirect outside the four exact values before sending a request", () => {
     for (const redirectUri of invalidRedirects) {
-      expect(parseNewApiAuthorizationCallback(callback(redirectUri), redirectUri)).toBeNull();
-      expect(parseNewApiAuthorizationCallback(callback(redirects[1]), redirectUri)).toBeNull();
+      expect(parseAiscooAdminAuthorizationCallback(callback(redirectUri), redirectUri)).toBeNull();
+      expect(parseAiscooAdminAuthorizationCallback(callback(redirects[1]), redirectUri)).toBeNull();
       expect(
         () =>
-          new NewApiClient(origin, {
+          new AiscooAdminClient(origin, {
             redirectUri,
             fetch: async () => {
               throw new Error("Invalid redirect must fail before network IO");

@@ -7,7 +7,7 @@
 - 侧栏内仅有 `[data-project-sidebar-panel="navigation"]` 一个面板，其直接父级使用上游已有的 `overflow-clip`；该父级只裁切，不能成为可被焦点、`scrollIntoView()` 或程序滚动平移的容器。
 - “查看文件”经 `useProjectFileTree` → 公共 `onOpenFileManager` → Shell 的 `handleOpenFileManager` 打开右侧文件管理标签页；目标保留 `workspacePath`、`workspaceIdentity`、`workspaceRemoteSessionId`，迟到结果由原请求序号拒绝。侧栏不再持有 `isFileTreeOpen` 或隐藏的第二个文件树面板，也不再需要旧双面板的 `inert` 补丁。
 - 项目/任务列表与外部文件树的纵向滚动各由其内部视口负责。文件管理器打开时，导航、项目与账号栏保持可见且可交互，不把侧栏设为 `inert`。
-- `ProjectSidebar` 经现有 `user`、登录/退出、工作区 scope 和升级回调连接 `WorkspaceSidebarFooter`；Native New API 套餐、当前所选模型额度及升级入口复用既有 Footer hook 和升级 Provider，不另建账号、套餐缓存或请求路径。
+- `ProjectSidebar` 经现有 `user`、登录/退出、工作区 scope 和升级回调连接 `WorkspaceSidebarFooter`；Native aiscoo-admin 套餐、当前所选模型额度及升级入口复用既有 Footer hook 和升级 Provider，不另建账号、套餐缓存或请求路径。
 - Desktop 与普通 Web 复用同一组件；不改变服务、Host、会话、远程 identity、数据存储及账号协议。
 
 ```mermaid

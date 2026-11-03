@@ -9,17 +9,17 @@ import { BigModelCodingPlanSubscriptionProvider } from "./bigmodelCodingPlanSubs
 import type { ModelSelectionView } from "@zcode/provider";
 import { ZaiCodingPlanSubscriptionProvider } from "./zaiCodingPlanSubscriptionProvider.js";
 import {
-  createNewApiSubscriptionReadAdapter,
-  rejectNewApiSelfService,
-  type NewApiSubscriptionDependencies,
-} from "../new-api/newApiSubscriptionReadAdapter.js";
+  createAiscooAdminSubscriptionReadAdapter,
+  rejectAiscooAdminSelfService,
+  type AiscooAdminSubscriptionDependencies,
+} from "../aiscoo-admin/aiscooAdminSubscriptionReadAdapter.js";
 import type { OfficialCloudConnectionHost } from "../official-mcp/officialCloudConnectionService.js";
 
 export interface CodingPlanSubscriptionServiceDependencies {
   apiClient: ApiClient;
   credentialService: Pick<ICredentialService, "load">;
   resolveOffPeakModelSelectionView?: () => Promise<ModelSelectionView>;
-  native?: NewApiSubscriptionDependencies;
+  native?: AiscooAdminSubscriptionDependencies;
   officialCloudHost?: Pick<
     OfficialCloudConnectionHost,
     "withCredentials" | "getModelSelectionView"
@@ -36,7 +36,8 @@ export function createCodingPlanSubscriptionService(
 ): ICodingPlanSubscriptionService {
   const bigmodel = new BigModelCodingPlanSubscriptionProvider(dependencies);
   const zai = new ZaiCodingPlanSubscriptionProvider(dependencies);
-  const native = dependencies.native && createNewApiSubscriptionReadAdapter(dependencies.native);
+  const native =
+    dependencies.native && createAiscooAdminSubscriptionReadAdapter(dependencies.native);
   const available = async <T>(operation: () => Promise<T>): Promise<SelfServiceReadResult<T>> =>
     native
       ? dependencies.native!.account.withControlSession(
@@ -81,9 +82,9 @@ export function createCodingPlanSubscriptionService(
     getStartPlanPreview: () => (native ? native.read() : bigmodel.getStartPlanPreview()),
     // XCODE: 主套餐仅允许 Native 管理员授予，官方 Start 领取不能充当私有赠送。
     getManualClaimPlanPreviews: () =>
-      native ? rejectNewApiSelfService() : bigmodel.getManualClaimPlanPreviews(),
+      native ? rejectAiscooAdminSelfService() : bigmodel.getManualClaimPlanPreviews(),
     claimManualPlan: (request) =>
-      native ? rejectNewApiSelfService() : bigmodel.claimManualPlan(request),
+      native ? rejectAiscooAdminSelfService() : bigmodel.claimManualPlan(request),
     createPlanWebHandoff: () =>
       native
         ? native.createPlanWebHandoff()
@@ -99,40 +100,43 @@ export function createCodingPlanSubscriptionService(
           : offer;
       }),
     getModelContextBudgetStrategy: () => bigmodel.getModelContextBudgetStrategy(),
-    getBillingDiscount: () => (native ? rejectNewApiSelfService() : bigmodel.getBillingDiscount()),
+    getBillingDiscount: () =>
+      native ? rejectAiscooAdminSelfService() : bigmodel.getBillingDiscount(),
     getRequestVerificationConfig: () => bigmodel.getRequestVerificationConfig(),
     getForceUpdateConfig: () => bigmodel.getForceUpdateConfig(),
     productInfo: (request) => (native ? native.read() : bigmodel.productInfo(request)),
     preview: (request) => (native ? native.read() : bigmodel.preview(request)),
-    createSign: (request) => (native ? rejectNewApiSelfService() : bigmodel.createSign(request)),
-    updateSign: (request) => (native ? rejectNewApiSelfService() : bigmodel.updateSign(request)),
+    createSign: (request) =>
+      native ? rejectAiscooAdminSelfService() : bigmodel.createSign(request),
+    updateSign: (request) =>
+      native ? rejectAiscooAdminSelfService() : bigmodel.updateSign(request),
     checkPayment: (request) => available(() => bigmodel.checkPayment(request)),
     checkPendingOrders: (request) => available(() => bigmodel.checkPendingOrders(request)),
     queryStripeCards: (request) => available(() => bigmodel.queryStripeCards(request)),
     bindStripeCard: (request) =>
-      native ? rejectNewApiSelfService() : bigmodel.bindStripeCard(request),
+      native ? rejectAiscooAdminSelfService() : bigmodel.bindStripeCard(request),
     unbindStripeCard: (request) =>
-      native ? rejectNewApiSelfService() : bigmodel.unbindStripeCard(request),
-    payStripe: (request) => (native ? rejectNewApiSelfService() : bigmodel.payStripe(request)),
+      native ? rejectAiscooAdminSelfService() : bigmodel.unbindStripeCard(request),
+    payStripe: (request) => (native ? rejectAiscooAdminSelfService() : bigmodel.payStripe(request)),
     checkPaypalSupport: (request) => available(() => bigmodel.checkPaypalSupport(request)),
     createPaypalSetupToken: (request) =>
-      native ? rejectNewApiSelfService() : bigmodel.createPaypalSetupToken(request),
+      native ? rejectAiscooAdminSelfService() : bigmodel.createPaypalSetupToken(request),
     subscribePaypal: (request) =>
-      native ? rejectNewApiSelfService() : bigmodel.subscribePaypal(request),
+      native ? rejectAiscooAdminSelfService() : bigmodel.subscribePaypal(request),
     getEnterprisePricing: (request) =>
       native
         ? native.read()
         : (request?.family === "zai" ? zai : bigmodel).getEnterprisePricing(request),
     getEnterpriseBalance: () => (native ? native.read() : bigmodel.getEnterpriseBalance()),
     calculateEnterpriseOrder: (request) =>
-      native ? rejectNewApiSelfService() : bigmodel.calculateEnterpriseOrder(request),
+      native ? rejectAiscooAdminSelfService() : bigmodel.calculateEnterpriseOrder(request),
     createEnterpriseOrder: (request) =>
-      native ? rejectNewApiSelfService() : bigmodel.createEnterpriseOrder(request),
+      native ? rejectAiscooAdminSelfService() : bigmodel.createEnterpriseOrder(request),
     getEnterprisePendingOrders: () => available(() => bigmodel.getEnterprisePendingOrders()),
     cancelEnterpriseOrder: (request) =>
-      native ? rejectNewApiSelfService() : bigmodel.cancelEnterpriseOrder(request),
+      native ? rejectAiscooAdminSelfService() : bigmodel.cancelEnterpriseOrder(request),
     continueEnterpriseOrderPayment: (request) =>
-      native ? rejectNewApiSelfService() : bigmodel.continueEnterpriseOrderPayment(request),
+      native ? rejectAiscooAdminSelfService() : bigmodel.continueEnterpriseOrderPayment(request),
     checkEnterpriseOrderStatus: (request) =>
       available(() => bigmodel.checkEnterpriseOrderStatus(request)),
   };

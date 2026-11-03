@@ -13,7 +13,7 @@ import { createHttpServer, resolveHttpServerId } from "./http.js";
 // XCODE: 可选本机浏览器账号使用同一服务装配，不创建 Host 持久凭据。
 import { Event, type IChannelClient } from "@zcode/rpc";
 import { IOAuthService } from "@zcode/services";
-import type { NewApiOwner } from "@zcode/shared";
+import type { AiscooAdminOwner } from "@zcode/shared";
 import {
   createBrowserAccountBridge,
   resolveBrowserAccountProfile,
@@ -46,9 +46,9 @@ async function main(): Promise<void> {
       // XCODE: 相同 Native 目录和请求 resolver 只更换凭据来源。
       ...(browserProfile
         ? {
-            newApiAccountAuthority: {
+            aiscooAdminAccountAuthority: {
               origin: browserProfile.origin,
-              create(onOwnerChanged: (owner: NewApiOwner | null) => Promise<void>) {
+              create(onOwnerChanged: (owner: AiscooAdminOwner | null) => Promise<void>) {
                 browserBridge = createBrowserAccountBridge(browserProfile.origin, {
                   onOwnerChanged,
                 });

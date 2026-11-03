@@ -6,4 +6,4 @@ export interface AiscooLegalLinksProps {
   placement: "login" | "settings";
 }
 
-export type NewApiLegalLinks = NonNullable<OAuthProviderMeta["legalLinks"]>;
+export type AiscooAdminLegalLinks = NonNullable<OAuthProviderMeta["legalLinks"]>;

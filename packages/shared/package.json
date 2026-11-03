@@ -19,7 +19,7 @@
     "./account-provider-state": "./src/account-provider-state.ts",
     "./model-config": "./src/model-config.ts",
     "./model-provider-types": "./src/model-provider-types.ts",
-    "./new-api": "./src/new-api.ts",
+    "./aiscoo-admin": "./src/aiscoo-admin.ts",
     "./config-schema": "./src/config-schema.ts",
     "./node": "./src/node.ts",
     "./sqlite-migrations": "./src/sqlite-migrations/index.ts",

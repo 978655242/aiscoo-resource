@@ -10,7 +10,7 @@ import {
   resolveOffPeakProviderId,
   projectAccessTokenFingerprint,
   type ApiClient,
-  type NewApiOwner,
+  type AiscooAdminOwner,
 } from "@zcode/shared";
 import { ProviderConfigMap, ProviderConfig, ZhipuAccountAccessConfig } from "@zcode/provider";
 import { ProxyChannel } from "@zcode/rpc";
@@ -48,13 +48,13 @@ import {
 import type { OAuthProviderAdapter } from "../src/oauth/providers/providerAdapter.js";
 import { createNodeApiClient } from "../src/providers/api/nodeApiClient.js";
 
-const ownerA: NewApiOwner = {
+const ownerA: AiscooAdminOwner = {
   origin: "https://native.example",
   userId: "1",
   sid: "a",
   authGeneration: 1,
 };
-const ownerB: NewApiOwner = { ...ownerA, userId: "2", sid: "b", authGeneration: 2 };
+const ownerB: AiscooAdminOwner = { ...ownerA, userId: "2", sid: "b", authGeneration: 2 };
 function barrier<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => {
@@ -76,7 +76,7 @@ async function fixture(now?: () => number, apiClient?: ApiClient) {
       "oauth:active_provider": cipherProvider.encrypt("bigmodel"),
     }),
   );
-  let owner: NewApiOwner | null = ownerA;
+  let owner: AiscooAdminOwner | null = ownerA;
   let exchange = async () => ({
     accessToken: "official-business-secret",
     zcodeJwtToken: "official-jwt-secret",
@@ -111,7 +111,7 @@ async function fixture(now?: () => number, apiClient?: ApiClient) {
   const dependencies = {
     account: {
       getOwner: () => owner,
-      isCurrent: (expected: NewApiOwner) => JSON.stringify(expected) === JSON.stringify(owner),
+      isCurrent: (expected: AiscooAdminOwner) => JSON.stringify(expected) === JSON.stringify(owner),
     },
     adapters: [adapter],
     store: { credentialsFile, cipherProvider },
@@ -139,7 +139,7 @@ async function fixture(now?: () => number, apiClient?: ApiClient) {
     legacy,
     dependencies,
     callback,
-    setOwner: (value: NewApiOwner | null) => {
+    setOwner: (value: AiscooAdminOwner | null) => {
       owner = value;
     },
     setExchange: (value: typeof exchange) => {
@@ -1442,9 +1442,8 @@ for (const operation of ["sync", "retake", "settle"] as const) {
           assertCurrent: await client.captureOwnerFence(),
         });
       }
-      const pending = operation === "retake"
-        ? service.continueTask(task.offPeakTaskId)
-        : service.runSyncCycle();
+      const pending =
+        operation === "retake" ? service.continueTask(task.offPeakTaskId) : service.runSyncCycle();
       const outcome = Promise.allSettled([pending]);
       await arrived.promise;
       const beforeOperation = operation === "retake" ? await repo.list() : before;

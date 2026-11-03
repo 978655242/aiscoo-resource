@@ -5,14 +5,14 @@ import { z } from "zod";
 export * from "./usage-quota.js";
 import type { UsageMcpQuotaSnapshot, UsageQuotaSnapshot } from "./usage-quota.js";
 import type { ZCodeAccountAccess, ZCodeProviderAccountAccess } from "./zcode-protocol/index.js";
-import type { NewApiEntitlements, NewApiUsage } from "./new-api.js";
+import type { AiscooAdminEntitlements, AiscooAdminUsage } from "./aiscoo-admin.js";
 
-export interface NewApiAccountUsageSnapshot {
+export interface AiscooAdminAccountUsageSnapshot {
   source: "new-api";
   scope: "new-api-account";
   range: CodingPlanUsageRange;
   generatedAt: number;
-  native: NewApiUsage;
+  native: AiscooAdminUsage;
 }
 
 export const ESTIMATED_TOKEN_CHAR_DIVISOR = 3;
@@ -87,7 +87,7 @@ export interface UsageEntitlementRequest {
 export interface UsageEntitlementSnapshot {
   source?: "new-api";
   scope?: "private-user";
-  authorizationStatus?: NewApiEntitlements["status"];
+  authorizationStatus?: AiscooAdminEntitlements["status"];
   authorizationRevision?: string;
   generatedAt: number;
   /** 当前额度响应的服务端时间（毫秒）；与本地快照生成时间 generatedAt 分离。 */
@@ -298,7 +298,7 @@ export interface CodingPlanUsageSnapshot {
   scope?: "new-api-account";
   consumptionRecordCount?: string;
   /** Exact signed account facts; chart numbers are explicitly display-only approximations. */
-  native?: NewApiUsage;
+  native?: AiscooAdminUsage;
   displayPrecision?: "approximate";
   range: CodingPlanUsageRange;
   rangeStartDate: string;

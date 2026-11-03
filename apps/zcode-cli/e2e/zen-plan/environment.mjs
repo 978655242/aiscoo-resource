@@ -1,4 +1,4 @@
-// 隔离 New API 测试环境：独立 SQLite、随机服务密钥、合成账号与不计费的本机上游。
+// 隔离 Aiscoo 测试环境：独立 SQLite、随机服务密钥、合成账号与不计费的本机上游。
 // 不连接、不读取、不修改任何正式实例；结束时只清理本 harness 创建的进程和目录。
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";

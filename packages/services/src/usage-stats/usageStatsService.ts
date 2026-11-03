@@ -15,14 +15,14 @@ import type {
   UsageEntitlementSnapshot,
   UsageStatsRequest,
   UsageStatsSnapshot,
-  NewApiAccountUsageSnapshot,
+  AiscooAdminAccountUsageSnapshot,
   CodingPlanResetHistoryReadResult,
-  NewApiOwner,
+  AiscooAdminOwner,
 } from "@zcode/shared";
 import {
   isCodingPlanModelProviderId,
-  isNewApiModelProviderId,
-  NEW_API_MODEL_PROVIDER_IDS,
+  isAiscooAdminModelProviderId,
+  AISCOO_ADMIN_MODEL_PROVIDER_IDS,
   normalizeAiscooModelProviderId,
 } from "@zcode/shared";
 import type { ICredentialService } from "../credential/credential.js";
@@ -35,23 +35,23 @@ import {
   type UsageApiAuthorization,
 } from "./providers/bigmodelUsageQuotaProvider.js";
 import type { OfficialMcpCredentialSource } from "./providers/zcodeMcpQuotaProvider.js";
-import type { NewApiAccountService } from "../new-api/newApiAccountService.js";
-import type { NewApiClient } from "../new-api/newApiClient.js";
+import type { AiscooAdminAccountService } from "../aiscoo-admin/aiscooAdminAccountService.js";
+import type { AiscooAdminClient } from "../aiscoo-admin/aiscooAdminClient.js";
 import {
-  mapNewApiAccountUsage,
-  mapNewApiEntitlement,
-  mapNewApiResetStatus,
-  mapNewApiUsage,
-  validateNewApiUsageRequest,
-} from "../new-api/newApiUsageMapper.js";
-import { rejectNewApiSelfService } from "../new-api/newApiSubscriptionReadAdapter.js";
+  mapAiscooAdminAccountUsage,
+  mapAiscooAdminEntitlement,
+  mapAiscooAdminResetStatus,
+  mapAiscooAdminUsage,
+  validateAiscooAdminUsageRequest,
+} from "../aiscoo-admin/aiscooAdminUsageMapper.js";
+import { rejectAiscooAdminSelfService } from "../aiscoo-admin/aiscooAdminSubscriptionReadAdapter.js";
 import type { OfficialCloudConnectionHost } from "../official-mcp/officialCloudConnectionService.js";
 
 export interface UsageStatsServiceDependencies {
   officialCloudHost?: Pick<OfficialCloudConnectionHost, "withCredentials">;
   native?: {
-    account: Pick<NewApiAccountService, "withControlSession">;
-    client: Pick<NewApiClient, "getUsage" | "getEntitlements">;
+    account: Pick<AiscooAdminAccountService, "withControlSession">;
+    client: Pick<AiscooAdminClient, "getUsage" | "getEntitlements">;
   };
   apiClient: ApiClient;
   accountRequestAuthService: Pick<
@@ -130,12 +130,12 @@ export function createUsageStatsService(
     request.accountAccess?.type === "new-api-account" ||
     Boolean(
       request.preferredProviderId &&
-      isNewApiModelProviderId(normalizeAiscooModelProviderId(request.preferredProviderId)),
+      isAiscooAdminModelProviderId(normalizeAiscooModelProviderId(request.preferredProviderId)),
     ) ||
     Boolean(native && !request.preferredProviderId);
   const assertNativeRequestOwner = (
     request: UsageEntitlementRequest | UsageStatsRequest,
-    owner: NewApiOwner,
+    owner: AiscooAdminOwner,
   ) => {
     const expected =
       request.accountAccess?.type === "new-api-account" ? request.accountAccess.owner : undefined;
@@ -153,11 +153,11 @@ export function createUsageStatsService(
     if (!native) throw new Error("XCODE_NATIVE_ACCOUNT_REQUIRED");
     return native.account.withControlSession(async (token, owner) => {
       assertNativeRequestOwner(request, owner);
-      return mapNewApiEntitlement(
+      return mapAiscooAdminEntitlement(
         await native.client.getEntitlements(token),
         // XCODE: 旧调用可读，额度投影与默认写入只产生规范 Aiscoo 模型身份。
         normalizeAiscooModelProviderId(
-          request.preferredProviderId ?? NEW_API_MODEL_PROVIDER_IDS["anthropic-messages"],
+          request.preferredProviderId ?? AISCOO_ADMIN_MODEL_PROVIDER_IDS["anthropic-messages"],
         ),
       );
     });
@@ -189,7 +189,7 @@ export function createUsageStatsService(
     ): Promise<CodingPlanUsageSnapshot> {
       if (usesNative(request)) {
         if (!native) throw new Error("XCODE_NATIVE_ACCOUNT_REQUIRED");
-        validateNewApiUsageRequest(request);
+        validateAiscooAdminUsageRequest(request);
         return native.account.withControlSession(async (token, owner) => {
           assertNativeRequestOwner(request, owner);
           const [usage, entitlement] = await Promise.all([
@@ -202,7 +202,12 @@ export function createUsageStatsService(
             }),
             native.client.getEntitlements(token),
           ]);
-          return mapNewApiUsage(usage, request.range, request.preferredProviderId, entitlement);
+          return mapAiscooAdminUsage(
+            usage,
+            request.range,
+            request.preferredProviderId,
+            entitlement,
+          );
         });
       }
       if (!isCodingPlanProviderId(request.preferredProviderId)) {
@@ -250,7 +255,7 @@ export function createUsageStatsService(
         if (!native) throw new Error("XCODE_NATIVE_ACCOUNT_REQUIRED");
         return native.account.withControlSession(async (token, owner) => {
           assertNativeRequestOwner(request, owner);
-          return mapNewApiResetStatus(await native.client.getEntitlements(token));
+          return mapAiscooAdminResetStatus(await native.client.getEntitlements(token));
         });
       }
       if (!isCodingPlanProviderId(request.preferredProviderId)) {
@@ -261,7 +266,7 @@ export function createUsageStatsService(
     async requestCodingPlanResetOpportunity(
       request: CodingPlanResetOpportunityRequest,
     ): Promise<CodingPlanResetOpportunityResult> {
-      if (usesNative(request)) return rejectNewApiSelfService();
+      if (usesNative(request)) return rejectAiscooAdminSelfService();
       if (!isCodingPlanProviderId(request.preferredProviderId)) {
         throw new Error("no_bigmodel_api_key");
       }
@@ -272,7 +277,7 @@ export function createUsageStatsService(
     async useCodingPlanReset(
       request: CodingPlanResetUseRequest,
     ): Promise<CodingPlanResetUseResult> {
-      if (usesNative(request)) return rejectNewApiSelfService();
+      if (usesNative(request)) return rejectAiscooAdminSelfService();
       if (!isCodingPlanProviderId(request.preferredProviderId)) {
         throw new Error("no_bigmodel_api_key");
       }
@@ -298,23 +303,23 @@ export function createUsageStatsService(
     },
     async getSnapshot(
       request: UsageStatsRequest,
-    ): Promise<UsageStatsSnapshot | NewApiAccountUsageSnapshot> {
+    ): Promise<UsageStatsSnapshot | AiscooAdminAccountUsageSnapshot> {
       if (request.dataSource === "local") throw new Error("XCODE_USAGE_SOURCE_UNSUPPORTED");
       const requestedNative =
         request.accountAccess?.type === "new-api-account" ||
         Boolean(
           request.preferredProviderId &&
-          isNewApiModelProviderId(normalizeAiscooModelProviderId(request.preferredProviderId)),
+          isAiscooAdminModelProviderId(normalizeAiscooModelProviderId(request.preferredProviderId)),
         );
       if (request.dataSource === "new-api" || requestedNative) {
         if (request.dataSource === "monitor") throw new Error("XCODE_USAGE_SOURCE_MISMATCH");
         if (!native) throw new Error("XCODE_NATIVE_ACCOUNT_REQUIRED");
         if (request.range === "all") throw new Error("XCODE_USAGE_REQUEST_INVALID");
         const range = request.range;
-        validateNewApiUsageRequest({ range, timeZone: request.timeZone });
+        validateAiscooAdminUsageRequest({ range, timeZone: request.timeZone });
         return native.account.withControlSession(async (token, owner) => {
           assertNativeRequestOwner(request, owner);
-          return mapNewApiAccountUsage(
+          return mapAiscooAdminAccountUsage(
             await native.client.getUsage(token, { range, time_zone: request.timeZone }),
             range,
           );

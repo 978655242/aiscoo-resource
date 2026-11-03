@@ -1,11 +1,15 @@
 import { Emitter } from "@zcode/rpc";
-import { normalizeNewApiOrigin, NEW_API_PROVIDER_ID, type OAuthSessionState } from "@zcode/shared";
+import {
+  normalizeAiscooAdminOrigin,
+  AISCOO_ADMIN_PROVIDER_ID,
+  type OAuthSessionState,
+} from "@zcode/shared";
 import type { HostAccountPolicy, PolicyAccountAuthority } from "./contract.js";
 import type { IOAuthService } from "../oauth/oauth.js";
 import type { ICodingPlanSubscriptionService } from "../coding-plan-subscription/codingPlanSubscription.js";
 import type { IUsageStatsService } from "../usage-stats/usageStats.js";
 import type { OfficialCloudConnectionHost } from "../official-mcp/officialCloudConnectionService.js";
-import { createNewApiAccountProviderResolver } from "../new-api/newApiAccountProviderResolution.js";
+import { createAiscooAdminAccountProviderResolver } from "../aiscoo-admin/aiscooAdminAccountProviderResolution.js";
 
 export type { HostAccountPolicy } from "./contract.js";
 export const AISCOO_ACCOUNT_CONFIG_UNAVAILABLE = "AISCOO_ACCOUNT_CONFIG_UNAVAILABLE";
@@ -25,7 +29,7 @@ function rejectLogin(): never {
   throw failure(AISCOO_ACCOUNT_LOGIN_UNSUPPORTED);
 }
 function assertProvider(provider?: string): void {
-  if (provider !== undefined && provider !== NEW_API_PROVIDER_ID) rejectLogin();
+  if (provider !== undefined && provider !== AISCOO_ADMIN_PROVIDER_ID) rejectLogin();
 }
 function assertCallback(raw: string): void {
   let url: URL;
@@ -36,7 +40,7 @@ function assertCallback(raw: string): void {
   }
   if (
     url.searchParams.getAll("provider").length !== 1 ||
-    url.searchParams.get("provider") !== NEW_API_PROVIDER_ID ||
+    url.searchParams.get("provider") !== AISCOO_ADMIN_PROVIDER_ID ||
     url.searchParams.getAll("purpose").length > 1 ||
     (url.searchParams.has("purpose") && url.searchParams.get("purpose") !== "primary-account")
   )
@@ -48,7 +52,7 @@ function createUnavailableAccount(): PolicyAccountAuthority {
   const oauth: IOAuthService = {
     onDidChangeSession: changes.event,
     getProviders: async () => [
-      { id: NEW_API_PROVIDER_ID, displayName: "Aiscoo", enabled: false, order: 0 },
+      { id: AISCOO_ADMIN_PROVIDER_ID, displayName: "Aiscoo", enabled: false, order: 0 },
     ],
     getActiveProvider: async () => null,
     restoreCachedSession: async () => rejectConfiguration(),
@@ -76,9 +80,11 @@ function wrapOAuth(oauth: IOAuthService): IOAuthService {
   return Object.freeze({
     ...oauth,
     getProviders: async () =>
-      (await oauth.getProviders()).filter((provider) => provider.id === NEW_API_PROVIDER_ID),
+      (await oauth.getProviders()).filter((provider) => provider.id === AISCOO_ADMIN_PROVIDER_ID),
     getActiveProvider: async () =>
-      (await oauth.getActiveProvider()) === NEW_API_PROVIDER_ID ? NEW_API_PROVIDER_ID : null,
+      (await oauth.getActiveProvider()) === AISCOO_ADMIN_PROVIDER_ID
+        ? AISCOO_ADMIN_PROVIDER_ID
+        : null,
     startOAuth: async (provider) => {
       assertProvider(provider);
       return oauth.startOAuth(provider);
@@ -202,16 +208,16 @@ function wrapUsage(service: IUsageStatsService, configured: boolean): IUsageStat
 export function createAiscooAccountPolicy(
   options: { adminBaseUrl?: string } = {},
 ): HostAccountPolicy {
-  let newApiOrigin: string | null = null;
+  let aiscooAdminOrigin: string | null = null;
   try {
-    newApiOrigin = normalizeNewApiOrigin(options.adminBaseUrl?.trim() ?? "");
+    aiscooAdminOrigin = normalizeAiscooAdminOrigin(options.adminBaseUrl?.trim() ?? "");
   } catch {
     // XCODE: 配置失败仍装配阻断权威，不能因 null client 回到旧官方账号。
   }
   const unavailableAccount = createUnavailableAccount();
   return Object.freeze({
-    newApiOrigin,
-    resolveBuiltinEndpointOrigin: () => newApiOrigin ?? rejectConfiguration(),
+    aiscooAdminOrigin,
+    resolveBuiltinEndpointOrigin: () => aiscooAdminOrigin ?? rejectConfiguration(),
     allowOfficialCloud: false,
     createUnavailableAccount: () => unavailableAccount,
     wrapOAuth,
@@ -229,7 +235,7 @@ export function createAiscooAccountPolicy(
       recoverUnreadable: async (key, assertCurrent) =>
         isRetiredCredential(key) ? null : credentials.recoverUnreadable(key, assertCurrent),
     }),
-    unavailableProviders: createNewApiAccountProviderResolver({
+    unavailableProviders: createAiscooAdminAccountProviderResolver({
       account: unavailableAccount,
       client: {
         getModels: async () => rejectConfiguration(),
@@ -242,7 +248,7 @@ export function createAiscooAccountPolicy(
       assertCurrent: async () => rejectOfficial(),
     },
     unavailableOfficialCloud,
-    wrapSubscription: (service) => wrapSubscription(service, newApiOrigin !== null),
-    wrapUsage: (service) => wrapUsage(service, newApiOrigin !== null),
+    wrapSubscription: (service) => wrapSubscription(service, aiscooAdminOrigin !== null),
+    wrapUsage: (service) => wrapUsage(service, aiscooAdminOrigin !== null),
   } satisfies HostAccountPolicy);
 }

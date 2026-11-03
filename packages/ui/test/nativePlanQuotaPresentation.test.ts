@@ -2,14 +2,14 @@
 import { createElement } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import type { NewApiEntitlements } from "@zcode/shared";
+import type { AiscooAdminEntitlements } from "@zcode/shared";
 import { ZCodeIntlProvider } from "../src/i18n/IntlProvider.js";
 import {
   NativePlanProviderDetail,
   NativePlanQuotaCard,
 } from "../src/settings/model-provider-section/NativePlanProviderDetail.js";
 
-const quota: NonNullable<NewApiEntitlements["quota"]> = {
+const quota: NonNullable<AiscooAdminEntitlements["quota"]> = {
   scope: "zen-subscription",
   unit: "quota",
   unlimited: false,
@@ -26,7 +26,7 @@ const quota: NonNullable<NewApiEntitlements["quota"]> = {
 };
 
 function showQuota(patch: Partial<typeof quota> = {}) {
-  const entitlement: NewApiEntitlements = {
+  const entitlement: AiscooAdminEntitlements = {
     schema_version: 1,
     server_time: 1,
     status: "active",

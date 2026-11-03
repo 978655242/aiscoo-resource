@@ -1,12 +1,12 @@
 # XWork Zen Plan E2E
 
-真实链路验收：隔离 Go New API（独立 SQLite、随机服务密钥、合成账号）+ 真实 Chrome 原生页面 + 真实 CLI 构建产物 + 真实 PTY TUI + 不计费的本机合成上游。不连接、不修改任何正式实例。
+真实链路验收：隔离 Go aiscoo-admin（独立 SQLite、随机服务密钥、合成账号）+ 真实 Chrome 原生页面 + 真实 CLI 构建产物 + 真实 PTY TUI + 不计费的本机合成上游。不连接、不修改任何正式实例。
 
 ## 前置
 
 ```bash
-# New API（feat/cli-zen-plan 或其合并结果）
-cd <new-api> && bun run --cwd web build && go build -o /tmp/zen-e2e-backend .
+# aiscoo-admin（feat/cli-zen-plan 或其合并结果）
+cd <aiscoo-admin> && bun run --cwd web build && go build -o /tmp/zen-e2e-backend .
 # XWork CLI
 pnpm --filter @zcode/cli... build
 ```
@@ -47,6 +47,6 @@ node apps/zcode-cli/e2e/zen-plan/run.mjs --backend /tmp/zen-e2e-backend --case=p
 ## 不覆盖
 
 - Windows Credential Manager 与 Linux Secret Service 真机；SEA 单文件分发的原生钥匙串资源。
-- 正式 New API 实例与真实计费模型。
+- 正式 aiscoo-admin 实例与真实计费模型。
 - 真实系统级 `zcode://` 深链分发与 Electron 桌面应用本体（桌面以协议替身经真实授权页取得 code）。
 - 管理后台指定套餐 UI（套餐与模型直接写入隔离库，等价于管理员授权结果）。

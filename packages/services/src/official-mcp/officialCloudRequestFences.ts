@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { NewApiOwner } from "@zcode/shared";
+import type { AiscooAdminOwner } from "@zcode/shared";
 import type {
   OfficialCloudConnectionHost,
   OfficialCloudCredentialSnapshot,
@@ -7,9 +7,9 @@ import type {
 import { ownerChanged } from "./officialCloudConnectionRecords.js";
 
 interface Dependencies {
-  account: { getOwner(): NewApiOwner | null; isCurrent(owner: NewApiOwner): boolean };
+  account: { getOwner(): AiscooAdminOwner | null; isCurrent(owner: AiscooAdminOwner): boolean };
   getEpoch(): number;
-  current(owner: NewApiOwner, capturedEpoch?: number): boolean;
+  current(owner: AiscooAdminOwner, capturedEpoch?: number): boolean;
   resolveCredentials: OfficialCloudConnectionHost["resolveCredentials"];
   isCurrent: OfficialCloudConnectionHost["isCurrent"];
   invocationScope(credentials: OfficialCloudCredentialSnapshot): string;

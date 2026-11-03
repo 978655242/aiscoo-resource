@@ -1,11 +1,11 @@
 import { z } from "zod";
 import {
-  normalizeNewApiOrigin,
+  normalizeAiscooAdminOrigin,
   ZEN_CLI_CLIENT_ID,
-  NewApiSessionBundleSchema,
-  NewApiMeSchema,
-  NewApiCatalogSchema,
-  NewApiEntitlementsSchema,
+  AiscooAdminSessionBundleSchema,
+  AiscooAdminMeSchema,
+  AiscooAdminCatalogSchema,
+  AiscooAdminEntitlementsSchema,
 } from "@zcode/shared";
 
 const requestTimeoutMs = 15_000;
@@ -25,12 +25,12 @@ export class ZenClient {
     origin: string,
     private readonly request: typeof fetch = globalThis.fetch,
   ) {
-    this.origin = normalizeNewApiOrigin(origin);
+    this.origin = normalizeAiscooAdminOrigin(origin);
   }
   exchange(code: string, codeVerifier: string, redirectUri: string, signal?: AbortSignal) {
     return this.call(
       "auth/token",
-      NewApiSessionBundleSchema,
+      AiscooAdminSessionBundleSchema,
       undefined,
       {
         grant_type: "authorization_code",
@@ -45,7 +45,7 @@ export class ZenClient {
   refresh(sessionId: string, refreshToken: string, signal?: AbortSignal) {
     return this.call(
       "auth/refresh",
-      NewApiSessionBundleSchema,
+      AiscooAdminSessionBundleSchema,
       undefined,
       {
         client_id: ZEN_CLI_CLIENT_ID,
@@ -63,13 +63,13 @@ export class ZenClient {
     });
   }
   me(access: string, signal?: AbortSignal) {
-    return this.call("me", NewApiMeSchema, access, undefined, signal);
+    return this.call("me", AiscooAdminMeSchema, access, undefined, signal);
   }
   catalog(access: string, signal?: AbortSignal) {
-    return this.call("models", NewApiCatalogSchema, access, undefined, signal);
+    return this.call("models", AiscooAdminCatalogSchema, access, undefined, signal);
   }
   entitlements(access: string, signal?: AbortSignal) {
-    return this.call("entitlements", NewApiEntitlementsSchema, access, undefined, signal);
+    return this.call("entitlements", AiscooAdminEntitlementsSchema, access, undefined, signal);
   }
   private async call<T>(
     path: string,

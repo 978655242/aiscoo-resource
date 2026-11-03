@@ -10,11 +10,11 @@
 | development | dev.aiscoo.app.dev     | Aiscoo Dev                   | aiscoo-dev     | aiscoo-dev://oauth/callback     |
 | preview     | dev.aiscoo.app.preview | Aiscoo Preview               | aiscoo-preview | aiscoo-preview://oauth/callback |
 
-Aiscoo 正式版、开发版、Preview 和上游 ZCode 必须能够共存。Aiscoo 不默认声明或注册 zcode scheme，不删除或注销 ZCode 的注册。上游默认配置、NEW_API_CALLBACK_URI 及稳定 client_id=xcode-desktop 保留，通过可选配置扩展，不批量替换协议标识。
+Aiscoo 正式版、开发版、Preview 和上游 ZCode 必须能够共存。Aiscoo 不默认声明或注册 zcode scheme，不删除或注销 ZCode 的注册。上游默认配置、AISCOO_ADMIN_CALLBACK_URI 及稳定 client_id=xcode-desktop 保留，通过可选配置扩展，不批量替换协议标识。
 
 唯一身份配置位于 @zcode/shared/aiscoo-desktop-identity，构建工具和运行时复用。Desktop 构建显式固化渠道；未注入 Aiscoo 渠道的通用运行时保持上游默认值。系统应用 ID、Windows executable/AUMID、Linux executable/package/desktop MIME、macOS开发副本与正式协议声明均须与该配置一致。
 
-合并最新 release 时，Main、Host、scheduler 的共享服务依赖图必须继续可构建。旧本机 Web 适配器删除后，Desktop 依赖图不再引入原生钥匙串，`@napi-rs/keyring` 不再列入 Desktop 外置依赖；Zen CLI 的钥匙串仍由 CLI 构建自行外置。打包闭包检查仍须证明运行时依赖完整。历史本机 Web 快照不因身份合并恢复为现行产品入口，现行 Web 规范仍为 [browser-new-api.md](browser-new-api.md)。
+合并最新 release 时，Main、Host、scheduler 的共享服务依赖图必须继续可构建。旧本机 Web 适配器删除后，Desktop 依赖图不再引入原生钥匙串，`@napi-rs/keyring` 不再列入 Desktop 外置依赖；Zen CLI 的钥匙串仍由 CLI 构建自行外置。打包闭包检查仍须证明运行时依赖完整。历史本机 Web 快照不因身份合并恢复为现行产品入口，现行 Web 规范仍为 [browser-aiscoo-admin.md](browser-aiscoo-admin.md)。
 
 macOS 的 `node-pty` `spawn-helper` 经 asar 解包再重打包后会丢失执行权限：应用能构建成功，但终端启动时 `posix_spawnp` 失败。修复位于 `electron-builder.config.js` 的 `afterPack`，由 `ensurePackagedNodePtyHelperExecutable` 在原生资源策略校验之后、`assertPackagedNodePtyPrebuild` 之前恢复执行位，仅对 macOS 目标生效。
 
@@ -24,9 +24,9 @@ macOS 的 `node-pty` `spawn-helper` 经 asar 解包再重打包后会丢失执�
 
 ## 授权接口与所有者
 
-Native New API authorize、callback parser 与 token exchange 必须使用同一精确 redirect。后端先增加允许的精确 URI，保留旧版 zcode URI；不得接受任意自定义 scheme、URI前缀、额外路径、fragment、用户信息、端口或重复 query。开发/Preview 回调只有后端明确登记才可用。既有 refresh/logout client ID 与凭据 namespace 保持不变。
+Native aiscoo-admin authorize、callback parser 与 token exchange 必须使用同一精确 redirect。后端先增加允许的精确 URI，保留旧版 zcode URI；不得接受任意自定义 scheme、URI前缀、额外路径、fragment、用户信息、端口或重复 query。开发/Preview 回调只有后端明确登记才可用。既有 refresh/logout client ID 与凭据 namespace 保持不变。
 
-Host NewApiAccountService 是 pending/PKCE、换码、会话持久化和账号 generation 的唯一 owner。Main 只拥有 state/provider/purpose/window 的投递登记；Renderer 只发起和呈现状态。取消、超时、旧 state、错误 provider/purpose、重复回调仍由现有 owner 校验；不向当前活动窗口兜底。不记录 code/state/token。
+Host AiscooAdminAccountService 是 pending/PKCE、换码、会话持久化和账号 generation 的唯一 owner。Main 只拥有 state/provider/purpose/window 的投递登记；Renderer 只发起和呈现状态。取消、超时、旧 state、错误 provider/purpose、重复回调仍由现有 owner 校验；不向当前活动窗口兜底。不记录 code/state/token。
 
 ```mermaid
 sequenceDiagram
@@ -65,7 +65,7 @@ Electron userData/sessionData 使用各渠道独立目录。业务数据根、Ho
 
 新安装使用 Aiscoo 独立业务数据根。既有用户数据不得按 ZCode 目录名称自动认领，也不得从正在写入的数据库复制。历史迁移必须由用户选定旧 Aiscoo 来源、停止旧写入者、创建一致备份、暂存导入、验证密钥后原子启用。此次不对真实数据自动执行迁移。
 
-macOS 历史钥匙串名 XWork / XWork Dev / XWork Preview 与密文版本保留。**2026-11-01 起 New API 登录凭据不再使用该钥匙串**（见 [客户端集成规格 §4.2](new-api-integration.md#42-安全持久化与恢复)），下面关于“新 bundle/签名访问旧钥匙串”的实机验证只适用于仍使用它的 CLI Zen 存储与此前已写入的条目。新 bundle/签名访问旧钥匙串须实机验证，失败保留旧密文并明确恢复或重新登录，不用新 key 覆盖。CLI 目录派生账户、AAD与refresh锁单独验收；禁止两数据根同时刷新同一凭据。回滚保留原数据与安装，token 已轮换时允许要求重登，不承诺旧 token 可用。
+macOS 历史钥匙串名 XWork / XWork Dev / XWork Preview 与密文版本保留。**2026-11-01 起 aiscoo-admin 登录凭据不再使用该钥匙串**（见 [客户端集成规格 §4.2](aiscoo-admin-integration.md#42-安全持久化与恢复)），下面关于“新 bundle/签名访问旧钥匙串”的实机验证只适用于仍使用它的 CLI Zen 存储与此前已写入的条目。新 bundle/签名访问旧钥匙串须实机验证，失败保留旧密文并明确恢复或重新登录，不用新 key 覆盖。CLI 目录派生账户、AAD与refresh锁单独验收；禁止两数据根同时刷新同一凭据。回滚保留原数据与安装，token 已轮换时允许要求重登，不承诺旧 token 可用。
 
 ## App 数据目录与固定 CLI 根（2026-11-01）
 

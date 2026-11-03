@@ -21,7 +21,7 @@ App 单测已按[上游测试规格](unit-test-quality.md)退役；根 `test`、
 
 - 工程 Vitest：`pnpm test:engineering <文件>`，精确清单在 `scripts/engineering-test-files.json`；增量使用 `pnpm test:engineering:affected --base <任务起点>` 或 `--scope push`，可用 `--dry-run` 预览。选中整个套件时报告跳过并退出 0，不把跳过当通过。
 - 工程执行工具使用 `pnpm test:engineering-tools`，架构工具使用 `pnpm test:architecture`，schema 使用 `pnpm db:schema:check`；Node 工程测试按受影响文件使用 `node --test`。CLI 按 `apps/zcode-cli/AGENTS.md` 执行，CUA 使用当前包脚本。
-- Aiscoo 扩展保留独立 `pnpm test:aiscoo <文件>` 的显式清单和 `pnpm test:unit:node` 原生回归，覆盖 New API、品牌、插件指南及必要隔离边界。它们不进入上游 engineering 选择范围，不能用工程门禁通过替代下游回归结果。
+- Aiscoo 扩展保留独立 `pnpm test:aiscoo <文件>` 的显式清单和 `pnpm test:unit:node` 原生回归，覆盖 aiscoo-admin、品牌、插件指南及必要隔离边界。它们不进入上游 engineering 选择范围，不能用工程门禁通过替代下游回归结果。
 - 桌面、手机远控和浏览器验收沿用既有入口及生命周期；实际执行证据单独登记。未执行、零收集、平台跳过或环境失败均不代表测试通过。
 
 ## Aiscoo 回归存储隔离

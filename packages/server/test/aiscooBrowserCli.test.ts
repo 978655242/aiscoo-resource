@@ -18,15 +18,15 @@ import {
 } from "../../provider-node/src/index.js";
 import { ChannelClient, ChannelServer, createQueuePair, Emitter, type Event } from "@zcode/rpc";
 import { createZCodeAgentService } from "../../services/src/zcode-agent/zcodeAgentService.js";
-import { createNewApiAccountProviderResolver } from "../../services/src/new-api/newApiAccountProviderResolution.js";
-import { createNewApiAccountRequestAuthResolver } from "../../services/src/model-provider/accountProviderRequestAuthService.js";
-import { NewApiClient } from "../../services/src/new-api/newApiClient.js";
+import { createAiscooAdminAccountProviderResolver } from "../../services/src/aiscoo-admin/aiscooAdminAccountProviderResolution.js";
+import { createAiscooAdminAccountRequestAuthResolver } from "../../services/src/model-provider/accountProviderRequestAuthService.js";
+import { AiscooAdminClient } from "../../services/src/aiscoo-admin/aiscooAdminClient.js";
 import {
   catalog,
   entitlements,
   builtinModelRules,
   owner as fixtureOwner,
-} from "../../services/test/newApiRegistryFixtures.js";
+} from "../../services/test/aiscooAdminRegistryFixtures.js";
 import {
   BROWSER_ACCOUNT_CHANNEL,
   createBrowserAccountBridge,
@@ -120,7 +120,7 @@ it("browser QueuePair authority authorizes a real CLI model HTTP request through
   const config = createNodeProviderConfigRuntime({
     zcodeBuiltinFilePath: builtinPath,
     personalFilePath: personalPath,
-    newApiOrigin: owner.origin,
+    aiscooAdminOrigin: owner.origin,
     watch: false,
     personalPollingIntervalMs: false,
   });
@@ -159,9 +159,9 @@ it("browser QueuePair authority authorizes a real CLI model HTTP request through
     await config.start();
     accountSource = new AccountProviderService({
       configSource: config.configService,
-      resolve: createNewApiAccountProviderResolver({
+      resolve: createAiscooAdminAccountProviderResolver({
         account: bridge.authority,
-        client: new NewApiClient(owner.origin),
+        client: new AiscooAdminClient(owner.origin),
       }),
     });
     registry = new ProviderRegistryService({ configSource: config.configService, accountSource });
@@ -178,7 +178,7 @@ it("browser QueuePair authority authorizes a real CLI model HTTP request through
     const unexpectedOfficial = async (): Promise<never> => {
       throw new Error("Unexpected official credential authority");
     };
-    const auth = createNewApiAccountRequestAuthResolver({
+    const auth = createAiscooAdminAccountRequestAuthResolver({
       account: bridge.authority,
       accountSource,
       official: {

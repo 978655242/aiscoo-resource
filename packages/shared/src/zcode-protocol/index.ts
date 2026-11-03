@@ -38,13 +38,13 @@ import { zcodeAutomationBotDeliveryTargetSchema } from "../bots.js";
 import { executionOutputPreviewSchema } from "../execution-output-preview.js";
 import { completeModelPropertiesDataSchema } from "../model-config.js";
 import {
-  newApiCatalogIssueSchema,
-  newApiRegistryOwnerSchema,
+  aiscooAdminCatalogIssueSchema,
+  aiscooAdminRegistryOwnerSchema,
   // XCODE: 请求外层 Provider 与内层 ModelSelection 使用相同的旧身份迁移。
   normalizeAiscooModelProviderId,
 } from "../model-provider-types.js";
 // XCODE: 账号展示扩展独立于上游模型能力协议，拒绝混入能力或秘密字段。
-import { newApiModelPresentationSchema } from "../new-api.js";
+import { aiscooAdminModelPresentationSchema } from "../aiscoo-admin.js";
 import { modelExecutionSchema } from "../model-execution.js";
 export type { ModelExecutionSelectionFallback } from "../model-execution.js";
 export * from "../off-peak-execution.js";
@@ -1275,7 +1275,7 @@ export const zcodeProviderAccountAccessSchema = z.union([
       accountType: z.literal("new-api"),
       mode: z.literal("private-subscription"),
       entitled: z.boolean(),
-      owner: newApiRegistryOwnerSchema.optional(),
+      owner: aiscooAdminRegistryOwnerSchema.optional(),
       // XCODE: 能力刷新不撤销已准入轮次，执行身份只绑定服务端授权代际。
       authorizationRevision: z.string().min(1).optional(),
     })
@@ -2640,10 +2640,10 @@ export const zcodeProviderUpdateAccountConfigParamsSchema = z
     basedOnZCodeBuiltinRevision: nonEmptyString,
     // Provider Config 的字段校验由 @zcode/provider 负责；协议层只约束可传输信封。
     providers: z.record(z.string(), z.unknown()),
-    owner: newApiRegistryOwnerSchema.nullable().optional(),
+    owner: aiscooAdminRegistryOwnerSchema.nullable().optional(),
     // XCODE: Worker 仅收目录展示；能力跟随 basedOnZCodeBuiltinRevision 的原配置源。
-    modelPresentation: newApiModelPresentationSchema.optional(),
-    catalogIssues: z.array(newApiCatalogIssueSchema).readonly().optional(),
+    modelPresentation: aiscooAdminModelPresentationSchema.optional(),
+    catalogIssues: z.array(aiscooAdminCatalogIssueSchema).readonly().optional(),
     catalogRevision: z.string().min(1).optional(),
     authorizationRevision: z.string().min(1).optional(),
     // 账号状态与 Overlay 必须一起传递，否则 Worker 会丢失非当前套餐的执行门禁。

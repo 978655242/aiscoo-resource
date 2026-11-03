@@ -1,4 +1,4 @@
-import type { NewApiOwner, OAuthCachedSessionRestoreResult, UserInfo } from "@zcode/shared";
+import type { AiscooAdminOwner, OAuthCachedSessionRestoreResult, UserInfo } from "@zcode/shared";
 import type { BrowserAccountOAuthMethod } from "./contract.js";
 
 export function bridgeError(code: string): Error & { code: string } {
@@ -31,7 +31,7 @@ export function requireWire(condition: unknown): asserts condition {
   if (!condition) throw bridgeError("XCODE_PROTOCOL_INVALID");
 }
 
-export function readOwner(value: NewApiOwner | null, origin: string): NewApiOwner | null {
+export function readOwner(value: AiscooAdminOwner | null, origin: string): AiscooAdminOwner | null {
   if (value === null) return null;
   requireWire(
     value &&
@@ -53,7 +53,7 @@ export function readOwner(value: NewApiOwner | null, origin: string): NewApiOwne
   });
 }
 
-export function sameOwner(a: NewApiOwner | null, b: NewApiOwner | null): boolean {
+export function sameOwner(a: AiscooAdminOwner | null, b: AiscooAdminOwner | null): boolean {
   return (
     a === b ||
     (!!a &&

@@ -1,6 +1,6 @@
 /* oxlint-disable eslint(max-lines) -- Settings/Selection Facade 共享同一套 Registry 投影与写入边界。 */
 import type { ConfigValidationIssue } from "./config-overlay.js";
-import type { NewApiCatalogIssue } from "@zcode/shared/model-provider-types";
+import type { AiscooAdminCatalogIssue } from "@zcode/shared/model-provider-types";
 import type { ProviderModelMembership } from "./config-service.js";
 import type {
   ModelConfig,
@@ -108,7 +108,7 @@ export interface ProviderSettingsModelCandidateView {
   readonly kind: "candidate";
   readonly modelId: ModelId;
   readonly displayName?: string;
-  /** New API 下发的 @lobehub/icons 图标名。 */
+  /** Aiscoo 下发的 @lobehub/icons 图标名。 */
   readonly icon?: string;
   readonly builtin: boolean;
   readonly effectiveBuiltinConfig: ModelConfigObject;
@@ -177,7 +177,7 @@ export interface ProviderSettingsView {
   readonly providerTemplates: readonly ProviderSettingsTemplateView[];
   readonly providerOrder: readonly ProviderId[];
   readonly providers: readonly ProviderSettingsProviderView[];
-  readonly catalogIssues?: readonly NewApiCatalogIssue[];
+  readonly catalogIssues?: readonly AiscooAdminCatalogIssue[];
 }
 
 export interface ProviderSettingsCreationResult {
@@ -188,7 +188,7 @@ export interface ProviderSettingsCreationResult {
 export interface ModelSelectionModelView {
   readonly modelId: ModelId;
   readonly displayName?: string;
-  /** New API 下发的 @lobehub/icons 图标名。 */
+  /** Aiscoo 下发的 @lobehub/icons 图标名。 */
   readonly icon?: string;
   readonly config: RegistryModelConfigObject;
 }
@@ -210,7 +210,7 @@ export interface ModelSelectionView extends Partial<EffectiveModelSelectionResul
   readonly revision: number;
   readonly providers: readonly ModelSelectionProviderView[];
   readonly preferredSelection?: ModelSelection;
-  readonly catalogIssues?: readonly NewApiCatalogIssue[];
+  readonly catalogIssues?: readonly AiscooAdminCatalogIssue[];
 }
 
 export class ProviderSettingsFacade {
@@ -623,7 +623,7 @@ function createProviderSettingsView(input: {
   personalModels: ProviderRegistryServiceSnapshot["config"]["personalModels"];
   resolution: ProviderConfigResolution;
   accountStates?: import("./account-provider-state.js").AccountProviderStates;
-  catalogIssues?: readonly NewApiCatalogIssue[];
+  catalogIssues?: readonly AiscooAdminCatalogIssue[];
 }): ProviderSettingsView {
   const executableProviderIds = new Set(
     input.resolution.registryProviders.map((provider) => provider.providerId),

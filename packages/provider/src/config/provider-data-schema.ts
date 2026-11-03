@@ -55,7 +55,7 @@ export const zhipuAccountAccessDataSchema = z
     type: completeZhipuAccountAccessDataSchema.shape.type,
   })
   .strict();
-export const completeNewApiAccountAccessDataSchema = z
+export const completeAiscooAdminAccountAccessDataSchema = z
   .object({
     type: z.literal("new-api-account"),
     accountType: z.literal("new-api"),
@@ -63,16 +63,16 @@ export const completeNewApiAccountAccessDataSchema = z
     entitled: z.boolean(),
   })
   .strict();
-export const newApiAccountAccessDataSchema = completeNewApiAccountAccessDataSchema;
+export const aiscooAdminAccountAccessDataSchema = completeAiscooAdminAccountAccessDataSchema;
 export const providerAccessDataSchema = z.discriminatedUnion("type", [
   apiKeyAccessDataSchema,
   zhipuAccountAccessDataSchema,
-  newApiAccountAccessDataSchema,
+  aiscooAdminAccountAccessDataSchema,
 ]);
 export const completeProviderAccessDataSchema = z.discriminatedUnion("type", [
   completeApiKeyAccessDataSchema,
   completeZhipuAccountAccessDataSchema,
-  completeNewApiAccountAccessDataSchema,
+  completeAiscooAdminAccountAccessDataSchema,
 ]);
 
 export const completeProviderApiDataSchema = z

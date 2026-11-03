@@ -4,11 +4,11 @@
 
 **Goal:** 在独立 `zcode` CLI 中提供 XWork Zen Plan 登录、冷恢复、退出和真实套餐模型调用。
 
-**Architecture:** New API 增加严格注册的 `xwork-cli` 客户端和回环回调，CLI bootstrap 拥有独立账号状态。I/O 在 adapters 中实现，模型授权复用现有 AccountProviderService、Registry 和请求期 credential resolver；桌面 SID、密钥与 active pointer 不共享。
+**Architecture:** aiscoo-admin 增加严格注册的 `xwork-cli` 客户端和回环回调，CLI bootstrap 拥有独立账号状态。I/O 在 adapters 中实现，模型授权复用现有 AccountProviderService、Registry 和请求期 credential resolver；桌面 SID、密钥与 active pointer 不共享。
 
-**Tech Stack:** TypeScript、Node.js 24.14.0、pnpm 10.33.2、现有 Vitest/Node test；New API Go/Gin/GORM 和现有 React 授权页面；平台系统凭据库。
+**Tech Stack:** TypeScript、Node.js 24.14.0、pnpm 10.33.2、现有 Vitest/Node test；aiscoo-admin Go/Gin/GORM 和现有 React 授权页面；平台系统凭据库。
 
-**Spec:** [CLI Zen Plan](../../../apps/zcode-cli/docs/design/v2/zen-plan.md)，后端 canonical spec 为 `/Users/timo/ai/new-api/docs/specs/xcode-integration.md`。
+**Spec:** [CLI Zen Plan](../../../apps/zcode-cli/docs/design/v2/zen-plan.md)，后端 canonical spec 为 `/Users/timo/ai/aiscoo-admin/docs/specs/xcode-integration.md`。
 
 ## Global Constraints
 
@@ -30,17 +30,17 @@
 
 ## File Structure
 
-New API 扩展 `service/xcode_auth.go` 的客户端校验和回调生成，在 `model/user_session.go` 增加客户端归属并贯穿缓存；优先扩展已有认证测试。XCode 的 `packages/shared/src/new-api.ts` 保持既有默认常量并增加 CLI 常量/严格解析契约。
+aiscoo-admin 扩展 `service/xcode_auth.go` 的客户端校验和回调生成，在 `model/user_session.go` 增加客户端归属并贯穿缓存；优先扩展已有认证测试。XCode 的 `packages/shared/src/aiscoo-admin.ts` 保持既有默认常量并增加 CLI 常量/严格解析契约。
 
 CLI 新增集中目录 `adapters/src/auth/zen/`（HTTP、回环监听、平台凭据）与 `bootstrap/src/zen/`（账号 owner、登录协调、Account overlay）。两个目录分别登记 managed module，提供 `module.ts`、`contract.ts`、`contract.example.ts`、`contract.test.ts`、`CONTRACT.md` 和公开出口。CLI 呈现接在已有 login/logout、command-center、i18n，不另建账号菜单框架。
 
 ### Task 1: 后端注册 CLI 授权与会话归属
 
-**Files:** New API `docs/specs/xcode-integration.md`、`service/xcode_auth.go`、`model/user_session.go`、现有 migration/cache 合同与 `service/auth_session_test.go`；XCode `packages/shared/src/new-api.ts`、`packages/shared/test/newApi*.test.ts`（选择现存合适文件，最多新增一份协议测试）。
+**Files:** aiscoo-admin `docs/specs/xcode-integration.md`、`service/xcode_auth.go`、`model/user_session.go`、现有 migration/cache 合同与 `service/auth_session_test.go`；XCode `packages/shared/src/aiscoo-admin.ts`、`packages/shared/test/aiscooAdmin*.test.ts`（选择现存合适文件，最多新增一份协议测试）。
 
 **Interfaces:** 新增 `XWorkCLIClientID = "xwork-cli"`；后端客户端校验函数接收 client ID/完整 redirect URI，分别执行桌面精确匹配或 CLI loopback 校验。UserSession 持久化 `ClientID`，空值仅在历史 xcode-purpose 会话中按 `xcode-desktop` 解释；缓存重建携带归属。
 
-- [ ] 阅读 New API 适用目录规则及 OWASP Authentication、Session Management、OAuth2 guidance，记录适用控制；先更新 canonical spec 的客户端、redirect、refresh/logout 语义。
+- [ ] 阅读 aiscoo-admin 适用目录规则及 OWASP Authentication、Session Management、OAuth2 guidance，记录适用控制；先更新 canonical spec 的客户端、redirect、refresh/logout 语义。
 - [ ] 扩展认证回归：桌面原路径成功；CLI 随机端口成功；拒绝别名 IPv4、localhost、IPv6、空/越界/非数字端口、userinfo、query/hash、错误路径、encoded path 与尾斜杠。
 - [ ] 写回归：code 的 client/完整 URI/PKCE 不匹配与重复消费失败；CLI SID 不能以 desktop 刷新/退出，反向同样拒绝；历史空 ClientID 的桌面会话仍可恢复；错误请求不能撤销其他 SID。
 - [ ] 运行 `go test ./service -run 'Test.*XCode' -count=1`，确认新增断言失败后实现。完成授权返回值必须用 AuthFlow 保存的 redirect，不再固定拼接桌面 URI。
@@ -66,7 +66,7 @@ CLI 新增集中目录 `adapters/src/auth/zen/`（HTTP、回环监听、平台�
 
 **Files:** `apps/zcode-cli/packages/bootstrap/src/zen/`、`bootstrap/src/index.ts`、`bootstrap/tests/zen-account.test.ts`、模块合同/架构注册。
 
-**Interfaces:** `loginZenCli(options): Promise<ZenLoginResult>`、`logoutZenCli(options): Promise<{localCleared:boolean,serverRevoked:boolean}>`；`ZenAccountRuntime` 提供 `restore(signal)`、`login(options)`、`logout()`、`getOwner()`、`onDidChange`、`withControlSession(action)`、`getRelayCredential(owner)`、`dispose()`。结果仅返回用户与非秘密状态，不返回凭据内容。owner 使用 shared `NewApiOwner`。
+**Interfaces:** `loginZenCli(options): Promise<ZenLoginResult>`、`logoutZenCli(options): Promise<{localCleared:boolean,serverRevoked:boolean}>`；`ZenAccountRuntime` 提供 `restore(signal)`、`login(options)`、`logout()`、`getOwner()`、`onDidChange`、`withControlSession(action)`、`getRelayCredential(owner)`、`dispose()`。结果仅返回用户与非秘密状态，不返回凭据内容。owner 使用 shared `AiscooAdminOwner`。
 
 - [ ] 在 contract 中定义 timeout=10 分钟、取消、client/session/origin/generation 和存储 revision 规则；读取上下文后登记 bootstrap 模块。
 - [ ] 写内存端口测试：首次登录、Me 不匹配、bundle 过期、取消迟到、两次登录交叉、写入失败与补偿；补偿只针对本次签发 SID，不能撤销已经切换的新账号。
@@ -85,7 +85,7 @@ CLI 新增集中目录 `adapters/src/auth/zen/`（HTTP、回环监听、平台�
 - [ ] 写回归：现有官方/自配 provider 保留、Zen 未登录不可用、有效套餐目录可选择、无套餐/空目录/错误 revision 不可执行；原默认选择不自动改写。
 - [ ] 写受控 HTTP 模型测试：请求命中配置 origin 与选定模型，control token 不用作 relay；换号、撤销、目录变化和迟到读取均拒绝旧 scope；TUI 与 prompt 使用同一 resolver。
 - [ ] 执行 `pnpm --filter @zcode/bootstrap exec vitest run tests/zen-provider-runtime.test.ts` 确认失败；实现账号 source 与请求期凭据链路，不把 Zen 伪装为 Personal API Key。
-- [ ] 执行新增与现有 standalone/registry 测试；如提取共享解析，执行桌面 New API model/registry 回归。提交 `feat: expose Zen Plan models to standalone CLI`。
+- [ ] 执行新增与现有 standalone/registry 测试；如提取共享解析，执行桌面 aiscoo-admin model/registry 回归。提交 `feat: expose Zen Plan models to standalone CLI`。
 
 ### Task 5: 命令、TUI 与用户文档
 
@@ -101,15 +101,15 @@ CLI 新增集中目录 `adapters/src/auth/zen/`（HTTP、回环监听、平台�
 
 ### Task 6: 整体验收与本机安装产物更新
 
-**Files:** spec 的验证记录、`docs/aiscoo/new-api-integration-runbook.md`；构建产物不提交。隔离测试脚本归入现有测试体系。
+**Files:** spec 的验证记录、`docs/aiscoo/aiscoo-admin-integration-runbook.md`；构建产物不提交。隔离测试脚本归入现有测试体系。
 
-- [ ] 启动独立 New API 测试实例、私有数据与合成账号，浏览器真实授权到 Node loopback，不改正式监听服务。验证密码/2FA/Passkey 仍沿用既有原生登录，未启用的认证方式不宣称实测。
+- [ ] 启动独立 aiscoo-admin 测试实例、私有数据与合成账号，浏览器真实授权到 Node loopback，不改正式监听服务。验证密码/2FA/Passkey 仍沿用既有原生登录，未启用的认证方式不宣称实测。
 - [ ] PTY 驱动真实 TUI：登录、模型列表、取消、重启恢复、退出；两个 CLI 进程交叉刷新与换号。以受控上游验证一轮模型工具调用和取消，避免真实计费。
 - [ ] 验证桌面与 CLI 各自 SID 并存、各自退出；平台安全存储只使用合成测试记录，结束精确删除自有数据与进程。
 - [ ] 执行 `pnpm typecheck`、`pnpm lint`、`pnpm architecture:check --changed`、修改文件格式检查；对受影响 CLI 包运行 typecheck/lint 和定向测试。根全量单测不执行。
 - [ ] 后端执行 Task 1 三数据库与认证回归，前端只在授权页受影响时执行其测试/类型检查；记录未运行平台和环境阻塞。
 - [ ] 构建 `pnpm --filter @zcode/cli... build`，通过现有 `~/.local/bin/zcode` 验证 `--version`、`doctor --json`、帮助与 Zen 登录入口；不改启动器为明文凭据注入。
-- [ ] 汇总两仓库提交、测试、迁移与部署依赖；正式 New API 未升级时明确新 CLI 登录尚不能用于该实例，不宣称已上线。更新 spec 的实现/验证状态并提交 `docs: record CLI Zen Plan verification`。
+- [ ] 汇总两仓库提交、测试、迁移与部署依赖；正式 aiscoo-admin 未升级时明确新 CLI 登录尚不能用于该实例，不宣称已上线。更新 spec 的实现/验证状态并提交 `docs: record CLI Zen Plan verification`。
 
 ## Execution Handoff
 

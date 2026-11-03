@@ -34,11 +34,11 @@ export async function waitForLogoutWelcome(page, mode) {
   return { before, after: await inspect() };
 }
 
-// 原始轻量 Root 的正向对照必须实际发起官方委托，并保留 New API 原文与 API key 表单。
+// 原始轻量 Root 的正向对照必须实际发起官方委托，并保留 Aiscoo 原文与 API key 表单。
 export async function checkUpstreamLoginControls(page, openLoginPage) {
   await openLoginPage(page, { locale: "zh-CN", upstream: "1" });
   await page
-    .getByRole("button", { name: "登录 New API", exact: true })
+    .getByRole("button", { name: "登录 Aiscoo", exact: true })
     .waitFor({ state: "visible" });
   assert.equal(await page.getByRole("img", { name: "Aiscoo", exact: true }).count(), 0);
   await page.getByRole("button", { name: "使用 API key", exact: true }).click();
@@ -73,7 +73,7 @@ export async function checkUpstreamLoginControls(page, openLoginPage) {
     ["open-synthetic"],
     ["cancel", "bigmodel"],
   ]);
-  assert.equal(await page.getByRole("button", { name: "登录 New API", exact: true }).count(), 0);
+  assert.equal(await page.getByRole("button", { name: "登录 Aiscoo", exact: true }).count(), 0);
   assert.equal(await page.getByRole("img", { name: "Aiscoo", exact: true }).count(), 0);
   await page.getByRole("button", { name: "使用 API key", exact: true }).click();
   await page.getByRole("heading", { name: "API Key", exact: true }).waitFor({ state: "visible" });
@@ -110,7 +110,7 @@ async function start(provider, method) {
 const oauthService = {
   getProviders: async () => {
     const official = [{ id: "zai", displayName: "Z.ai", enabled: true, order: 0 }, { id: "bigmodel", displayName: "BigModel", enabled: true, order: 1 }];
-    const native = { id: "new-api", displayName: "New API", enabled: true, order: 2 };
+    const native = { id: "new-api", displayName: "Aiscoo", enabled: true, order: 2 };
     return providerMode === "empty" ? [] : providerMode === "official" ? official : providerMode === "mixed" ? [...official, native] : providerMode === "disabled" ? [{ ...native, enabled: false }] : [native];
   },
   getActiveProvider: async () => null,
@@ -204,7 +204,7 @@ async function step(name) {
   await gates.get(name)?.promise;
 }
 const oauthService = {
-  getProviders: async () => [{ id: "new-api", displayName: "New API", enabled: true, order: 0 }],
+  getProviders: async () => [{ id: "new-api", displayName: "Aiscoo", enabled: true, order: 0 }],
   getActiveProvider: async () => null,
   logout: () => step("logout"),
   startOAuth: async () => { events.push("unexpected-login"); throw new Error("Login must not start while exiting"); },

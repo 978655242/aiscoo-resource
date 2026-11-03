@@ -1,5 +1,9 @@
 import type { IOAuthService, IServiceAccessor } from "@zcode/services";
-import { NEW_API_PROVIDER_ID, type IPlatformService, type OAuthProviderId } from "@zcode/shared";
+import {
+  AISCOO_ADMIN_PROVIDER_ID,
+  type IPlatformService,
+  type OAuthProviderId,
+} from "@zcode/shared";
 import type { OAuthAccountPolicy, OAuthLifecyclePlatform } from "@/oauth-lifecycle/contract.js";
 
 export type * from "./contract.js";
@@ -12,7 +16,7 @@ function accountError(code: string): Error {
 }
 
 export const aiscooAccountPolicy: OAuthAccountPolicy = Object.freeze({
-  acceptsProvider: (provider: OAuthProviderId) => provider === NEW_API_PROVIDER_ID,
+  acceptsProvider: (provider: OAuthProviderId) => provider === AISCOO_ADMIN_PROVIDER_ID,
 });
 
 function acceptsCallbackUrl(raw: string): boolean {
@@ -20,7 +24,7 @@ function acceptsCallbackUrl(raw: string): boolean {
     const url = new URL(raw);
     return (
       url.searchParams.getAll("provider").length === 1 &&
-      url.searchParams.get("provider") === NEW_API_PROVIDER_ID
+      url.searchParams.get("provider") === AISCOO_ADMIN_PROVIDER_ID
     );
   } catch {
     return false;
@@ -34,8 +38,8 @@ function createAccountOAuthService(owner: IOAuthService): IOAuthService {
     );
   const available = async () => (await getProviders()).length > 0;
   const active = async () =>
-    (await available()) && (await owner.getActiveProvider()) === NEW_API_PROVIDER_ID
-      ? NEW_API_PROVIDER_ID
+    (await available()) && (await owner.getActiveProvider()) === AISCOO_ADMIN_PROVIDER_ID
+      ? AISCOO_ADMIN_PROVIDER_ID
       : null;
   const requireProvider = (provider: OAuthProviderId) => {
     if (!aiscooAccountPolicy.acceptsProvider(provider)) throw accountError(LOGIN_UNSUPPORTED);
@@ -46,14 +50,14 @@ function createAccountOAuthService(owner: IOAuthService): IOAuthService {
   const canRestore = async () => {
     if (!(await available())) return false;
     const provider = await owner.getActiveProvider();
-    return provider === null || provider === NEW_API_PROVIDER_ID;
+    return provider === null || provider === AISCOO_ADMIN_PROVIDER_ID;
   };
   const restoreCachedSessionState: IOAuthService["restoreCachedSessionState"] = async () => {
     // 修复依据：Native 冷启动先恢复才建立 owner；仅拒明确的官方身份，成功后再确认来源。
     if (!(await canRestore())) return { status: "signed-out" };
     const result = await owner.restoreCachedSessionState();
     if (result.status !== "authenticated") return result;
-    return (await active()) === NEW_API_PROVIDER_ID ? result : { status: "signed-out" };
+    return (await active()) === AISCOO_ADMIN_PROVIDER_ID ? result : { status: "signed-out" };
   };
   const rejected = async () => {
     throw accountError(LOGIN_UNSUPPORTED);
@@ -70,13 +74,13 @@ function createAccountOAuthService(owner: IOAuthService): IOAuthService {
     async restoreSession() {
       if (!(await canRestore())) return null;
       const user = await owner.restoreSession();
-      return (await active()) === NEW_API_PROVIDER_ID ? user : null;
+      return (await active()) === AISCOO_ADMIN_PROVIDER_ID ? user : null;
     },
     async startOAuth(provider) {
       requireProvider(provider);
       await requireConfigured();
       const response = await owner.startOAuth(provider);
-      if (response.provider !== NEW_API_PROVIDER_ID || response.purpose !== "primary-account")
+      if (response.provider !== AISCOO_ADMIN_PROVIDER_ID || response.purpose !== "primary-account")
         throw accountError(LOGIN_UNSUPPORTED);
       return response;
     },
@@ -86,28 +90,29 @@ function createAccountOAuthService(owner: IOAuthService): IOAuthService {
       if (!acceptsCallbackUrl(url)) throw accountError(LOGIN_UNSUPPORTED);
       await requireConfigured();
       const result = await owner.handleCallback(url);
-      if (result && result.provider !== NEW_API_PROVIDER_ID) throw accountError(LOGIN_UNSUPPORTED);
+      if (result && result.provider !== AISCOO_ADMIN_PROVIDER_ID)
+        throw accountError(LOGIN_UNSUPPORTED);
       return result;
     },
-    async refreshToken(provider = NEW_API_PROVIDER_ID) {
+    async refreshToken(provider = AISCOO_ADMIN_PROVIDER_ID) {
       requireProvider(provider);
       await requireConfigured();
-      if ((await active()) !== NEW_API_PROVIDER_ID) throw accountError(LOGIN_UNSUPPORTED);
-      await owner.refreshToken(NEW_API_PROVIDER_ID);
+      if ((await active()) !== AISCOO_ADMIN_PROVIDER_ID) throw accountError(LOGIN_UNSUPPORTED);
+      await owner.refreshToken(AISCOO_ADMIN_PROVIDER_ID);
     },
-    async logout(provider = NEW_API_PROVIDER_ID) {
+    async logout(provider = AISCOO_ADMIN_PROVIDER_ID) {
       requireProvider(provider);
       // 修复依据：恢复和 pending 时 active 尚为空；退出须先同步失效原 owner，不能等待元数据。
-      await owner.logout(NEW_API_PROVIDER_ID);
+      await owner.logout(AISCOO_ADMIN_PROVIDER_ID);
     },
     async logoutAll() {
       // 仅退出 Aiscoo 作用域；通用 owner 不会清除 active 为官方的历史凭据。
-      await owner.logout(NEW_API_PROVIDER_ID);
+      await owner.logout(AISCOO_ADMIN_PROVIDER_ID);
     },
-    async cancelPending(provider = NEW_API_PROVIDER_ID) {
+    async cancelPending(provider = AISCOO_ADMIN_PROVIDER_ID) {
       requireProvider(provider);
       // 原 owner 先同步失效 pending，不能让元数据查询为迟到 callback 留出窗口。
-      await owner.cancelPending(NEW_API_PROVIDER_ID);
+      await owner.cancelPending(AISCOO_ADMIN_PROVIDER_ID);
     },
   };
 }
@@ -158,7 +163,7 @@ export function createAiscooAccountLoginPlatform(
       if (property === "registerOAuthState")
         return (registration: Parameters<IPlatformService["registerOAuthState"]>[0]) => {
           if (
-            registration.provider !== NEW_API_PROVIDER_ID ||
+            registration.provider !== AISCOO_ADMIN_PROVIDER_ID ||
             registration.purpose !== "primary-account"
           )
             throw accountError(LOGIN_UNSUPPORTED);
@@ -168,7 +173,7 @@ export function createAiscooAccountLoginPlatform(
         return (listener: Parameters<IPlatformService["onOAuthCallback"]>[0]) =>
           target.onOAuthCallback((event) => {
             if (
-              event.provider === NEW_API_PROVIDER_ID &&
+              event.provider === AISCOO_ADMIN_PROVIDER_ID &&
               event.purpose === "primary-account" &&
               acceptsCallbackUrl(event.url)
             )

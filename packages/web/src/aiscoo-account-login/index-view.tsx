@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { normalizeNewApiOrigin } from "@zcode/shared";
+import { normalizeAiscooAdminOrigin } from "@zcode/shared";
 import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import { ConversationShareLandingLoader as UpstreamShareLoader } from "#src/share/ConversationShareLandingPage.js";
 import type {
@@ -38,11 +38,11 @@ export function resolveAiscooWebEntry(options: AiscooWebEntryOptions): AiscooWeb
   if (/^\/(?:cn\/)?share\/[^/]+\/?$/.test(url.pathname)) return "public-share";
   if (!options.browserAccountOrigin) return "unconfigured";
   try {
-    normalizeNewApiOrigin(options.browserAccountOrigin);
+    normalizeAiscooAdminOrigin(options.browserAccountOrigin);
   } catch {
     return "unconfigured";
   }
-  // 浏览器 New API 回调只支持既有精确 loopback grammar；不扩展 origin/CORS。
+  // 浏览器 Aiscoo 回调只支持既有精确 loopback grammar；不扩展 origin/CORS。
   if (
     !/^http:\/\/127\.0\.0\.1:[1-9]\d{0,4}$/.test(url.origin) ||
     !url.port ||

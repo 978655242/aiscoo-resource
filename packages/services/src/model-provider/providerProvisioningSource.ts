@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   providerProvisioningEnvelopeSchema,
-  isNewApiModelProviderId,
+  isAiscooAdminModelProviderId,
   type ProviderProvisioningCredentialEntry,
   type ProviderProvisioningEnvelope,
 } from "@zcode/shared";
@@ -63,19 +63,19 @@ export function createProviderProvisioningSource(
       // Private managed selection is local-only; unrelated custom/official remote config still syncs.
       personalConfig.providerConfigRules.providerRules =
         personalConfig.providerConfigRules.providerRules.filter(
-          (rule) => !isNewApiModelProviderId(rule.providerId),
+          (rule) => !isAiscooAdminModelProviderId(rule.providerId),
         );
       personalConfig.modelConfigRules.providerModelRules =
         personalConfig.modelConfigRules.providerModelRules.filter(
-          (rule) => !isNewApiModelProviderId(rule.providerId),
+          (rule) => !isAiscooAdminModelProviderId(rule.providerId),
         );
       personalConfig.modelConfigRules.manualProviderModelRules =
         personalConfig.modelConfigRules.manualProviderModelRules.filter(
-          (rule) => !isNewApiModelProviderId(rule.providerId),
+          (rule) => !isAiscooAdminModelProviderId(rule.providerId),
         );
       if (
         personalConfig.defaultModelSelection &&
-        isNewApiModelProviderId(personalConfig.defaultModelSelection.providerId)
+        isAiscooAdminModelProviderId(personalConfig.defaultModelSelection.providerId)
       )
         delete personalConfig.defaultModelSelection;
       const accountSettings = {

@@ -24,10 +24,10 @@ import {
 } from "../src/session/offPeakRuntimeModel.js";
 import { createOfficialCloudAccountProviderResolver } from "../src/official-mcp/officialCloudAccountResolvers.js";
 import type { OfficialCloudCredentialSnapshot } from "../src/official-mcp/officialCloudConnectionService.js";
-import { modelConfig, owner } from "./newApiRegistryFixtures.js";
-import { createNewApiProviderAnchors } from "@zcode/provider-node";
-import { createNewApiAccountProviderResolver } from "../src/new-api/newApiAccountProviderResolution.js";
-import { catalog, entitlements } from "./newApiRegistryFixtures.js";
+import { modelConfig, owner } from "./aiscooAdminRegistryFixtures.js";
+import { createAiscooAdminProviderAnchors } from "@zcode/provider-node";
+import { createAiscooAdminAccountProviderResolver } from "../src/aiscoo-admin/aiscooAdminAccountProviderResolution.js";
+import { catalog, entitlements } from "./aiscooAdminRegistryFixtures.js";
 import { resolveOffPeakProviderId } from "@zcode/shared";
 
 const providerId = resolveOffPeakProviderId("zai");
@@ -288,7 +288,9 @@ test("official source invalidation revokes worker cloud authorization even behin
     revision: "config-1",
     zcodeBuiltinRevision: "builtin-1",
     personalRevision: "personal-1",
-    zcodeBuiltinProviders: createNewApiProviderAnchors(owner.origin).overlay(configuredProviders),
+    zcodeBuiltinProviders: createAiscooAdminProviderAnchors(owner.origin).overlay(
+      configuredProviders,
+    ),
     zcodeBuiltinProviderTemplates: ProviderTemplateMap.empty(),
     personalProviders: ProviderConfigMap.empty(),
     zcodeBuiltinModelRules: new ModelConfigRules([
@@ -308,7 +310,7 @@ test("official source invalidation revokes worker cloud authorization even behin
     isCurrent: async () => officialCurrent,
   };
   const resolveOfficial = createOfficialCloudAccountProviderResolver(host);
-  const resolve = createNewApiAccountProviderResolver({
+  const resolve = createAiscooAdminAccountProviderResolver({
     account: {
       getOwner: () => owner,
       isCurrent: () => true,
@@ -351,7 +353,9 @@ for (const transition of ["primary-owner-loss", "official-disconnect"] as const)
       revision: "config-1",
       zcodeBuiltinRevision: "builtin-1",
       personalRevision: "personal-1",
-      zcodeBuiltinProviders: createNewApiProviderAnchors(owner.origin).overlay(configuredProviders),
+      zcodeBuiltinProviders: createAiscooAdminProviderAnchors(owner.origin).overlay(
+        configuredProviders,
+      ),
       zcodeBuiltinProviderTemplates: ProviderTemplateMap.empty(),
       personalProviders: ProviderConfigMap.empty(),
       zcodeBuiltinModelRules: new ModelConfigRules([
@@ -365,7 +369,7 @@ for (const transition of ["primary-owner-loss", "official-disconnect"] as const)
       personalModels: ModelConfigRules.empty(),
     };
     const configSource = { read: async () => config, onDidChange: () => () => {} };
-    const resolve = createNewApiAccountProviderResolver({
+    const resolve = createAiscooAdminAccountProviderResolver({
       account: {
         getOwner: () => nativeOwner,
         isCurrent: (candidate) => candidate === nativeOwner,

@@ -31,7 +31,7 @@ export default defineConfig({
     testTimeout: 30_000,
     hookTimeout: 30_000,
     include: [
-      "packages/desktop/test/newApiNetworkGuards.test.ts",
+      "packages/desktop/test/aiscooAdminNetworkGuards.test.ts",
       "packages/desktop/test/aiscooOffPeakOwnerFence.test.ts",
       "packages/desktop/test/aiscooBranding.test.ts",
       "packages/desktop/test/aiscooStartupTheme.test.ts",

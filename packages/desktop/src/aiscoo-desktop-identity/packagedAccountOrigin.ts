@@ -1,4 +1,4 @@
-import { normalizeNewApiOrigin } from "@zcode/shared/new-api";
+import { normalizeAiscooAdminOrigin } from "@zcode/shared/aiscoo-admin";
 import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
 import type { PackagedAiscooAccountOriginRuntime } from "./contract.js";
 
@@ -20,7 +20,7 @@ export function resolvePackagedAiscooAccountOrigin(
   const raw = compiledOrigin?.trim();
   if (!raw) return undefined;
   // 与运行期账号策略共用同一个严格解析器，避免构建期与运行期对“合法 origin”理解不一致。
-  return normalizeNewApiOrigin(raw);
+  return normalizeAiscooAdminOrigin(raw);
 }
 
 /**

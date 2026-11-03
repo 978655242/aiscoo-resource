@@ -1,8 +1,8 @@
 import type { IOAuthService, IServiceAccessor } from "@zcode/services";
-import type { NewApiOwner } from "@zcode/shared";
+import type { AiscooAdminOwner } from "@zcode/shared";
 
-export interface BrowserNewApiAccountOptions {
-  /** Canonicalized New API origin; used for authorization and storage isolation. */
+export interface BrowserAiscooAdminAccountOptions {
+  /** Canonicalized Aiscoo origin; used for authorization and storage isolation. */
   origin: string;
   /** Exact http://127.0.0.1:<non-default-port> origin, without a path. */
   browserOrigin: string;
@@ -14,16 +14,18 @@ export interface BrowserNewApiAccountOptions {
   crypto?: Pick<Crypto, "getRandomValues" | "subtle">;
 }
 
-export interface BrowserNewApiAccount {
+export interface BrowserAiscooAdminAccount {
   readonly oauth: IOAuthService;
   /** Null until /me confirms login or restore; callers await restore before attachment. */
-  getOwner(): NewApiOwner | null;
+  getOwner(): AiscooAdminOwner | null;
   /** Opaque persisted identity stamp for cross-tab invalidation; never authenticates an owner. */
   getStorageIdentity(): string | null;
-  getControlCredential(expected: NewApiOwner): Promise<{ accessToken: string; owner: NewApiOwner }>;
-  getRelayCredential(expected: NewApiOwner): Promise<{ token: string; expiresAt: number }>;
+  getControlCredential(
+    expected: AiscooAdminOwner,
+  ): Promise<{ accessToken: string; owner: AiscooAdminOwner }>;
+  getRelayCredential(expected: AiscooAdminOwner): Promise<{ token: string; expiresAt: number }>;
   /** Native-confirmed revocation; synchronously clears only the captured credential owner. */
-  invalidateCredential(expected: NewApiOwner): void;
+  invalidateCredential(expected: AiscooAdminOwner): void;
   /** Invalidates this page's in-flight work; persistent login and pending navigation survive. */
   dispose(): void;
 }
@@ -40,6 +42,6 @@ export interface BrowserAccountWebConnection {
 }
 
 export interface BrowserAccountWebConnectionOptions {
-  account: BrowserNewApiAccount;
+  account: BrowserAiscooAdminAccount;
   onFailure(failure: BrowserAccountConnectionFailure): void;
 }

@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { AccountProviderService, ProviderConfigMap } from "@zcode/provider";
 import type { ProviderRuntimeHeadersPort } from "@zcode/core";
 import { ZenClient } from "@zcode/adapters/auth";
-import { normalizeNewApiOrigin } from "@zcode/shared";
+import { normalizeAiscooAdminOrigin } from "@zcode/shared";
 import {
   startProcessProviderRegistryRuntime as startUpstreamRuntime,
   type ProcessAccountResolution,
@@ -75,7 +75,7 @@ export async function startProcessProviderRegistryRuntime(
     // 只切换 Built-in 源；配置缺失或非法时不回退官方，也不影响其他上游 endpoint。
     resolveBuiltinEndpointOrigin: () => {
       if (!env.AISCOO_ADMIN_BASE_URL?.trim()) throw new Error("AISCOO_ACCOUNT_CONFIG_UNAVAILABLE");
-      return normalizeNewApiOrigin(env.AISCOO_ADMIN_BASE_URL.trim());
+      return normalizeAiscooAdminOrigin(env.AISCOO_ADMIN_BASE_URL.trim());
     },
     credentialStore: createAiscooProductCredentialStore(env, options.standalone.credentialStore),
   };

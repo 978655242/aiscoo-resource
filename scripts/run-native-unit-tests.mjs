@@ -9,8 +9,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const require = createRequire(import.meta.url);
 const cwd = fileURLToPath(new URL("..", import.meta.url));
-const newApiTests = globSync("packages/services/test/newApi*.test.ts", { cwd }).sort();
-assert.ok(newApiTests.length > 0, "Native account regressions are missing");
+const aiscooAdminTests = globSync("packages/services/test/aiscooAdmin*.test.ts", { cwd }).sort();
+assert.ok(aiscooAdminTests.length > 0, "Native account regressions are missing");
 const root = await mkdtemp(join(tmpdir(), "xwork-native-unit-"));
 try {
   const child = spawn(
@@ -23,8 +23,8 @@ try {
       "--tsconfig",
       "packages/services/test/tsconfig.json",
       "--test",
-      ...newApiTests,
-      // XCODE: Aiscoo 唯一账号策略的 Host 失败关闭回归，不挂 newApi 前缀，需显式登记。
+      ...aiscooAdminTests,
+      // XCODE: Aiscoo 唯一账号策略的 Host 失败关闭回归，不挂 aiscooAdmin 前缀，需显式登记。
       "packages/services/test/aiscooOnlyHost.test.ts",
       // XCODE: 命令同步的路径安全回归走真实服务入口，独立于已退役 App 单测。
       "packages/services/test/aiscooCommandDataSyncPathSafety.test.ts",
@@ -32,7 +32,7 @@ try {
       "packages/services/test/offPeakExecutionLifetime.test.ts",
       "packages/services/test/conversationShareOperationFence.test.ts",
       "packages/services/test/officialInvocationDispatch.test.ts",
-      "packages/desktop/test/newApiOAuthRoutes.test.ts",
+      "packages/desktop/test/aiscooAdminOAuthRoutes.test.ts",
       "packages/desktop/test/desktopLocalDevelopmentBundle.test.ts",
       "packages/desktop/scripts/devElectronAppArgs.test.mjs",
       "packages/desktop/scripts/devElectronAppBundle.test.mjs",
@@ -43,7 +43,7 @@ try {
       "scripts/test/aiscoo-desktop-data-identity.test.mjs",
       // XCODE: 公证续跑必须复用原提交与 DMG，离线命令替身验证实际脚本分流。
       "scripts/test/aiscoo-notarize-macos.test.mjs",
-      // XCODE: 桌面登录凭据不触发系统钥匙串授权的门禁（2026-11-01 决定，规格 new-api-integration §4.2）。
+      // XCODE: 桌面登录凭据不触发系统钥匙串授权的门禁（2026-11-01 决定，规格 aiscoo-admin-integration §4.2）。
       "scripts/test/aiscoo-desktop-credential-no-keychain.test.mjs",
       "scripts/test/aiscoo-desktop-deep-link-identity.test.mjs",
       "scripts/test/aiscoo-export-logs-credential-backup.test.mjs",

@@ -1,5 +1,5 @@
-// XCODE: 自定义模型没有后端下发的图标，按模型 ID 的厂商关键词映射到与 New API 管理端
-// 相同的 @lobehub/icons 名称（取值对齐 new-api model/pricing_default.go 的 defaultVendorIcons
+// XCODE: 自定义模型没有后端下发的图标，按模型 ID 的厂商关键词映射到与 Aiscoo 管理端
+// 相同的 @lobehub/icons 名称（取值对齐 aiscoo-admin model/pricing_default.go 的 defaultVendorIcons
 // 及当前后端供应商配置），使官方与自定义模型图标一致。
 const MODEL_LOBE_ICON_RULES: readonly (readonly [RegExp, string])[] = [
   [/claude|anthropic/i, "Claude.Color"],

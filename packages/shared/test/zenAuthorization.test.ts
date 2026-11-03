@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseZenAuthorizationCallback } from "../src/new-api.js";
+import { parseZenAuthorizationCallback } from "../src/aiscoo-admin.js";
 
 describe("CLI Zen authorization callback", () => {
   const redirect = "http://127.0.0.1:49152/oauth/callback";

@@ -7,7 +7,7 @@ import type {
   UserInfo,
 } from "@zcode/shared";
 import {
-  NEW_API_PROVIDER_ID,
+  AISCOO_ADMIN_PROVIDER_ID,
   resolveProviderFamilyDomainFromOAuthProvider,
   ZCODE_JWT_INVALID_BROADCAST_CHANNEL,
 } from "@zcode/shared";
@@ -230,13 +230,14 @@ export function useRootOAuthEffects({
     void services.oauthService
       .getProviders()
       .then((providers) => {
-        if (disposed || !providers.some((provider) => provider.id === NEW_API_PROVIDER_ID)) return;
+        if (disposed || !providers.some((provider) => provider.id === AISCOO_ADMIN_PROVIDER_ID))
+          return;
         const reconcileIdentity = () => {
           const current = ++request;
           void services.oauthService
             .getActiveProvider()
             .then((provider) => {
-              if (!disposed && current === request && provider !== NEW_API_PROVIDER_ID)
+              if (!disposed && current === request && provider !== AISCOO_ADMIN_PROVIDER_ID)
                 setUser(null);
             })
             .catch(() => {
@@ -378,9 +379,9 @@ export function useRootOAuthEffects({
       try {
         const { url, provider: callbackProvider, purpose } = event;
         const providers = await services.oauthService.getProviders();
-        const nativeMode = providers.some((provider) => provider.id === NEW_API_PROVIDER_ID);
+        const nativeMode = providers.some((provider) => provider.id === AISCOO_ADMIN_PROVIDER_ID);
         if (purpose !== "primary-account") return;
-        if (nativeMode && callbackProvider !== NEW_API_PROVIDER_ID) return;
+        if (nativeMode && callbackProvider !== AISCOO_ADMIN_PROVIDER_ID) return;
         const result = await services.oauthService.handleCallback(url);
         // 取消或切换 flow 会使已接收的回调失效，正常空结果不能被当作登录异常。
         if (!result) {

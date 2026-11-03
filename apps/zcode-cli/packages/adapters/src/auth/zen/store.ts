@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID }
 import { mkdir, readFile, unlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { atomicWritePrivateTextFile, withFileLock } from "@zcode/shared/node";
-import { normalizeNewApiOrigin } from "@zcode/shared";
+import { normalizeAiscooAdminOrigin } from "@zcode/shared";
 import type { ZenCredentialStore, ZenSecureKeyStore } from "./contract.js";
 
 const keyBytes = 32;
@@ -46,7 +46,7 @@ export function createZenCredentialStore<T>(options: {
     return key;
   }
   function file(origin: string): string {
-    const hash = createHash("sha256").update(normalizeNewApiOrigin(origin)).digest("hex");
+    const hash = createHash("sha256").update(normalizeAiscooAdminOrigin(origin)).digest("hex");
     return join(options.directory, `${hash}.json`);
   }
   async function read(origin: string): Promise<{ revision: string; value: T } | null> {
@@ -65,7 +65,7 @@ export function createZenCredentialStore<T>(options: {
       await loadKey(),
       Buffer.from(record.iv, "base64url"),
     );
-    decipher.setAAD(Buffer.from(`${normalizeNewApiOrigin(origin)}:xwork-cli:${record.revision}`));
+    decipher.setAAD(Buffer.from(`${normalizeAiscooAdminOrigin(origin)}:xwork-cli:${record.revision}`));
     decipher.setAuthTag(Buffer.from(record.tag, "base64url"));
     const text = Buffer.concat([
       decipher.update(Buffer.from(record.data, "base64url")),
@@ -100,7 +100,7 @@ export function createZenCredentialStore<T>(options: {
         const revision = randomUUID();
         const iv = randomBytes(ivBytes);
         const cipher = createCipheriv(cipherAlgorithm, await loadKey(), iv);
-        cipher.setAAD(Buffer.from(`${normalizeNewApiOrigin(origin)}:xwork-cli:${revision}`));
+        cipher.setAAD(Buffer.from(`${normalizeAiscooAdminOrigin(origin)}:xwork-cli:${revision}`));
         const data = Buffer.concat([cipher.update(JSON.stringify(next), "utf8"), cipher.final()]);
         await atomicWritePrivateTextFile(
           file(origin),

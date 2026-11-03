@@ -7,14 +7,14 @@ import {
 } from "./zcode-builtin-release.js";
 // XCODE: 已验证的随包内容先投影规范身份，避免新 anchors 与旧键重复物化。
 import {
-  createNewApiProviderAnchors,
+  createAiscooAdminProviderAnchors,
   normalizeAiscooBuiltinProviderRelease,
-} from "./new-api-provider-anchors.js";
+} from "./aiscoo-admin-provider-anchors.js";
 
 export interface MaterializeZCodeBuiltinProviderConfigOptions {
   readonly environmentConfigRoot: string;
   readonly content: string;
-  readonly newApiOrigin?: string;
+  readonly aiscooAdminOrigin?: string;
 }
 
 /**
@@ -29,13 +29,13 @@ export async function materializeZCodeBuiltinProviderConfig(
     decodeZCodeBuiltinRelease(JSON.parse(options.content)),
   );
   const content = `${serializeZCodeBuiltinRelease(
-    options.newApiOrigin
+    options.aiscooAdminOrigin
       ? {
           ...release,
           config: {
             ...release.config,
             providers: release.config.providers.overlay(
-              createNewApiProviderAnchors(options.newApiOrigin),
+              createAiscooAdminProviderAnchors(options.aiscooAdminOrigin),
             ),
           },
         }

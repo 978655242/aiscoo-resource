@@ -1,21 +1,21 @@
 import { Emitter } from "@zcode/rpc";
 import {
-  NEW_API_PROVIDER_ID,
+  AISCOO_ADMIN_PROVIDER_ID,
   ZEN_CLI_CLIENT_ID,
-  NewApiSessionBundleSchema,
-  NewApiMeSchema,
-  normalizeNewApiOrigin,
+  AiscooAdminSessionBundleSchema,
+  AiscooAdminMeSchema,
+  normalizeAiscooAdminOrigin,
   parseZenAuthorizationCallback,
-  type NewApiOwner,
-  type NewApiSessionBundle,
+  type AiscooAdminOwner,
+  type AiscooAdminSessionBundle,
   type OAuthCachedSessionRestoreResult,
   type OAuthCallbackResult,
   type OAuthSessionState,
   type UserInfo,
 } from "@zcode/shared";
-import type { BrowserNewApiAccount, BrowserNewApiAccountOptions } from "./contract.js";
+import type { BrowserAiscooAdminAccount, BrowserAiscooAdminAccountOptions } from "./contract.js";
 
-type Stored = { schemaVersion: 1; authGeneration: number; bundle: NewApiSessionBundle };
+type Stored = { schemaVersion: 1; authGeneration: number; bundle: AiscooAdminSessionBundle };
 type Pending = {
   state: string;
   codeVerifier: string;
@@ -31,14 +31,14 @@ const same = (a: Stored | null, b: Stored | null) =>
   a.authGeneration === b.authGeneration &&
   a.bundle.session_id === b.bundle.session_id &&
   a.bundle.user.id === b.bundle.user.id;
-const ownerOf = (origin: string, value: Stored): NewApiOwner =>
+const ownerOf = (origin: string, value: Stored): AiscooAdminOwner =>
   Object.freeze({
     origin,
     userId: value.bundle.user.id,
     sid: value.bundle.session_id,
     authGeneration: value.authGeneration,
   });
-const profileOf = (user: NewApiSessionBundle["user"]): UserInfo => ({
+const profileOf = (user: AiscooAdminSessionBundle["user"]): UserInfo => ({
   id: user.id,
   username: user.username,
   displayName: user.display_name,
@@ -52,7 +52,7 @@ function parse<T>(
   if (!result.success) throw error("XCODE_PROTOCOL_INVALID");
   return result.data;
 }
-function validateBundle(bundle: NewApiSessionBundle, now: number, fresh = false): void {
+function validateBundle(bundle: AiscooAdminSessionBundle, now: number, fresh = false): void {
   if (
     /\s/.test(bundle.access_token) ||
     /\s/.test(bundle.refresh_token) ||
@@ -69,10 +69,10 @@ function validateBundle(bundle: NewApiSessionBundle, now: number, fresh = false)
     throw error("XCODE_SESSION_INVALID");
 }
 
-export function createBrowserNewApiAccount(
-  options: BrowserNewApiAccountOptions,
-): BrowserNewApiAccount {
-  const origin = normalizeNewApiOrigin(options.origin);
+export function createBrowserAiscooAdminAccount(
+  options: BrowserAiscooAdminAccountOptions,
+): BrowserAiscooAdminAccount {
+  const origin = normalizeAiscooAdminOrigin(options.origin);
   if (!/^http:\/\/127\.0\.0\.1:([1-9]\d{0,4})$/.test(options.browserOrigin))
     throw error("XCODE_BROWSER_ORIGIN_INVALID");
   let browser: URL;
@@ -92,7 +92,7 @@ export function createBrowserNewApiAccount(
   const fetch = options.fetch ?? globalThis.fetch;
   const changes = new Emitter<OAuthSessionState>();
   let current: Stored | null = null;
-  let acceptedOwner: NewApiOwner | null = null;
+  let acceptedOwner: AiscooAdminOwner | null = null;
   let revision = 0;
   let disposed = false;
   let callbackFlight: {
@@ -122,7 +122,7 @@ export function createBrowserNewApiAccount(
       return {
         schemaVersion: 1,
         authGeneration: value.authGeneration,
-        bundle: parse(NewApiSessionBundleSchema, value.bundle),
+        bundle: parse(AiscooAdminSessionBundleSchema, value.bundle),
       };
     } catch {
       throw error("XCODE_CREDENTIAL_RECORD_INVALID");
@@ -156,7 +156,7 @@ export function createBrowserNewApiAccount(
       project(null);
     }
   }
-  function getOwner(): NewApiOwner | null {
+  function getOwner(): AiscooAdminOwner | null {
     if (disposed || !current) return null;
     try {
       if (same(current, read())) return ownerOf(origin, current);
@@ -167,7 +167,7 @@ export function createBrowserNewApiAccount(
     project(null);
     return null;
   }
-  function expectedRecord(expected: NewApiOwner): Stored {
+  function expectedRecord(expected: AiscooAdminOwner): Stored {
     const owner = getOwner();
     if (
       !owner ||
@@ -192,7 +192,7 @@ export function createBrowserNewApiAccount(
     return value === previous ? (value === Number.MAX_SAFE_INTEGER ? 1 : value + 1) : value;
   }
   const validateProvider = (provider?: string) => {
-    if (provider !== undefined && provider !== NEW_API_PROVIDER_ID)
+    if (provider !== undefined && provider !== AISCOO_ADMIN_PROVIDER_ID)
       throw error("XCODE_PROVIDER_INVALID");
   };
   async function request(
@@ -255,7 +255,10 @@ export function createBrowserNewApiAccount(
     return envelope.data;
   }
   async function confirm(record: Stored, captured: number): Promise<UserInfo> {
-    const me = parse(NewApiMeSchema, await request("me", undefined, record.bundle.access_token));
+    const me = parse(
+      AiscooAdminMeSchema,
+      await request("me", undefined, record.bundle.access_token),
+    );
     check(record, captured);
     if (me.session_id !== record.bundle.session_id || me.user.id !== record.bundle.user.id)
       throw error("XCODE_SESSION_INVALID");
@@ -273,7 +276,7 @@ export function createBrowserNewApiAccount(
       )
         return stored;
       const rotated = parse(
-        NewApiSessionBundleSchema,
+        AiscooAdminSessionBundleSchema,
         await request("auth/refresh", {
           client_id: ZEN_CLI_CLIENT_ID,
           session_id: stored.bundle.session_id,
@@ -412,7 +415,7 @@ export function createBrowserNewApiAccount(
       code_challenge_method: "S256",
     }).toString();
     return {
-      provider: NEW_API_PROVIDER_ID,
+      provider: AISCOO_ADMIN_PROVIDER_ID,
       purpose: "primary-account" as const,
       state,
       authorizeUrl: url.href,
@@ -449,11 +452,11 @@ export function createBrowserNewApiAccount(
     // 合法 proof 必须先消费；重复回调共用单飞结果，兑换失败也不能重放导致服务端撤销 SID。
     options.sessionStorage.removeItem(pendingKey);
     const promise = (async (): Promise<OAuthCallbackResult | null> => {
-      let issued: NewApiSessionBundle | null = null;
+      let issued: AiscooAdminSessionBundle | null = null;
       let committed = false;
       try {
         const bundle = (issued = parse(
-          NewApiSessionBundleSchema,
+          AiscooAdminSessionBundleSchema,
           await request("auth/token", {
             client_id: ZEN_CLI_CLIENT_ID,
             grant_type: "authorization_code",
@@ -464,7 +467,7 @@ export function createBrowserNewApiAccount(
         ));
         if (!stillPending()) return null;
         validateBundle(bundle, now(), true);
-        const me = parse(NewApiMeSchema, await request("me", undefined, bundle.access_token));
+        const me = parse(AiscooAdminMeSchema, await request("me", undefined, bundle.access_token));
         if (!stillPending()) return null;
         if (me.session_id !== bundle.session_id || me.user.id !== bundle.user.id)
           throw error("XCODE_SESSION_INVALID");
@@ -485,7 +488,11 @@ export function createBrowserNewApiAccount(
         if (displaced && displaced.bundle.session_id !== bundle.session_id)
           void revoke(displaced.bundle).catch(() => {});
         if (disposed || captured !== revision || !same(read(), next)) return null;
-        return { kind: "session", provider: NEW_API_PROVIDER_ID, userInfo: profileOf(me.user) };
+        return {
+          kind: "session",
+          provider: AISCOO_ADMIN_PROVIDER_ID,
+          userInfo: profileOf(me.user),
+        };
       } catch (caught) {
         if (!stillPending() || codeOf(caught) === "XCODE_STALE_OWNER") return null;
         throw caught;
@@ -528,7 +535,7 @@ export function createBrowserNewApiAccount(
     if (!target) return;
     await revoke(target.bundle);
   }
-  async function revoke(bundle: NewApiSessionBundle): Promise<void> {
+  async function revoke(bundle: AiscooAdminSessionBundle): Promise<void> {
     const result = await request("auth/logout", {
       client_id: ZEN_CLI_CLIENT_ID,
       session_id: bundle.session_id,
@@ -554,8 +561,8 @@ export function createBrowserNewApiAccount(
       onDidChangeSession: changes.event,
       getProviders: async () => [
         {
-          id: NEW_API_PROVIDER_ID,
-          displayName: "New API",
+          id: AISCOO_ADMIN_PROVIDER_ID,
+          displayName: "Aiscoo",
           enabled: true,
           order: 0,
           legalLinks: {
@@ -564,7 +571,7 @@ export function createBrowserNewApiAccount(
           },
         },
       ],
-      getActiveProvider: async () => (getOwner() ? NEW_API_PROVIDER_ID : null),
+      getActiveProvider: async () => (getOwner() ? AISCOO_ADMIN_PROVIDER_ID : null),
       restoreCachedSession: restoreUser,
       restoreCachedSessionState: restore,
       restoreSession: restoreUser,
@@ -596,7 +603,7 @@ export function createBrowserNewApiAccount(
     }),
     getOwner,
     getStorageIdentity,
-    invalidateCredential: (expected: NewApiOwner) => {
+    invalidateCredential: (expected: AiscooAdminOwner) => {
       if (disposed) return;
       const record = read();
       if (
@@ -610,7 +617,7 @@ export function createBrowserNewApiAccount(
       // Host 的确认撤销只作用于捕获代次；复用同步失效路径，迟到刷新不能复活，也不删除新账号。
       invalidate(record, revision);
     },
-    getControlCredential: async (expected: NewApiOwner) => {
+    getControlCredential: async (expected: AiscooAdminOwner) => {
       const record = expectedRecord(expected);
       const captured = revision;
       const active = await fresh(record, captured);
@@ -618,7 +625,7 @@ export function createBrowserNewApiAccount(
       expectedRecord(expected);
       return { accessToken: active.bundle.access_token, owner: ownerOf(origin, active) };
     },
-    getRelayCredential: async (expected: NewApiOwner) => {
+    getRelayCredential: async (expected: AiscooAdminOwner) => {
       const record = expectedRecord(expected);
       try {
         validateBundle(record.bundle, now());

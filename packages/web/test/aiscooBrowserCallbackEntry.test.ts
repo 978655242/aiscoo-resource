@@ -4,7 +4,7 @@ import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { IServiceAccessor } from "@zcode/services";
 import type { IChannelServer } from "@zcode/rpc";
-import type { BrowserNewApiAccount } from "@web/aiscoo-browser-account/index.js";
+import type { BrowserAiscooAdminAccount } from "@web/aiscoo-browser-account/index.js";
 import type { AiscooWebConnectionPageProps } from "@web/aiscoo-account-login/index.js";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
@@ -54,7 +54,7 @@ vi.mock("@web/auth/webAuthService.js", () => ({ createWebAuthService: state.offi
 vi.mock("@web/aiscoo-browser-account/index.js", async (load) => ({
   // 保留真实连接控制器和反向 channel，不能用替身重新实现被回归的生命周期。
   ...(await load<typeof import("@web/aiscoo-browser-account/index.js")>()),
-  createBrowserNewApiAccount: state.account,
+  createBrowserAiscooAdminAccount: state.account,
 }));
 vi.mock("@zcode/client", async (load) => ({
   ...(await load<typeof import("@zcode/client")>()),
@@ -328,7 +328,7 @@ async function startBrowserMain(language = "en-US") {
 }
 
 async function startMismatchPage(
-  account = state.account() as BrowserNewApiAccount,
+  account = state.account() as BrowserAiscooAdminAccount,
   locale = "en-US",
   withDom = false,
 ) {
@@ -564,7 +564,7 @@ it.each(["beforeunload", "dispose", "retry", "unloading-flag"] as const)(
 );
 
 it("a clean rejected page uses the real local account PKCE without Host RPC or other credentials", async () => {
-  const { createBrowserNewApiAccount } = await vi.importActual<
+  const { createBrowserAiscooAdminAccount } = await vi.importActual<
     typeof import("@web/aiscoo-browser-account/index.js")
   >("@web/aiscoo-browser-account/index.js");
   const { webcrypto } = await import("node:crypto");
@@ -585,7 +585,7 @@ it("a clean rejected page uses the real local account PKCE without Host RPC or o
   const session = storage();
   session.values.set("unrelated-origin:pending", "synthetic-other-proof");
   const fetch = vi.fn();
-  const account = createBrowserNewApiAccount({
+  const account = createBrowserAiscooAdminAccount({
     origin: "https://account.example",
     browserOrigin: "http://127.0.0.1:5173",
     localStorage: local,
@@ -732,7 +732,7 @@ it.each([
       await import("@web/aiscoo-browser-account/index.js");
     const onFailure = vi.fn();
     const connection = createBrowserAccountWebConnection({
-      account: state.account() as BrowserNewApiAccount,
+      account: state.account() as BrowserAiscooAdminAccount,
       onFailure,
     });
     state.connections.push(connection);
@@ -769,7 +769,7 @@ it("a mismatching account requires explicit retry without an automatic reload", 
   const reload = vi.fn();
   vi.stubGlobal("window", Object.assign(new EventTarget(), { location: { reload } }));
   const connection = createAiscooBrowserWebStartup({
-    account: state.account() as BrowserNewApiAccount,
+    account: state.account() as BrowserAiscooAdminAccount,
     render,
     isPageUnloading: () => false,
   });
@@ -799,7 +799,7 @@ it.each([
     const reload = vi.fn();
     vi.stubGlobal("window", Object.assign(new EventTarget(), { location: { reload } }));
     const connection = createAiscooBrowserWebStartup({
-      account: state.account() as BrowserNewApiAccount,
+      account: state.account() as BrowserAiscooAdminAccount,
       render,
       isPageUnloading: () => unloading,
     });
@@ -847,7 +847,7 @@ it.each(["opening", "metadata", "ready"] as const)(
     const root = createRoot(document.getElementById("root")!);
     const render = vi.fn((node: ReactNode) => root.render(node));
     const connection = createAiscooBrowserWebStartup({
-      account: state.account() as BrowserNewApiAccount,
+      account: state.account() as BrowserAiscooAdminAccount,
       render,
       isPageUnloading: () => false,
     });

@@ -1,7 +1,7 @@
 import { Emitter, type IChannelServer, type IServerChannel } from "@zcode/rpc";
-import type { NewApiOwner } from "@zcode/shared";
+import type { AiscooAdminOwner } from "@zcode/shared";
 import type { IOAuthService } from "@zcode/services";
-import type { BrowserNewApiAccount } from "./contract.js";
+import type { BrowserAiscooAdminAccount } from "./contract.js";
 
 // 显式列出可反向调用的公开操作，不能将含凭据的账号对象直接交给反射 RPC。
 const oauthMethods = [
@@ -20,9 +20,9 @@ const oauthMethods = [
 
 export function registerBrowserAccountChannel(
   server: IChannelServer,
-  account: BrowserNewApiAccount,
+  account: BrowserAiscooAdminAccount,
 ) {
-  const changes = new Emitter<{ owner: NewApiOwner | null }>();
+  const changes = new Emitter<{ owner: AiscooAdminOwner | null }>();
   const readStorageIdentity = () => {
     try {
       return account.getStorageIdentity();
@@ -57,7 +57,7 @@ export function registerBrowserAccountChannel(
         return { owner: account.getOwner(), session };
       }
       if (command === "invalidateCredential") {
-        const owner = (arg as { owner?: NewApiOwner } | undefined)?.owner;
+        const owner = (arg as { owner?: AiscooAdminOwner } | undefined)?.owner;
         if (
           !arg ||
           typeof arg !== "object" ||
@@ -78,7 +78,7 @@ export function registerBrowserAccountChannel(
         return;
       }
       if (command === "control" || command === "relay") {
-        const owner = (arg as { owner?: NewApiOwner } | undefined)?.owner;
+        const owner = (arg as { owner?: AiscooAdminOwner } | undefined)?.owner;
         if (!owner) throw new Error("AISCOO_BROWSER_RPC_INVALID");
         return command === "control"
           ? account.getControlCredential(owner)

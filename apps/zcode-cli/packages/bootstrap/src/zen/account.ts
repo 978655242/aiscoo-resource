@@ -1,7 +1,7 @@
 import {
-  NewApiSessionBundleSchema,
-  type NewApiSessionBundle,
-  type NewApiOwner,
+  AiscooAdminSessionBundleSchema,
+  type AiscooAdminSessionBundle,
+  type AiscooAdminOwner,
 } from "@zcode/shared";
 import type {
   ZenAccountContract,
@@ -16,15 +16,15 @@ const revokedCodes = new Set(["XCODE_SESSION_INVALID", "XCODE_CREDENTIAL_SCOPE_D
 // XCODE: 独立 CLI 账号事实集中于此，UI 和 Registry 只读取 owner 投影。
 export class ZenAccountRuntime implements ZenAccountContract {
   private generation = 0;
-  private owner: NewApiOwner | null = null;
-  private session: { revision: string; value: NewApiSessionBundle } | null = null;
+  private owner: AiscooAdminOwner | null = null;
+  private session: { revision: string; value: AiscooAdminSessionBundle } | null = null;
   private listeners = new Set<() => void>();
   private pendingLogin: AbortController | null = null;
   constructor(private readonly deps: ZenAccountDependencies) {}
   getOwner() {
     return this.owner;
   }
-  isCurrent(owner: NewApiOwner) {
+  isCurrent(owner: AiscooAdminOwner) {
     return (
       this.owner !== null &&
       owner.origin === this.owner.origin &&
@@ -55,8 +55,8 @@ export class ZenAccountRuntime implements ZenAccountContract {
   private current(generation: number) {
     if (generation !== this.generation) throw new Error("XCODE_STALE_OWNER");
   }
-  private async verify(bundle: NewApiSessionBundle, signal?: AbortSignal) {
-    NewApiSessionBundleSchema.parse(bundle);
+  private async verify(bundle: AiscooAdminSessionBundle, signal?: AbortSignal) {
+    AiscooAdminSessionBundleSchema.parse(bundle);
     if (
       [
         bundle.access_expires_at,
@@ -69,7 +69,7 @@ export class ZenAccountRuntime implements ZenAccountContract {
     if (me.user.id !== bundle.user.id || me.session_id !== bundle.session_id)
       throw new Error("XCODE_SESSION_INVALID");
   }
-  private activate(record: { revision: string; value: NewApiSessionBundle }, generation: number) {
+  private activate(record: { revision: string; value: AiscooAdminSessionBundle }, generation: number) {
     this.current(generation);
     this.session = record;
     this.owner = {
@@ -116,7 +116,7 @@ export class ZenAccountRuntime implements ZenAccountContract {
       ...(options.signal ? [options.signal] : []),
       AbortSignal.timeout(loginTimeoutMs),
     ]);
-    let issued: NewApiSessionBundle | undefined;
+    let issued: AiscooAdminSessionBundle | undefined;
     let accepted = false;
     try {
       signal.throwIfAborted();
@@ -150,7 +150,7 @@ export class ZenAccountRuntime implements ZenAccountContract {
       const result = this.activate(stored, generation);
       accepted = true;
       // 修复原因：换号只覆盖本地密文会让被替换 SID 的 refresh 与 relay 凭据在服务端存活到过期，且本机再也无法撤销；
-      // 与 Desktop newApiAccountService 一致，提交成功后尽力撤销旧 SID，失败不影响新登录。
+      // 与 Desktop aiscooAdminAccountService 一致，提交成功后尽力撤销旧 SID，失败不影响新登录。
       if (previous && previous.value.session_id !== issued.session_id)
         await this.deps.client
           .logout(previous.value.session_id, previous.value.refresh_token)
@@ -200,7 +200,7 @@ export class ZenAccountRuntime implements ZenAccountContract {
         throw new Error("XCODE_SESSION_INVALID");
       // XCODE: refresh 已在服务器轮换；先安全提交后继，Me 短暂不可用不能遗失新 refresh。
       try {
-        NewApiSessionBundleSchema.parse(next);
+        AiscooAdminSessionBundleSchema.parse(next);
         // 修复原因：代次在 refresh 期间变化（换号/退出）时旧实现直接抛错，轮换出的后继既不保存也不撤销，
         // 本机只剩已失效的旧 refresh，服务端 SID 与 relay 凭据无法再撤销；因此代次检查也必须走撤销补偿。
         this.current(generation);
@@ -222,7 +222,7 @@ export class ZenAccountRuntime implements ZenAccountContract {
     });
   }
   async withControlSession<T>(
-    action: (token: string, owner: NewApiOwner) => Promise<T>,
+    action: (token: string, owner: AiscooAdminOwner) => Promise<T>,
   ): Promise<T> {
     const owner = this.owner;
     if (!owner || !this.session) throw new Error("XCODE_SESSION_INVALID");
@@ -254,7 +254,7 @@ export class ZenAccountRuntime implements ZenAccountContract {
       throw error;
     }
   }
-  async getRelayCredential(owner: NewApiOwner) {
+  async getRelayCredential(owner: AiscooAdminOwner) {
     if (!this.isCurrent(owner) || !this.session) throw new Error("XCODE_STALE_OWNER");
     const stored = await this.deps.store.read(owner.origin);
     if (!this.isCurrent(owner) || stored?.value.session_id !== owner.sid) {
