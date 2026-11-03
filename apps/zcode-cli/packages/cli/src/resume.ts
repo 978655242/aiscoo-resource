@@ -20,6 +20,8 @@ export const resolveResumeSession = async (
   const resolveLatest =
     deps.resolveLatestSession ?? (await loadBootstrapModule()).resolveLatestSession;
   const latest = await resolveLatest({
+    // XCODE: 恢复索引的用户配置来源与主会话一致，索引路径仍由 storage 决定。
+    nativeDirectories: deps.nativeDirectories,
     directory: workingDirectory,
     env,
   });

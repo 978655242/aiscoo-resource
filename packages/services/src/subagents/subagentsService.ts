@@ -25,6 +25,8 @@ import {
   type SubagentsListMode,
   type ZCodeProvider,
 } from "@zcode/shared";
+// XCODE: 用户配置仅决定资源启停，Host 插件库存由实际运行时根独立注入。
+import { nativeUserConfigPath } from "@zcode/shared/native-resource-directories/node";
 import { normalizeSubagentModelSelection } from "./subagentModelSelection.js";
 import { serializeSubagentMarkdown, parseSubagentMarkdown } from "./subagentMarkdown.js";
 import {
@@ -220,7 +222,10 @@ async function discoverFileAgents(params: {
   if (params.includeWorkspaceAgents) {
     roots.push({
       scope: "workspace",
-      rootPath: resolveWorkspaceSubagentRoot(params.workspacePath),
+      rootPath: resolveWorkspaceSubagentRoot(
+        params.workspacePath,
+        params.storageOptions?.nativeDirectories,
+      ),
     });
   }
 
@@ -319,7 +324,10 @@ async function discoverPluginAgents(params: {
   const storageRoot = await resolveZCodeStorageRoot(params.storageOptions);
   const cliStorageRoot = basename(storageRoot) === "cli" ? storageRoot : join(storageRoot, "cli");
   const pluginConfig = await readPluginConfig(params.storageOptions);
-  const records = await readEnabledPluginRecords(join(cliStorageRoot, "plugins"), pluginConfig);
+  const records = await readEnabledPluginRecords(
+    params.storageOptions?.pluginStorageRoot ?? join(cliStorageRoot, "plugins"),
+    pluginConfig,
+  );
   const parsedAgents: Array<{
     agent: AgentSummary;
     bareName: string;
@@ -410,7 +418,10 @@ async function discoverPluginAgents(params: {
 
 async function readPluginConfig(options?: SubagentStorageOptions): Promise<PluginConfigSummary> {
   try {
-    const configPath = join(resolveUserHomeDir(options), ".zcode", "cli", "config.json");
+    const configPath = nativeUserConfigPath(
+      resolveUserHomeDir(options),
+      options?.nativeDirectories,
+    );
     const raw = await readFile(configPath, "utf-8");
     const parsed = JSON.parse(raw) as unknown;
     if (!isRecord(parsed)) return { enabledPlugins: {}, suppressedBuiltins: [] };
@@ -570,13 +581,18 @@ export function createSubagentsService(options?: SubagentsServiceOptions): ISuba
   let disposed = false;
   const storageOptions: SubagentsServiceOptions = {
     homeDir: options?.homeDir,
+    nativeDirectories: options?.nativeDirectories,
+    pluginStorageRoot: options?.pluginStorageRoot,
   };
 
-  const runtimeConfig = createSubagentRuntimeConfigCache({
-    readUserRoot: () => resolveUserSubagentRoot(storageOptions),
-    readStatePath: () => resolveSubagentStateFile(storageOptions),
-    readState: readAgentStateAtPath,
-  });
+  const runtimeConfig = createSubagentRuntimeConfigCache(
+    {
+      readUserRoot: () => resolveUserSubagentRoot(storageOptions),
+      readStatePath: () => resolveSubagentStateFile(storageOptions),
+      readState: readAgentStateAtPath,
+    },
+    storageOptions.nativeDirectories,
+  );
   function enqueue<T>(run: () => Promise<T>): Promise<T> {
     const queued = writeQueue.then(run, run);
     writeQueue = queued.then(
@@ -747,7 +763,10 @@ export function createSubagentsService(options?: SubagentsServiceOptions): ISuba
       const scope = params.scope ?? "user";
       const agentDir =
         scope === "workspace"
-          ? resolveWorkspaceSubagentRoot(requireWorkspacePath(params.workspacePath))
+          ? resolveWorkspaceSubagentRoot(
+              requireWorkspacePath(params.workspacePath),
+              storageOptions.nativeDirectories,
+            )
           : await resolveUserSubagentRoot(storageOptions);
       const filePath = join(agentDir, `${params.config.name.trim().toLowerCase()}.md`);
       await mkdir(agentDir, { recursive: true });
@@ -769,7 +788,10 @@ export function createSubagentsService(options?: SubagentsServiceOptions): ISuba
       const scope = params.scope ?? "user";
       const agentDir =
         scope === "workspace"
-          ? resolveWorkspaceSubagentRoot(requireWorkspacePath(params.workspacePath))
+          ? resolveWorkspaceSubagentRoot(
+              requireWorkspacePath(params.workspacePath),
+              storageOptions.nativeDirectories,
+            )
           : await resolveUserSubagentRoot(storageOptions);
       const filePath = join(agentDir, `${params.config.name.trim().toLowerCase()}.md`);
       await mkdir(agentDir, { recursive: true });

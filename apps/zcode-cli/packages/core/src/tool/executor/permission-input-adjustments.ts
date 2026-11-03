@@ -35,6 +35,8 @@ export function buildToolInputResolutionContext(
   const workingDirectory = deps.getWorkingDirectory?.();
   return {
     ...(workingDirectory === undefined ? {} : { workingDirectory }),
+    // XCODE: 审批前路径归一化复用执行侧资源策略。
+    nativeDirectories: deps.nativeDirectories,
     runtimeTaskRegistry: deps.runtimeTaskRegistry,
     ...(deps.dynamicWorkflowRunPort === undefined
       ? {}

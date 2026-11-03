@@ -31,7 +31,17 @@ modules:
       - apps/zcode-cli/packages/cli/src/aiscoo
     managed: true
     # XCODE: Built-in 源与缓存共享严格校验的管理端 origin，不改变上游 endpoint。
-    requires: [cli-arguments, cli-sea-keyring, zcode-cli, cli-aiscoo-brand, shared]
+    # XCODE: 在既有依赖后追加产品身份与原生资源目录策略。
+    requires:
+      [
+        cli-arguments,
+        cli-sea-keyring,
+        zcode-cli,
+        cli-aiscoo-brand,
+        shared,
+        aiscoo-desktop-identity,
+        native-resource-directories,
+      ]
     publicEntrypoints:
       - apps/zcode-cli/packages/cli/src/aiscoo/index.ts
       - apps/zcode-cli/packages/cli/src/aiscoo/contract.ts
@@ -220,7 +230,7 @@ modules:
       - packages/desktop/src/aiscoo-desktop-identity
     managed: true
     # XCODE: 打包账号源复用 shared 的严格 origin 解析器，只追加依赖。
-    requires: [aiscoo-desktop-identity, shared]
+    requires: [aiscoo-desktop-identity, shared, native-resource-directories]
     publicEntrypoints:
       - packages/desktop/src/aiscoo-desktop-identity/index.ts
       - packages/desktop/src/aiscoo-desktop-identity/contract.ts
@@ -268,3 +278,41 @@ modules:
       - packages/web/src/aiscoo-account-login/contract.ts
     layers: { ui: . }
     owner: account
+  # XCODE: 原生资源目录是独立策略，不改变 App 运行时存储归属。
+  - id: native-resource-directories
+    roots: [packages/shared/src/native-resource-directories]
+    managed: true
+    requires: []
+    publicEntrypoints:
+      - packages/shared/src/native-resource-directories/index.ts
+      - packages/shared/src/native-resource-directories/node.ts
+      - packages/shared/src/native-resource-directories/contract.ts
+    layers: { contract: contract.ts, domain: ., adapters: node.ts }
+    owner: configuration
+  # XCODE: 已接纳上游单文件的资源策略接线纳入窄模块，不扩管整个 legacy 目录。
+  - id: cli-native-resource-seams
+    roots:
+      - apps/zcode-cli/packages/bootstrap/src/aiscoo-native-resource-seams
+      - apps/zcode-cli/packages/bootstrap/src/zcode-protocol/saved-workflows-run.ts
+      - apps/zcode-cli/packages/core/src/tool/executor/permission-input-adjustments.ts
+      - apps/zcode-cli/packages/cli/src/plugins-command-shared.ts
+    managed: true
+    requires: [zcode-cli, shared, native-resource-directories]
+    publicEntrypoints:
+      - apps/zcode-cli/packages/bootstrap/src/aiscoo-native-resource-seams/contract.ts
+      - apps/zcode-cli/packages/bootstrap/src/zcode-protocol/saved-workflows-run.ts
+      - apps/zcode-cli/packages/core/src/tool/executor/permission-input-adjustments.ts
+      - apps/zcode-cli/packages/cli/src/plugins-command-shared.ts
+    layers: { contract: contract.ts, adapters: . }
+    owner: cli
+  - id: host-native-resource-watch
+    roots:
+      - packages/services/src/aiscoo-native-resource-watch
+      - packages/services/src/subagents/subagentRuntimeConfig.ts
+    managed: true
+    requires: [services, shared, native-resource-directories]
+    publicEntrypoints:
+      - packages/services/src/aiscoo-native-resource-watch/contract.ts
+      - packages/services/src/subagents/subagentRuntimeConfig.ts
+    layers: { contract: contract.ts, adapters: . }
+    owner: configuration

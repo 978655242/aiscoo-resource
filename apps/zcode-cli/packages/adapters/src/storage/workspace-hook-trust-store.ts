@@ -122,7 +122,11 @@ export interface WorkspaceHookTrustStoreRevokeOptions {
   hookDeclarationDigests?: readonly string[];
 }
 
+// XCODE: 信任记录默认属于选中的用户资源根；显式用户 storage.dir 保持旧优先级。
+import { nativeUserConfigPath, nativeUserResourcePath, type NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories/node";
+
 export interface WorkspaceHookTrustStorePathOptions {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   homeDir?: string;
   userConfigPath?: string;
 }
@@ -132,12 +136,12 @@ export async function resolveWorkspaceHookTrustStorePath(
 ): Promise<string> {
   const home = resolve(options.homeDir ?? homedir());
   const userConfigPath = resolve(
-    options.userConfigPath ?? join(home, ".zcode", "cli", "config.json"),
+    options.userConfigPath ?? nativeUserConfigPath(home, options.nativeDirectories),
   );
   const config = await readUserConfig(userConfigPath);
   const storage = isRecord(config.storage) ? config.storage : {};
   const configured = typeof storage.dir === "string" ? storage.dir.trim() : "";
-  const storageRoot = configured ? resolveTrustedUserPath(configured, home) : join(home, ".zcode");
+  const storageRoot = configured ? resolveTrustedUserPath(configured, home) : nativeUserResourcePath(home, options.nativeDirectories);
   return join(storageRoot, SECURITY_DIRECTORY, TRUST_STORE_FILE);
 }
 

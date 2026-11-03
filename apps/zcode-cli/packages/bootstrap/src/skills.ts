@@ -1,3 +1,8 @@
+// XCODE: 管理入口固定原生资源策略，并与运行时插件库存根分离。
+import {
+  resolveNativeResourceDirectoryPolicy,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories";
 import { resolve } from "node:path";
 import { createConfig, resolvePath } from "@zcode/adapters/config";
 import { createNodeSkillAdapter } from "@zcode/adapters/skills";
@@ -9,6 +14,10 @@ import { resolveZCodePlugins } from "./plugins.js";
 import { collectDisabledPaths } from "./skill-command-overrides.js";
 
 export interface ListZCodeSkillsOptions {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
+  additionalDirectories?: readonly string[];
+  homeDirectory?: string;
+  pluginStorageRoot?: string;
   env?: NodeJS.ProcessEnv;
   /** 协议宿主草稿目录使用；CLI 命令缺省关闭。 */
   includeVisualize?: boolean;
@@ -85,8 +94,15 @@ function createSkillDiscovery(options: ListZCodeSkillsOptions):
       skillPort: ReturnType<typeof createNodeSkillAdapter>;
       workingDirectory: string;
     } {
+  options = {
+    ...options,
+    nativeDirectories:
+      options.nativeDirectories ??
+      resolveNativeResourceDirectoryPolicy({ env: options.env ?? process.env }),
+  };
   const workingDirectory = resolve(options.workingDirectory ?? process.cwd());
   const configResult = createConfig({
+    nativeDirectories: options.nativeDirectories,
     env: options.env,
     projectConfigPath: options.projectConfigPath,
     workingDirectory,
@@ -102,6 +118,8 @@ function createSkillDiscovery(options: ListZCodeSkillsOptions):
   }
   const pluginOutcome = resolveZCodePlugins({
     configResult,
+    pluginStorageRoot: options.pluginStorageRoot,
+    nativeDirectories: options.nativeDirectories,
     env: options.env,
     logger: options.logger,
     projectConfigPath: options.projectConfigPath,
@@ -119,6 +137,9 @@ function createSkillDiscovery(options: ListZCodeSkillsOptions):
   return {
     enabled: true,
     skillPort: createNodeSkillAdapter({
+      nativeDirectories: options.nativeDirectories,
+      additionalDirectories: options.additionalDirectories,
+      homeDirectory: options.homeDirectory,
       extraRoots: configResult.config.skills.roots,
       extraResolvedRoots: [
         ...filterVisualizeSkillRoots(pluginOutcome.skillRoots, options.includeVisualize),

@@ -76,8 +76,9 @@ export async function prepareTuiAppRuntime(
   state.providerRegistryRuntimePromise ??= startProviderRegistryRuntime(
     appEnv,
     deps.skipUserConfig
-      ? {}
+      ? { nativeDirectories: deps.nativeDirectories }
       : {
+          nativeDirectories: deps.nativeDirectories,
           standalone: {
             ...createCliProviderRefreshReporter(),
             ...(deps.userConfigPath ? { legacyCliUserConfigFilePath: deps.userConfigPath } : {}),
@@ -94,6 +95,8 @@ export async function prepareTuiAppRuntime(
   state.providerEndpointRoutingPort ??= createProviderEndpointRoutingPort?.({
     appVersion: version,
     env,
+    // XCODE: 默认网络配置来源与 CLI 原生用户文件一致。
+    nativeDirectories: deps.nativeDirectories,
     projectConfigPath: deps.projectConfigPath,
     skipUserConfig: deps.skipUserConfig,
     userConfigPath: deps.userConfigPath,

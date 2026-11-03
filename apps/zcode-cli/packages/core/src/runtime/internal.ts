@@ -116,6 +116,8 @@ export interface AgentRuntimeInternal
   memoryExtractionScheduler?: ProjectMemoryExtractionScheduler;
   memoryDreamLastScanAtMs: number;
   pendingMemoryUpdate?: ProjectMemoryUpdate;
+  // XCODE: 子代理继承父入口资源快照。
+  nativeDirectories?: AgentRuntimeDeps["nativeDirectories"];
   contextSourcePort?: ContextSourcePort;
   skillPort?: SkillPort;
   mcpPort?: McpPort;

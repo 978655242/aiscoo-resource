@@ -298,6 +298,7 @@ function createWorkflowChildRuntime(
       workingDirectory: deps.workingDirectory,
     },
     {
+      nativeDirectories: deps.appOptions.nativeDirectories,
       agentTelemetry: deps.agentTelemetry,
       agentTelemetryCausation: deps.agentTelemetry.captureCausation(),
       // Workflow 在父工具返回后独立调度，不能伪装成父 Span 的同步 Child。
@@ -333,11 +334,17 @@ function createWorkflowChildRuntime(
       artifactStore: deps.artifactStore,
       contextSourcePort:
         deps.appOptions.contextSourcePort ??
-        createNodeContextSourceAdapter({ env: deps.appOptions.env }),
+        createNodeContextSourceAdapter({
+          env: deps.appOptions.env,
+          nativeDirectories: deps.appOptions.nativeDirectories,
+        }),
       skillPort:
         deps.configResult.config.features.skill && deps.configResult.config.skills.enabled
           ? (deps.appOptions.skillPort ??
             createNodeSkillAdapter({
+              // XCODE: 子运行时默认 adapter 复用父资源策略，自定义端口继续优先。
+              nativeDirectories: deps.appOptions.nativeDirectories,
+              additionalDirectories: deps.appOptions.additionalDirectories,
               extraRoots: deps.configResult.config.skills.roots,
               // workflow 子 agent 复用同一套 skill 发现逻辑，也必须继承主配置里的禁用路径。
               disabledPaths: collectDisabledPaths(deps.configResult.config.skillOverrides),

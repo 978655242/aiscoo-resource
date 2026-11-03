@@ -230,8 +230,14 @@ function resolveCliZCodeEndpointOrigin(env: EnvRecord): string {
   return resolveRuntimeZCodeEndpointOrigin(env);
 }
 
+// XCODE: 独立认证入口的网络配置读取同一原生用户资源域。
+import { resolveNativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
+
 function createDefaultHttpClient(env: EnvRecord) {
-  const config = createConfig({ env });
+  const config = createConfig({
+    env,
+    nativeDirectories: resolveNativeResourceDirectoryPolicy({ env }),
+  });
   return createNodeHttpClientAdapter({
     env,
     proxyUrl: config.config.network.httpProxy,

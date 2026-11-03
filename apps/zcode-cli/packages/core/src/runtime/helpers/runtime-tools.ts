@@ -152,6 +152,8 @@ function createRuntimeToolExecutor(
 ): ToolExecutor {
   const browserUseEnabled = resolveRuntimeBrowserUseEnabled(runtime, deps);
   return createToolExecutor({
+    // XCODE: 保存 workflow 读写消费入口资源策略。
+    nativeDirectories: deps.nativeDirectories,
     agentTelemetry: runtime.agentTelemetry.port,
     agentTelemetryActorKind: runtime.agentTelemetry.actorKind,
     registry: runtime.registry,

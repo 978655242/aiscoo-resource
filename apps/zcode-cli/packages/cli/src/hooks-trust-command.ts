@@ -53,6 +53,7 @@ export async function runHooksCommand(
     parsed.values.workspace as string | undefined,
     (deps.cwd ?? process.cwd)(),
     deps.userConfigPath,
+    deps.nativeDirectories,
   );
   const bootstrap = deps.loadBootstrapModule ?? (() => import("@zcode/bootstrap"));
   try {
@@ -114,10 +115,13 @@ function resolveTarget(
   value: string | undefined,
   cwd: string,
   userConfigPath: string | undefined,
+  nativeDirectories?: RunDependencies["nativeDirectories"],
 ): WorkspaceHookTrustCliTarget {
   const selected = value?.trim();
   const identity = selected && looksLikeWorkspaceIdentity(selected) ? selected : undefined;
   return {
+    // XCODE: 信任 CLI 与资源发现共用入口策略。
+    nativeDirectories,
     workspacePath: identity ? resolve(cwd) : selected ? resolve(cwd, selected) : resolve(cwd),
     ...(identity ? { workspaceIdentity: identity } : {}),
     ...(userConfigPath ? { userConfigPath } : {}),

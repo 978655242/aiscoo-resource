@@ -16,7 +16,11 @@ import {
   type WorkspaceHooksConfig,
 } from "@zcode/shared/workspace-hook-discovery";
 
+// XCODE: 管理 CLI 与运行时按同一策略发现声明并保存用户信任。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
+
 export interface WorkspaceHookTrustCliTarget {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   workspacePath: string;
   workspaceIdentity?: string;
   userConfigPath?: string;
@@ -56,6 +60,7 @@ export async function inspectWorkspaceHookTrust(
   const target = normalizeTarget(input);
   const snapshot = await discoverSnapshot(target);
   const store = await createDefaultFileWorkspaceHookTrustStore({
+    nativeDirectories: target.nativeDirectories,
     userConfigPath: target.userConfigPath,
   });
   const loaded = await store.load();
@@ -153,6 +158,7 @@ export async function grantWorkspaceHookTrust(
     ...(input.appVersion ? { appVersionAtGrant: input.appVersion } : {}),
   }));
   const store = await createDefaultFileWorkspaceHookTrustStore({
+    nativeDirectories: target.nativeDirectories,
     userConfigPath: target.userConfigPath,
   });
   // workspace 级 Settings 预信任没有 session controller 帮忙拦截损坏存储；
@@ -178,6 +184,7 @@ export async function revokeWorkspaceHookTrustCli(
     throw new Error("Specify exactly one of --all or --hook-digest.");
   }
   const store = await createDefaultFileWorkspaceHookTrustStore({
+    nativeDirectories: target.nativeDirectories,
     userConfigPath: target.userConfigPath,
   });
   await store.revoke({
@@ -195,11 +202,14 @@ async function discoverSnapshot(
 ): Promise<WorkspaceHookBundleSnapshot | undefined> {
   const discovery = await readWorkspaceHookProjectSources({
     workingDirectory: target.workspacePath,
+    nativeDirectories: target.nativeDirectories,
   });
   if (discovery.errors.length > 0) {
     throw new Error(`Unable to read Workspace Hook config: ${discovery.errors[0]?.path}`);
   }
-  const userHooks = await readUserHooks(target.userConfigPath ?? getDefaultConfigPath());
+  const userHooks = await readUserHooks(
+    target.userConfigPath ?? getDefaultConfigPath(target.nativeDirectories),
+  );
   const runtimeRoot = resolveWorkspaceHookRuntimeRoot([
     DefaultRuntimeConfig.hooks,
     userHooks,
@@ -266,6 +276,7 @@ function normalizeTarget(input: WorkspaceHookTrustCliTarget) {
   const workspacePath = resolve(input.workspacePath);
   return {
     workspacePath,
+    nativeDirectories: input.nativeDirectories,
     workspaceIdentity: input.workspaceIdentity?.trim() || workspacePath,
     ...(input.userConfigPath ? { userConfigPath: input.userConfigPath } : {}),
   };

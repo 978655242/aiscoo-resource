@@ -11,5 +11,8 @@ export const projectWorkflowModule = {
     "useWorkflowRunSave.ts",
     "WorkflowRunSaveControls.tsx",
     "WorkflowRunPaneSaveSlots.tsx",
+    // XCODE: 既有保存弹层与落点预览纳入同一保存控制器边界，不移动上游文件。
+    "../components/workflow-timeline/WorkflowSavePopover.tsx",
+    "../components/workflow-timeline/workflowRunSave.ts",
   ],
 } as const;

@@ -1,3 +1,5 @@
+// XCODE: 管理命令沿用入口的原生资源策略与显式配置路径。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
 import { formatJson } from "@zcode/core";
 import type { Logger } from "@zcode/contracts";
 import type { GlobalOptions, RunContext } from "@zcode/shared-types";
@@ -15,6 +17,10 @@ type CustomCommandListOutcome = Awaited<ReturnType<typeof listZCodeCustomCommand
 type CustomCommandListItem = CustomCommandListOutcome["commands"][number];
 
 interface CommandsCommandDependencies {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
+  userConfigPath?: string;
+  projectConfigPath?: string;
+  skipUserConfig?: boolean;
   cwd?: () => string;
   env?: CliEnv;
   inspectCustomCommand?: (
@@ -64,7 +70,11 @@ async function runCommandsListCommand(
     const listCustomCommands = await resolveListCustomCommands(deps);
     const outcome = await listCustomCommands({
       env: deps.env ?? process.env,
+    nativeDirectories: deps.nativeDirectories,
       logger: deps.logger,
+      userConfigPath: deps.userConfigPath,
+      projectConfigPath: deps.projectConfigPath,
+      skipUserConfig: deps.skipUserConfig,
       workingDirectory,
     });
 
@@ -90,7 +100,11 @@ async function runCommandsInspectCommand(
     const inspectCustomCommand = await resolveInspectCustomCommand(deps);
     const inspection = await inspectCustomCommand({
       env: deps.env ?? process.env,
+    nativeDirectories: deps.nativeDirectories,
       logger: deps.logger,
+      userConfigPath: deps.userConfigPath,
+      projectConfigPath: deps.projectConfigPath,
+      skipUserConfig: deps.skipUserConfig,
       name,
       workingDirectory,
     });

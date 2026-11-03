@@ -366,6 +366,8 @@ export function createDefaultSubagentPort(
             now: this.now,
             sessionStore: deps.sessionStore,
             // 共享宿主环境读取端口，只用于 child 内 cd 之后的环境探测；初始快照和指令都取父级传下的配置。
+            // XCODE: 继承父会话入口快照，不在子代理重新读取目录环境。
+            nativeDirectories: this.nativeDirectories,
             contextSourcePort: this.contextSourcePort,
             // 子 runtime 的模型请求准入：装配方给了 subagent 工厂就用它（受闸门约束，同一父会话的
             // subagent 共用一条队列）；没给则沿用父的端口。

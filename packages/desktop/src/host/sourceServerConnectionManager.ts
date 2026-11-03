@@ -176,6 +176,8 @@ export interface SourceServerConnectionManagerOptions {
     }>;
   };
   createAdapter?: (kind: "ssh" | "wsl" | "docker") => SourceServerTransportAdapter;
+  // XCODE: Host 入口提供已解析的目录名；目标以自身 HOME 解析，Server 运行根保持不变。
+  nativeResourceDirectoryName?: string;
   connectServer?: (options: ServerRemoteDuplexConnectionOptions) => Promise<ServerRemoteConnection>;
   now?: () => number;
   logWarn?: (message: string, error: Error) => void;
@@ -402,8 +404,11 @@ export class SourceServerConnectionManager {
   }
 
   public constructor(private readonly options: SourceServerConnectionManagerOptions) {
+    // XCODE: 启动策略只捕获一次，所有 transport 的安装、冷启动和显式重启共用现有 adapter。
+    const nativeResourceDirectoryName = options.nativeResourceDirectoryName;
     this.createAdapter =
-      options.createAdapter ?? ((kind) => createSourceServerTransportAdapter(kind));
+      options.createAdapter ??
+      ((kind) => createSourceServerTransportAdapter(kind, { nativeResourceDirectoryName }));
     this.connectServer = options.connectServer ?? connectServerRemoteOverDuplex;
     this.now = options.now ?? Date.now;
     this.compatibilityManifest = options.compatibilityManifest ?? ZCODE_COMPATIBILITY_MANIFEST;

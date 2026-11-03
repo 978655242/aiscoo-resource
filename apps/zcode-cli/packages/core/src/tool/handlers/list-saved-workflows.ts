@@ -38,7 +38,11 @@ const listSavedWorkflowsHandler: ToolHandler = async (input, context) => {
   ListSavedWorkflowsInputSchema.parse(input);
 
   // cwd 恒取本会话的工作目录：模型无权跨项目扫盘，这同时是 `sideEffectScope: "none"` 的前提。
-  const { entries, invalid } = listSavedWorkflows({ cwd: context.workingDirectory ?? "." });
+  // XCODE: 枚举与保存使用同一原生资源库。
+  const { entries, invalid } = listSavedWorkflows({
+    cwd: context.workingDirectory ?? ".",
+    nativeDirectories: context.nativeDirectories,
+  });
 
   return {
     workflows: entries,

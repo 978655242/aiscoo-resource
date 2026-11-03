@@ -50,6 +50,8 @@ export interface WorkflowRunSaveController {
   save: (input: WorkflowRunSaveSubmit) => Promise<ZCodeWorkflowsSaveResult>;
   /** 名字是否已被占用（弹层输入时的前置探测）；查不动时按「不占用」处理，最终裁决在 agent。 */
   checkNameTaken: (name: string, scope: ZCodeSavedWorkflowScope) => Promise<boolean>;
+  /** XCODE: 保存落点由实际 list 返回，UI 不推断目标 Host 的 HOME 或原生目录名。 */
+  resolveSaveDirectory: (scope: ZCodeSavedWorkflowScope) => Promise<string>;
   launching: boolean;
   launchError: SavedWorkflowLaunchError | null;
   clearLaunchError: () => void;

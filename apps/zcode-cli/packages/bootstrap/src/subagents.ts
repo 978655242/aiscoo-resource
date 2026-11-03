@@ -17,7 +17,14 @@ import {
   type PluginSubagentModelSelectionOverrides,
 } from "@zcode/shared";
 
+// XCODE: 项目子代理使用入口策略；既有格式升级仅作用于选定的用户资源域。
+import {
+  nativeProjectResourcePath,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
+
 interface LoadZCodeAgentProfilesInput {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   logger?: Logger;
   storageRoot: string;
   workingDirectory: string;
@@ -54,14 +61,17 @@ export async function loadZCodeAgentProfiles(
   await migrateSubagentStateFile(join(input.storageRoot, "v2", "agents-state.json"));
   const roots: Array<{ path: string; source: "user" | "project"; namespace?: string }> = [
     { path: join(input.storageRoot, "agents"), source: "user" as const },
-    { path: join(input.workingDirectory, ".zcode", "agents"), source: "project" as const },
+    {
+      path: nativeProjectResourcePath(input.workingDirectory, input.nativeDirectories, "agents"),
+      source: "project" as const,
+    },
   ];
   for (const directory of new Set(
     (input.additionalDirectories ?? []).map((path) => resolve(path)),
   )) {
     if (directory === resolve(input.workingDirectory)) continue;
     roots.push({
-      path: join(directory, ".zcode", "agents"),
+      path: nativeProjectResourcePath(directory, input.nativeDirectories, "agents"),
       source: "project",
       namespace: basename(directory),
     });

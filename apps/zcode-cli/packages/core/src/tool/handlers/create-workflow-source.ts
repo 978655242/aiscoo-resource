@@ -26,6 +26,9 @@ import {
 import { writeWorkflowDraft } from "./workflow-drafts.js";
 import { readWorkflowScriptFile } from "./workflow-path-source.js";
 
+// XCODE: saved 来源仅查询选定资源库，不回退旧原生目录。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
+
 /** 业务失败的错误码，与既有 handler failure 惯例同一形状（确认窗调整的失败也用它）。 */
 export const CREATE_WORKFLOW_FAILURE_CODE = 400;
 
@@ -122,6 +125,7 @@ export async function resolveCreateWorkflowInput(
   input: unknown,
   cwd: string,
   catalog?: ModelCatalogPort,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<ToolInputResolutionResult> {
   const parsed = CreateWorkflowInputSchema.safeParse(input);
   if (!parsed.success) return { result: true, input };
@@ -165,8 +169,20 @@ export async function resolveCreateWorkflowInput(
     };
   }
 
-  const found = resolveSavedWorkflow({ cwd, name: model.saved.name, scope: model.saved.scope });
-  if (!found.ok) return describeResolveFailure(model.saved.name, found, cwd, model.saved.scope);
+  const found = resolveSavedWorkflow({
+    cwd,
+    name: model.saved.name,
+    scope: model.saved.scope,
+    nativeDirectories,
+  });
+  if (!found.ok)
+    return describeResolveFailure(
+      model.saved.name,
+      found,
+      cwd,
+      model.saved.scope,
+      nativeDirectories,
+    );
 
   const validated = validateWorkflowArgs(found.meta.args, model.saved.args);
   if (!validated.ok) {
@@ -278,6 +294,7 @@ function describeResolveFailure(
   found: Exclude<ReturnType<typeof resolveSavedWorkflow>, { ok: true }>,
   cwd: string,
   scope: SavedWorkflowScope | undefined,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): ToolHandlerFailure {
   if (found.reason === "invalid_name") {
     return failure(`'${name}' is not a usable workflow name: ${found.detail}`);
@@ -301,16 +318,19 @@ function describeResolveFailure(
     scope === undefined
       ? `No saved workflow named '${name}' in this project or globally.`
       : `No ${scope} workflow named '${name}'.`;
-  return failure(`${headline}\n\n${describeAvailableWorkflows(cwd)}`);
+  return failure(`${headline}\n\n${describeAvailableWorkflows(cwd, nativeDirectories)}`);
 }
 
 /**
  * 两个档案里实际可用的名字，各带作用域标签。定向扫每一根（不做遮蔽），好让被项目档遮蔽的
  * 全局定义也出现在清单里——模型据此才知道要拿它得指定 `scope: "global"`。
  */
-function describeAvailableWorkflows(cwd: string): string {
-  const project = listSavedWorkflows({ cwd, scope: "project" }).entries;
-  const global = listSavedWorkflows({ cwd, scope: "global" }).entries;
+function describeAvailableWorkflows(
+  cwd: string,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): string {
+  const project = listSavedWorkflows({ cwd, scope: "project", nativeDirectories }).entries;
+  const global = listSavedWorkflows({ cwd, scope: "global", nativeDirectories }).entries;
   const tagged = [
     ...project.map((entry) => `${entry.name} (project)`),
     ...global.map((entry) => `${entry.name} (global)`),

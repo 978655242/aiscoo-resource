@@ -1,3 +1,5 @@
+// XCODE: 管理命令沿用入口的原生资源策略与显式配置路径。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
 import { formatJson } from "@zcode/core";
 import type { Logger } from "@zcode/contracts";
 import type { RunContext, GlobalOptions } from "@zcode/shared-types";
@@ -15,6 +17,10 @@ type CliSkillListOutcome = Awaited<ReturnType<typeof listZCodeSkills>>;
 type CliSkillListItem = CliSkillListOutcome["skills"][number];
 
 interface SkillsCommandDependencies {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
+  userConfigPath?: string;
+  projectConfigPath?: string;
+  skipUserConfig?: boolean;
   cwd?: () => string;
   env?: CliEnv;
   inspectSkill?: (options: InspectZCodeSkillOptions) => ReturnType<typeof inspectZCodeSkill>;
@@ -63,7 +69,11 @@ async function runSkillsListCommand(
     const listSkills = deps.listSkills ?? (await bootstrap()).listZCodeSkills;
     const outcome = await listSkills({
       env,
+      nativeDirectories: deps.nativeDirectories,
       logger: deps.logger,
+      userConfigPath: deps.userConfigPath,
+      projectConfigPath: deps.projectConfigPath,
+      skipUserConfig: deps.skipUserConfig,
       workingDirectory,
     });
 
@@ -91,7 +101,11 @@ async function runSkillsInspectCommand(
     const inspectSkill = deps.inspectSkill ?? (await bootstrap()).inspectZCodeSkill;
     const inspection = await inspectSkill({
       env,
+      nativeDirectories: deps.nativeDirectories,
       logger: deps.logger,
+      userConfigPath: deps.userConfigPath,
+      projectConfigPath: deps.projectConfigPath,
+      skipUserConfig: deps.skipUserConfig,
       name,
       workingDirectory,
     });

@@ -67,6 +67,20 @@ clientMode
 
 没有某个字段时显式写 `null`，不要省略；这样后续可以机械 join。
 
+## NCR 原生资源目录验收（2026-11-03，pending）
+
+候选：`packages/desktop/test/e2e/conversation-session/manual-review/pending/native-resource-directories.test.ts`。合成 HOME、项目和渠道 App 根彼此分离；不修改真实用户目录。2026-11-03 macOS 默认 `.aiscoo` 的[产品工件](../packages/desktop/.e2e-artifacts/desktop-e2e-20261103-083456-703/native-resource-directories.json)与覆盖 `.native-e2e` 的[覆盖工件](../packages/desktop/.e2e-artifacts/desktop-e2e-20261103-083521-033/native-resource-directories.json)均确认核心链通过，每轮 1 passed／1 pending。NCR05 UI 由当前 Main PID 的精确官方云策略错误确认阻塞；NCR01／03／06 的宽矩阵仍有未逐项执行部分，详见[覆盖矩阵](testing/conversation-session-e2e-coverage-matrix.md)。候选 Review 保持 pending，不自动晋升 formal/CI。
+
+| Case  | UI／协议证据                                                                                                                     | 文件／运行时证据                                                                                                                             |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| NCR01 | 启动或明确配置错误，设置入口显示实际来源                                                                                         | 默认／覆盖／非法矩阵，非法输入无资源 IO                                                                                                      |
+| NCR02 | 技能／命令／MCP canary；真实 UI 刷新验证 Host 命令移开／恢复                                                                     | 当前 native 根被使用；用户 skills 合并，Host commands 同 scope native 非空优先／空时 .agents fallback，CLI commands 保留既有规则；旧资源不变 |
+| NCR03 | MCP 设置加载、增删启停与审核结果                                                                                                 | Main 与 Host 同目标文件，原子写／锁／权限与 trust 摘要一致                                                                                   |
+| NCR04 | 个性化编辑、技能／命令初始化与真实 UI 显式刷新、真实 Agent 请求                                                                  | AGENTS、skills、commands 的实际内容来源；沿用初始化／显式刷新，不新增自动监听                                                                |
+| NCR05 | 独立 it 保留真实 watch/save/run；UI blocked / pending：AISCOO_OFFICIAL_CLOUD_UNAVAILABLE（既有 Aiscoo 官方云策略），不计 covered | 用户／项目库目录、实际 watcher 和读取一致；后端 saved-workflow-library CLI 回归仍有效；核心 NCR01–04/06/07 独立执行                          |
+| NCR06 | 原项目／会话／已安装插件保持可见                                                                                                 | 原 App settings／sidecar／DB／log／库存路径；假库存不被采用                                                                                  |
+| NCR07 | 冷重启后原会话可继续                                                                                                             | 原 DB 文件、消息和同一策略，进程树完整退出                                                                                                   |
+
 ## MVP Case 选择
 
 第一批只选最能证明闭环的 10 条，不覆盖外部异常、磁盘满、429/503、移动端 replayable 等环境维度。

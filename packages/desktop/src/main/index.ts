@@ -161,6 +161,7 @@ import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-ident
 // XCODE: Aiscoo 更新源解析只读账号源；CLI 会话库根在 Host 启动前绑定一次，不随 App 数据迁移。
 import {
   initializeAiscooDesktopStorage,
+  initializeDesktopNativeResourceDirectories,
   isAiscooDesktopStorageReady,
   resolveAiscooUpdateEndpointOrigin,
 } from "../aiscoo-desktop-identity/index.js";
@@ -616,6 +617,11 @@ mainMemoryDiagnosticsRegistry.register("app", () => ({
   willDownloadListeners: session.defaultSession.listenerCount("will-download"),
 }));
 const hostProcessLocalEnv = loadHostProcessEnvFromLocalFiles();
+// XCODE: 先沿用 dotenv→process 优先级校验资源目录，再让 Main/Host/Agent 使用同一启动策略。
+const nativeDirectories = initializeDesktopNativeResourceDirectories(
+  hostProcessLocalEnv,
+  process.env,
+);
 // XCODE: 与 Host 使用相同 dotenv→process 优先级解析 Aiscoo 账号服务地址。
 // XCODE: 渠道只决定账号限制；实际 origin 可用性由同一严格解析器裁定。
 const mainAccountPolicy = resolveAiscooDesktopIdentity()
@@ -768,7 +774,8 @@ const UPDATE_STATUS_WINDOW_COMPACT_HEIGHT = 205;
 const UPDATE_STATUS_WINDOW_PROGRESS_HEIGHT = 224;
 const UPDATE_STATUS_WINDOW_READY_HEIGHT = UPDATE_STATUS_WINDOW_PROGRESS_HEIGHT - 54;
 const UPDATE_STATUS_WINDOW_TRAFFIC_LIGHT_POSITION = { x: 10, y: 10 } as const;
-const mainSettingService = createSettingService();
+// XCODE: 个性化 AGENTS 与 Host 使用同一资源策略；设置 JSON 的既有路径不变。
+const mainSettingService = createSettingService({ nativeDirectories });
 // XCODE: Main 的远控/遥测不能把历史官方 token 认作当前 Aiscoo 身份。
 const webRemoteControlCredentialStore = createCredentialService();
 const webRemoteControlCredentialService =

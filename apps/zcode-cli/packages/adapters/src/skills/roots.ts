@@ -7,10 +7,15 @@ const GIT_MARKER = ".git";
 const HOME_PREFIX = "~/";
 const PRIORITY_STEP = 10;
 const SKILLS_DIR = "skills";
-const ZCODE_DIR = ".zcode";
+// XCODE: 原生根消费已解析策略；.agents 来源、命名空间和合并优先级保持。
+import {
+  getNativeResourceDirectoryName,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories";
 const AGENTS_DIR = ".agents";
 
 export interface SkillRootResolutionOptions {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   homeDirectory?: string;
   additionalDirectories?: readonly string[];
   extraRoots?: string[];
@@ -44,13 +49,15 @@ export async function resolveDefaultSkillRoots(
   }
 
   if (includeZcode) {
-    roots.push(...skillRootsForBase(home, "user", nextPriority));
+    roots.push(...skillRootsForBase(home, "user", nextPriority, options.nativeDirectories));
   }
 
   const projectDirectories = await resolveProjectSkillDirectories(resolvedWorkingDirectory);
   for (const directory of projectDirectories) {
     if (includeZcode) {
-      roots.push(...skillRootsForBase(directory, "project", nextPriority));
+      roots.push(
+        ...skillRootsForBase(directory, "project", nextPriority, options.nativeDirectories),
+      );
     }
   }
 
@@ -59,10 +66,12 @@ export async function resolveDefaultSkillRoots(
   )) {
     if (directory === resolvedWorkingDirectory) continue;
     roots.push(
-      ...skillRootsForBase(directory, "project", nextPriority).map((item) => ({
-        ...item,
-        namespace: basename(directory),
-      })),
+      ...skillRootsForBase(directory, "project", nextPriority, options.nativeDirectories).map(
+        (item) => ({
+          ...item,
+          namespace: basename(directory),
+        }),
+      ),
     );
   }
 
@@ -108,11 +117,17 @@ function skillRootsForBase(
   baseDirectory: string,
   scope: SkillRoot["scope"],
   nextPriority: () => number,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): SkillRoot[] {
   // 合并而不是 fallback：用户可能同时安装原生 `.zcode` skill 和兼容 `.agents` skill。
   // 同一级别仍保持 `.zcode` 优先，后续同名按 root 顺序解析。
   return [
-    root(join(baseDirectory, ZCODE_DIR, SKILLS_DIR), scope, "zcode", nextPriority()),
+    root(
+      join(baseDirectory, getNativeResourceDirectoryName(nativeDirectories), SKILLS_DIR),
+      scope,
+      "zcode",
+      nextPriority(),
+    ),
     root(join(baseDirectory, AGENTS_DIR, SKILLS_DIR), scope, "agents", nextPriority()),
   ];
 }

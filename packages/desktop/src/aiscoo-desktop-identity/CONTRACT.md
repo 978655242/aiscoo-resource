@@ -10,6 +10,21 @@
 - Main 的 `canCreateWindow` 在绑定完成前返回 false，所有建窗入口都经窗口协调器记录阻断；初始化失败时按当前界面语言展示错误并退出。
 - 默认设置语义由独立 `host-aiscoo-data-directory` 包装承接；本模块不改通用 settings schema、不迁移 CLI DB。规则、时序图与验收见 [产品规格](../../../../docs/aiscoo/specs/desktop-product-identity.md)。
 
+## 原生资源启动策略
+
+规则见 `apps/zcode-cli/docs/design/v2/native-resource-directories.md`。`initializeDesktopNativeResourceDirectories(localEnv, processEnv)` 在 Main 的任何资源服务初始化前执行一次，按原 `.env → 已定义 process` 合并（包括空白覆盖），显式环境优先、渠道默认其次、通用默认最后；非空非法值立即抛错，不进行资源 IO。不可变 policy 由 `getDesktopNativeResourceDirectories()` 读取，完整重启才更换，不新增 UI 设置或迁移。
+
+Main 只将规范化 `ZCODE_NATIVE_RESOURCE_DIR_NAME` 发布到进程与 Host/scheduler 环境，Main MCP 的 user/project 路径使用同一 policy。Host 入口重新校验这个目录名，并给提前创建的 Setting 与 `createLocalServices` 注入同一对象；各进程仍用自己的 HOME 解析资源。`.agents` fallback、source 标签、原子写与文件锁保持。
+
+Host 的 `host-aiscoo-data-directory` 纯适配从已装配的 `ZCODE_STORAGE_DIR` 解析库存根。Aiscoo Host 输入含固定 B 派生的 storage env，不从新资源文件反推另一套库。资源策略不修改 App 设置路径、sidecar、DB、log、session、安装库存或 cache。
+
+```text
+产品默认 + dotenv + process → Main 单次校验 → 不可变 policy / 规范目录名
+                                    ├→ Main MCP / Setting 的资源 IO
+                                    └→ Host env → Host policy → Setting / local services → Agent env
+固定 CLI 根 B + 原显式 storage env ─────────────→ runtime cli/plugins 库
+```
+
 ## 打包账号源
 
 正式包不继承构建 shell 的环境，也不读取开发 `.env`，所以公开账号源由构建期编译常量 `__AISCOO_ADMIN_BASE_URL__` 携带。规则见 [Aiscoo 唯一账号登录](../../../../docs/aiscoo/specs/aiscoo-only-login.md) 的“正式安装包的账号源”。

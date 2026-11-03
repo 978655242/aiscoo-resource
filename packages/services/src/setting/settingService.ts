@@ -217,12 +217,17 @@ async function writeSettingsAt(
   log("write done");
 }
 
-export function createSettingService(): ISettingService {
-  return createSettingServiceWithMigrations().service;
+// XCODE: 入口可固定资源策略；设置 DB 与文件仍使用原 App 数据目录。
+interface SettingServiceOptions {
+  nativeDirectories?: import("@zcode/shared/native-resource-directories").NativeResourceDirectoryPolicy;
+}
+
+export function createSettingService(options: SettingServiceOptions = {}): ISettingService {
+  return createSettingServiceWithMigrations(options).service;
 }
 
 /** Host 私有迁移入口，不加入 Setting RPC；普通 get/update 从不等待 OAuth 查询。 */
-export function createSettingServiceWithMigrations(): {
+export function createSettingServiceWithMigrations(options: SettingServiceOptions = {}): {
   service: ISettingService;
   setWorkspaceProjection: (
     reader: (settings: AppSettings) => Promise<WorkspaceSettingsProjection>,
@@ -238,7 +243,10 @@ export function createSettingServiceWithMigrations(): {
     process.env.ZCODE_SETTINGS_FILE_PATH?.trim() ||
     join(resolveUserHomeDir(), ".zcode", "v2", "setting.json");
   // 个性化指令文件与 settingsFile 同理：实例创建时取值，读取与写入始终同源。
-  const userInstructionsFile = getAgentUserInstructionsFilePath();
+  const userInstructionsFile = getAgentUserInstructionsFilePath(
+    process.env,
+    options.nativeDirectories,
+  );
   // 修复原因（评审 CR-01）：atomicWriteText 只保证单次替换完整，不保证多次保存的提交顺序；
   // 慢 IO 下旧写的 rename 可能晚于新写落地，用旧内容覆盖已保存的新内容。个性化指令的
   // 写入必须进程内 FIFO 排队（组件按草稿新旧顺序入队，队尾即最新内容），跨实例写入由

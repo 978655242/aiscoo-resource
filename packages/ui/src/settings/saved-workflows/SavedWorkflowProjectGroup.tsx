@@ -138,7 +138,8 @@ export function SavedWorkflowProjectGroup({
 
   useSavedWorkflowsDirectoryWatch({
     fileWatcherService,
-    workspacePath: project.workspacePath,
+    // XCODE: list 的真实资源目录与保存/执行同源，UI 不再拼接固定目录名。
+    directory: state.dir,
     enabled: rpcReady,
     refresh,
   });

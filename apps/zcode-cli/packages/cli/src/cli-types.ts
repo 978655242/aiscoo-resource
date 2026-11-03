@@ -48,7 +48,11 @@ import type { resolveWorkspaceGitBranch } from "./tui-workspace-git.js";
 
 export type BootstrapModule = typeof import("@zcode/bootstrap");
 
+// XCODE: CLI 入口解析一次原生资源策略，各命令与 TUI 复用快照。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
+
 export interface RunDependencies extends PluginsCommandOverrides {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   migrateStorage?: () => Promise<import("@zcode/shared/sqlite-migrations").MigrationResult>;
   protocolLifecycle?: RunZCodeProtocolAgentOptions["lifecycle"];
   protocolInput?: NodeJS.ReadableStream;

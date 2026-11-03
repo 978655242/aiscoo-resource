@@ -151,6 +151,8 @@ export function createTuiSubmitPrompt(
     let createdApp: Awaited<ReturnType<NonNullable<RunDependencies["createZCodeApp"]>>>;
     try {
       createdApp = await createAppFactory({
+        // XCODE: /new、恢复与 fork 共享入口目录快照。
+        nativeDirectories: deps.nativeDirectories,
         modelSelectionMode: "cli-default",
         browserControlPort: browserRuntime?.browserControlPort,
         env: appEnv,
@@ -301,7 +303,7 @@ export function createTuiSubmitPrompt(
       }
       activeUiLocale = locale;
       const persisted = await updateUiLocaleInFileConfig(
-        deps.userConfigPath ?? getDefaultConfigPath(),
+        deps.userConfigPath ?? getDefaultConfigPath(deps.nativeDirectories),
         locale,
       );
       return {

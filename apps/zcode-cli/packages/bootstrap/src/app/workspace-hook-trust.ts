@@ -34,6 +34,9 @@ import {
 import { createWorkspaceHookReviewMutationPort } from "./workspace-hook-review-mutation.js";
 import type { WorkspaceHookReviewHostContext } from "./types.js";
 
+// XCODE: 信任默认根及审核 mutation 消费同一入口策略。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
+
 export interface WorkspaceHookRuntimeSecurity {
   admission: WorkspaceHookRuntimeAdmissionPort;
   snapshot: WorkspaceHookBundleSnapshot;
@@ -72,6 +75,7 @@ export interface WorkspaceHookRuntimeSecurity {
 }
 
 export function createWorkspaceHookRuntimeSecurity(input: {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   appVersion?: string;
   emitAdmissionEvent?: (event: {
     type: typeof SessionEventType.WorkspaceHookAdmissionUpdated;
@@ -104,6 +108,7 @@ export function createWorkspaceHookRuntimeSecurity(input: {
   const trustEnabled = input.workspaceHookTrustEnabled === true;
   const store = trustEnabled
     ? createDefaultFileWorkspaceHookTrustStore({
+        nativeDirectories: input.nativeDirectories,
         userConfigPath: input.userConfigPath,
         ...(input.homeDir ? { homeDir: input.homeDir } : {}),
       })
@@ -162,6 +167,7 @@ export function createWorkspaceHookRuntimeSecurity(input: {
       logger: input.logger,
       mutation: createWorkspaceHookReviewMutationPort({
         workingDirectory: input.workingDirectory,
+        nativeDirectories: input.nativeDirectories,
         workspaceIdentity: input.snapshot.workspaceIdentity,
         projectConfigPath: input.projectConfigPath,
         runtimeRoot: input.runtimeRoot,

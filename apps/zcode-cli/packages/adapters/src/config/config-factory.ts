@@ -21,7 +21,12 @@ import {
   type WorkspaceHookRuntimeRoot,
 } from "@zcode/shared/workspace-hook-discovery";
 import { createConfigPort } from "./index.js";
-import { loadFileConfig, getDefaultConfigPath, type LoadedConfig } from "./file-config.adapter.js";
+import {
+  loadFileConfig,
+  getDefaultConfigPath,
+  resolvePath,
+  type LoadedConfig,
+} from "./file-config.adapter.js";
 import { parseEnvConfig } from "./env-config.adapter.js";
 import { mergeConfigs, createPrioritizedConfig } from "./config-merger.js";
 import { createNodeLoggerFactory } from "../logging/index.js";
@@ -33,7 +38,11 @@ import {
   type ProjectConfigFile,
 } from "./project-config.adapter.js";
 
+// XCODE: 仅追加原生资源策略；运行时 storage.dir 默认不随资源目录切换。
+import type { NativeResourceDirectoryPolicy } from "@zcode/shared/native-resource-directories";
+
 export interface ConfigFactoryOptions {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   /** Path to user config file (default: ~/.zcode/cli/config.json) */
   userConfigPath?: string;
   /** Path to project config file */
@@ -53,11 +62,13 @@ export interface ConfigFactoryOptions {
 }
 
 export interface ConfigResult {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   configPort: ConfigPort;
   config: RuntimeConfig;
   sources: {
     user: {
       diagnostics: LoadedConfig["diagnostics"];
+      storageDir?: string;
       path: string;
       loaded: boolean;
       hasMcpServers: boolean;
@@ -134,8 +145,15 @@ export function createConfig(options: ConfigFactoryOptions = {}): ConfigResult {
 
   // 2. User config file
   const userConfigResult: LoadedConfig = options.skipUserConfig
-    ? { config: {}, diagnostics: [], path: getDefaultConfigPath(), loaded: false }
-    : loadFileConfig(options.userConfigPath);
+    ? {
+        config: {},
+        diagnostics: [],
+        path: options.userConfigPath
+          ? resolvePath(options.userConfigPath)
+          : getDefaultConfigPath(options.nativeDirectories),
+        loaded: false,
+      }
+    : loadFileConfig(options.userConfigPath, { nativeDirectories: options.nativeDirectories });
 
   if (userConfigResult.loaded) {
     configs.push(
@@ -151,12 +169,15 @@ export function createConfig(options: ConfigFactoryOptions = {}): ConfigResult {
 
   // 3. Project config files
   const discoveredProjectConfigs: ProjectConfigDiscovery = options.workingDirectory
-    ? loadProjectConfigs(options.workingDirectory, options.projectConfigPath)
+    ? loadProjectConfigs(options.workingDirectory, options.projectConfigPath, {
+        nativeDirectories: options.nativeDirectories,
+      })
     : options.projectConfigPath
       ? summarizeProjectConfigs([
           loadProjectConfigFile(options.projectConfigPath, {
             discoveryOrder: 0,
             explicitProjectConfig: true,
+            nativeDirectories: options.nativeDirectories,
           }),
         ])
       : summarizeProjectConfigs([]);
@@ -251,11 +272,13 @@ export function createConfig(options: ConfigFactoryOptions = {}): ConfigResult {
   const configPort = createConfigPort(merged);
 
   return {
+    nativeDirectories: options.nativeDirectories,
     configPort,
     config: configPort.getAll(),
     sources: {
       user: {
         diagnostics: userConfigResult.diagnostics,
+        storageDir: userConfigResult.config.storage?.dir,
         path: userConfigResult.path,
         loaded: userConfigResult.loaded,
         hasMcpServers: userConfigResult.config.mcp?.servers !== undefined,
@@ -356,11 +379,17 @@ function withHookConfigSource(
 }
 
 export function resolveWorkspaceStorageDir(input: {
+  nativeDirectories?: NativeResourceDirectoryPolicy;
   env?: Record<string, string | undefined>;
   workingDirectory: string;
 }): string {
-  const baseStorageDir = createConfig({ env: input.env }).config.storage.dir;
-  const projectConfig = loadProjectConfigs(input.workingDirectory);
+  const baseStorageDir = createConfig({
+    env: input.env,
+    nativeDirectories: input.nativeDirectories,
+  }).config.storage.dir;
+  const projectConfig = loadProjectConfigs(input.workingDirectory, undefined, {
+    nativeDirectories: input.nativeDirectories,
+  });
   let projectStorageDir: string | undefined;
   for (const file of projectConfig.files) {
     projectStorageDir = file.config.storage?.dir ?? projectStorageDir;

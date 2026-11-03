@@ -39,6 +39,8 @@ export async function listMcpServers(
   const params = parseParams(zcodeMcpListParamsSchema, rawParams);
   const workingDirectory = params.workspace.workspacePath;
   const configResult = createConfig({
+    // XCODE: MCP 管理快照和信任读取沿用协议入口目录策略。
+    nativeDirectories: context.deps.nativeDirectories,
     env: context.deps.env,
     workingDirectory,
   });
@@ -57,7 +59,7 @@ export async function listMcpServers(
     configResult,
     env: context.deps.env,
     logger: context.logger,
-    options: {},
+    options: { nativeDirectories: context.deps.nativeDirectories },
     startupTimer,
     workingDirectory,
   });
@@ -79,6 +81,8 @@ export async function listMcpServers(
   const authority = createWorkspaceMcpTrust({
     workingDirectory,
     workspaceIdentity: params.workspace.workspaceIdentity,
+    // XCODE: MCP 管理快照和信任读取沿用协议入口目录策略。
+    nativeDirectories: context.deps.nativeDirectories,
     env: context.deps.env,
   });
   const reviews = await authority.inspect();
@@ -279,6 +283,8 @@ export async function setWorkspaceMcpTrust(
     await createWorkspaceMcpTrust({
       workingDirectory: params.workspace.workspacePath,
       workspaceIdentity: params.workspace.workspaceIdentity,
+      // XCODE: MCP 管理快照和信任读取沿用协议入口目录策略。
+      nativeDirectories: context.deps.nativeDirectories,
       env: context.deps.env,
     }).decide(params.serverName, params.declarationDigest, params.trusted);
     // 与 Hooks 一样按 workspace 通知活跃会话；不能把已落盘的决定误报为授权失败。

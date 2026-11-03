@@ -201,6 +201,7 @@ function createRuntimeDeps(
   clientPortsContext: ChildClientPortsContext,
 ): ConstructorParameters<typeof AgentRuntime>[2] {
   return {
+    nativeDirectories: deps.appOptions.nativeDirectories,
     agentTelemetry: deps.agentTelemetry,
     agentTelemetryCausation: deps.agentTelemetry.captureCausation(),
     // Script workflow child 具有独立生命周期；用 Link 保留发起关系。
@@ -210,7 +211,10 @@ function createRuntimeDeps(
     contextSourcePort:
       deps.contextSourcePort ??
       deps.appOptions.contextSourcePort ??
-      createNodeContextSourceAdapter({ env: deps.appOptions.env }),
+      createNodeContextSourceAdapter({
+        env: deps.appOptions.env,
+        nativeDirectories: deps.appOptions.nativeDirectories,
+      }),
     // 直播通道（照 subagent 同款）：原始子会话事件只**通知**父 runtime 的外部 sink 集，
     // 保留子 sessionId 让协议层按 detached live session 路由；父侧不再 append，
     // 所以共享 store 里每条事件恰好一份。
@@ -288,6 +292,9 @@ export function createWorkflowChildSkillPort(
   return (
     deps.appOptions.skillPort ??
     createNodeSkillAdapter({
+      // XCODE: 子运行时默认 adapter 复用父资源策略，自定义端口继续优先。
+      nativeDirectories: deps.appOptions.nativeDirectories,
+      additionalDirectories: deps.appOptions.additionalDirectories,
       extraRoots: deps.configResult.config.skills.roots,
       extraResolvedRoots: [...deps.pluginSkillRoots],
       // 脚本 workflow child runtime 不能绕过用户禁用的 SKILL.md 路径。

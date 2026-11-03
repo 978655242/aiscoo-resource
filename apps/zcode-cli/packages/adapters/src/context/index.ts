@@ -26,14 +26,21 @@ import { findGitRoot, resolveGitSnapshot, resolveIsGitRepository } from "./git-s
 const DEFAULT_PRIORITY_FILES = ["AGENTS.md"];
 const DEFAULT_MAX_BYTES = 100 * 1024;
 
+// XCODE: 用户 AGENTS 跟随原生资源策略，项目根 AGENTS 查找不变。
+import {
+  nativeUserResourcePath,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
+
 export interface NodeContextSourceAdapterOptions {
   env?: NodeJS.ProcessEnv;
+  nativeDirectories?: NativeResourceDirectoryPolicy;
 }
 
 export class NodeContextSourceAdapter implements ContextSourcePort {
   private readonly env: NodeJS.ProcessEnv;
 
-  constructor(options: NodeContextSourceAdapterOptions = {}) {
+  constructor(private readonly options: NodeContextSourceAdapterOptions = {}) {
     this.env = options.env ?? process.env;
   }
 
@@ -58,6 +65,7 @@ export class NodeContextSourceAdapter implements ContextSourcePort {
           },
           diagnostics,
           this.env,
+          this.options.nativeDirectories,
         )
       : undefined;
     const projectContext =
@@ -124,12 +132,17 @@ async function resolveUserInstructions(
   options: UserInstructionsOptions,
   diagnostics: ContextSourceDiagnostic[],
   env: NodeJS.ProcessEnv = process.env,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<ResolvedUserInstructions | undefined> {
   const priorityFiles = options.priorityFiles ?? DEFAULT_PRIORITY_FILES;
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
   const projectRoot = options.projectRoot ?? (await findProjectRoot(options.workingDirectory));
 
-  const defaultUserInstructionFile = await findDefaultUserInstructionFile(priorityFiles, env);
+  const defaultUserInstructionFile = await findDefaultUserInstructionFile(
+    priorityFiles,
+    env,
+    nativeDirectories,
+  );
   const workspaceInstructionFile = await findInstructionFile(
     options.workingDirectory,
     projectRoot,
@@ -258,12 +271,13 @@ async function findInstructionFile(
 async function findDefaultUserInstructionFile(
   priorityFiles: string[],
   env: NodeJS.ProcessEnv,
+  nativeDirectories?: NativeResourceDirectoryPolicy,
 ): Promise<{ filePath: string; fileName: string } | undefined> {
   if (!priorityFiles.includes("AGENTS.md")) {
     return undefined;
   }
 
-  const filePath = join(resolveUserHomeDir(env), ".zcode", "AGENTS.md");
+  const filePath = nativeUserResourcePath(resolveUserHomeDir(env), nativeDirectories, "AGENTS.md");
   if (await isFile(filePath)) {
     return { filePath, fileName: "AGENTS.md" };
   }

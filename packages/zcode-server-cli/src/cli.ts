@@ -7,6 +7,8 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { isPublicZCodeErrorCode, ZCODE_VERSION } from "@zcode/shared";
 import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
+// XCODE: OS 服务仅显式保留原生目录这一非敏感 key，不改变 Server 运行根。
+import { NATIVE_RESOURCE_DIRECTORY_ENV } from "@zcode/shared/native-resource-directories";
 import { SourceServerWorkspaceAliasRepo } from "@zcode/services/node";
 import {
   CORE_KILL_TIMEOUT_MS,
@@ -343,11 +345,16 @@ async function runServe(
         registerService,
         serviceDescriptorPath,
       } = await import("./platform/serviceManager.js");
+      // XCODE: descriptor 先校验显式目录名再写文件；ready daemon 已在上方复用，不因策略变化重启。
+      const descriptor = createDaemonServiceDescriptor({
+        platform,
+        layout,
+        nativeResourceDirectoryName: process.env[NATIVE_RESOURCE_DIRECTORY_ENV],
+      });
       await writeStableLauncher(layout, platform, {
         command: process.execPath,
         entry: process.argv[1] ?? fileURLToPath(import.meta.url),
       });
-      const descriptor = createDaemonServiceDescriptor({ platform, layout });
       await mkdir(layout.serviceDir, { recursive: true, mode: 0o700 });
       const descriptorPath = serviceDescriptorPath(layout, descriptor);
       await writeFile(descriptorPath, descriptor.content, "utf8");

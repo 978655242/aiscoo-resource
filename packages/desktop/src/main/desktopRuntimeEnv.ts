@@ -33,7 +33,10 @@ import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-ident
 import {
   buildAiscooDesktopStorageEnv,
   getAiscooDesktopCliBaseDir,
+  getDesktopNativeResourceDirectories,
 } from "../aiscoo-desktop-identity/index.js";
+// XCODE: Host 只继承已校验的目录名，不继承本机绝对资源路径。
+import { NATIVE_RESOURCE_DIRECTORY_ENV } from "@zcode/shared/native-resource-directories";
 import {
   desktopDevelopmentKeychainName,
   desktopProductIdentities,
@@ -617,6 +620,8 @@ export function buildHostProcessEnv(hostProcessLocalEnv: Record<string, string>)
     ...(dataBaseDir !== homedir() ? { ZCODE_DATA_BASE_DIR: dataBaseDir } : {}),
     // XCODE: v2 迁移不搬 CLI 库；最终合并环境后用已绑定 B 派生，保留三键覆盖和当前 App 根 D。
     ...buildAiscooDesktopStorageEnv(dataBaseDir, rawInheritedEnv, getAiscooDesktopCliBaseDir()),
+    // XCODE: 资源策略在 Main 启动时固定，独立于 storage/db/log 的现有覆盖语义。
+    [NATIVE_RESOURCE_DIRECTORY_ENV]: getDesktopNativeResourceDirectories().directoryName,
     ...(windowsAppInstallDir ? { [ZCODE_WINDOWS_APP_INSTALL_DIR_ENV]: windowsAppInstallDir } : {}),
     ...(bundledCuaHelperAppPath
       ? { [ZCODE_CUA_BUNDLED_HELPER_APP_PATH_ENV]: bundledCuaHelperAppPath }

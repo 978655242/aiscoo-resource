@@ -1,3 +1,8 @@
+// XCODE: 用户技能导入、候选与写回保持同一资源根。
+import {
+  nativeUserResourcePath,
+  type NativeResourceDirectoryPolicy,
+} from "@zcode/shared/native-resource-directories/node";
 import { existsSync } from "node:fs";
 import { readFile, readdir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -23,18 +28,24 @@ export interface UserSkillCandidate {
   path: string;
 }
 
-export function createSkillSyncService(options?: { maxArchiveBytes?: number }): ISkillSyncService {
+export function createSkillSyncService(options?: {
+  maxArchiveBytes?: number;
+  nativeDirectories?: NativeResourceDirectoryPolicy;
+}): ISkillSyncService {
   const maxArchiveBytes = options?.maxArchiveBytes ?? DEFAULT_MAX_ARCHIVE_BYTES;
   // 数据同步：单个技能目录的大小上限，默认 20MB。
-  return createSkillDataSyncMethods({ maxItemBytes: maxArchiveBytes });
+  return createSkillDataSyncMethods({
+    maxItemBytes: maxArchiveBytes,
+    nativeDirectories: options?.nativeDirectories,
+  });
 }
 
 export function resolveUserHomeDir(): string {
   return process.env.HOME?.trim() || process.env.USERPROFILE?.trim() || homedir();
 }
 
-export function getUserZcodeSkillRoot(): string {
-  return join(resolveUserHomeDir(), ".zcode", "skills");
+export function getUserZcodeSkillRoot(nativeDirectories?: NativeResourceDirectoryPolicy): string {
+  return nativeUserResourcePath(resolveUserHomeDir(), nativeDirectories, "skills");
 }
 
 function getUserAgentsSkillRoot(): string {
@@ -45,9 +56,11 @@ function getUserAgentsSkillRoot(): string {
  * 用户级技能候选：`~/.zcode/skills` 优先，`~/.agents/skills` 中同目录名或同 name 的项剔除，再按 realpath 去重。
  * 文件数与字节签名由数据同步的 list 自己计算。
  */
-export async function collectUserSkillCandidates(): Promise<UserSkillCandidate[]> {
+export async function collectUserSkillCandidates(
+  nativeDirectories?: NativeResourceDirectoryPolicy,
+): Promise<UserSkillCandidate[]> {
   const seenSkillRealpaths = new Set<string>();
-  const userZcodeSkillRoot = getUserZcodeSkillRoot();
+  const userZcodeSkillRoot = getUserZcodeSkillRoot(nativeDirectories);
   const rawZcodeCandidates = await collectUserSkillCandidatesInRoot(userZcodeSkillRoot);
   const zcodeDirectoryNames = await collectCoveredSkillDirectoryNamesInRoot(userZcodeSkillRoot);
   const zcodeSkillNameKeys = new Set(
