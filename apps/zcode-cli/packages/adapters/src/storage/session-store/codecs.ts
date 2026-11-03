@@ -22,6 +22,7 @@ import {
   type WorkspaceId,
   type SessionTaskType,
 } from "@zcode/contracts";
+import { normalizeAiscooModelSelection } from "@zcode/shared/model-provider-types";
 import { decodeJson } from "./json.js";
 import type { MessageRow, PartRow, SessionEntryRow, SessionRow, TodoRow } from "./rows.js";
 
@@ -105,9 +106,16 @@ function decodeStoredMessage(value: unknown): Record<string, unknown> {
       variant: _legacyReasoningLevel,
       ...message
     } = value;
-    return message;
+    // XCODE: Assistant 的平铺执行事实绕过 Selection schema；fork 读取时同样使用规范身份。
+    return normalizeStoredModelSelection(message);
   }
   return value;
+}
+
+// XCODE: 存储允许残缺历史；只迁移存在的 Provider 字段，不补模型/档位、不吞无效事实。
+export function normalizeStoredModelSelection<T>(value: T): T {
+  if (!isRecord(value) || typeof value.providerId !== "string") return value;
+  return normalizeAiscooModelSelection({ ...value, providerId: value.providerId });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -178,7 +186,10 @@ function decodeStoredSessionModelSelection(value: unknown): unknown {
   // 旧平铺字段只属于升级入口。新成员即使为空/非法也不能借旧快照补值。
   // 解包在存储边界完成，core/bootstrap/fork 只消费 port 的当前逻辑 Selection。
   if (!isRecord(value)) return undefined;
-  return parseModelSelectionValue(value.modelSelection) ?? value.modelSelection;
+  return (
+    parseModelSelectionValue(value.modelSelection) ??
+    normalizeStoredModelSelection(value.modelSelection)
+  );
 }
 
 export function decodeTodoRow(row: TodoRow): TodoItem {

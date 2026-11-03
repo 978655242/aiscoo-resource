@@ -9,6 +9,7 @@ import {
   type ProviderRegistryView,
 } from "@zcode/provider";
 import { createRegistrySelectionProtocolError } from "./provider-registry-selection.js";
+import { normalizeAiscooModelSelection } from "@zcode/shared/model-provider-types";
 
 export type RuntimeModelFactory = NonNullable<AgentRuntimeDeps["modelFactory"]>;
 
@@ -53,6 +54,8 @@ export class ApiProviderModelRuntime {
 
   readonly modelFactory: RuntimeModelFactory = (target): Model => {
     if (!this.#started) throw new Error("ApiProviderModelRuntime 必须先 start() 再创建 Model");
+    // XCODE: 直接调用 Factory 的 typed 选择不经过协议 schema，先统一身份再精确校验 Registry。
+    target = { ...target, selection: normalizeAiscooModelSelection(target.selection) };
     const validation = this.#registry.validateSelection(target.selection);
     if (!validation.ok) throw createRegistrySelectionProtocolError(validation);
     const providerId = target.selection.providerId;

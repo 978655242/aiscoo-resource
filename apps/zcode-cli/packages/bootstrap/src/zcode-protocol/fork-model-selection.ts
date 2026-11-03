@@ -2,11 +2,14 @@
 // 从 v4-bridge 抽出：这些函数是纯选型推导，与网关接线无关，需要独立回归测试。
 import type { ModelSelection } from "@zcode/contracts";
 import { isHighspeedProviderId } from "@zcode/shared";
+import { normalizeAiscooModelSelection } from "@zcode/shared/model-provider-types";
 
 export function cloneModelSelection(
   selection: ModelSelection | undefined,
 ): ModelSelection | undefined {
   if (!selection) return undefined;
+  // XCODE: 派生会话可能持有旧 typed 引用，复制边界与 Core 使用相同身份规则。
+  selection = normalizeAiscooModelSelection(selection);
   return {
     providerId: selection.providerId,
     modelId: selection.modelId,
@@ -21,11 +24,12 @@ export function modelSelectionWithOptionFallback(
   if (!selection) return fallback && cloneModelSelection(fallback);
   // 兼容旧 fork 消息可能缺少 reasoning；输出预算属于单次请求，不属于 Selection。
   const reasoningLevel = selection.options?.reasoningLevel ?? fallback?.options?.reasoningLevel;
-  return {
+  // XCODE: 与无 fallback 的派生路径共用复制边界，避免旧身份重新写进 child。
+  return cloneModelSelection({
     providerId: selection.providerId,
     modelId: selection.modelId,
     ...(reasoningLevel !== undefined ? { options: { reasoningLevel } } : {}),
-  };
+  });
 }
 
 /**

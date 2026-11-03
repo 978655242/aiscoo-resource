@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { modelSelectionSchema } from "./model-selection.js";
+// XCODE: 已接纳的执行选择与其显式 fallback 约束保持同一规范 Provider 身份。
+import { normalizeAiscooModelProviderId } from "./model-provider-types.js";
 
 /**
  * 执行 Selection 退回 Session Selection 的原因。由发起方在 selectionFallback 规则里声明，
@@ -56,7 +58,7 @@ export const modelExecutionSchema = z
      */
     selectionFallback: z
       .object({
-        providerId: z.string().min(1),
+        providerId: z.string().min(1).transform(normalizeAiscooModelProviderId),
         rules: z
           .array(
             z

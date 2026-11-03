@@ -1,4 +1,5 @@
 import { createQueryId, type ModelSelection, type TurnInputIntentMetadata } from "@zcode/contracts";
+import { normalizeAiscooModelSelection } from "@zcode/shared/model-provider-types";
 
 /** CLI 配置命令的会话默认值；Core Session 仍独立负责后台与 Goal 续跑。 */
 export class CliDefaultSelection {
@@ -14,7 +15,8 @@ export class CliDefaultSelection {
   }
 
   set(selection: ModelSelection | undefined): void {
-    this.selection = selection && structuredClone(selection);
+    // XCODE: CLI 的 typed 默认值不一定来自 schema；owner 接纳时统一规范身份。
+    this.selection = selection && structuredClone(normalizeAiscooModelSelection(selection));
   }
 
   prepareInput<
@@ -30,8 +32,10 @@ export class CliDefaultSelection {
     if (options?.modelExecution || options?.offPeakTaskId || options?.automationId) {
       return { ...options } as T;
     }
-    const selection = options?.intent?.modelSelection ?? this.get();
-    if (!selection) throw new Error("Select a model before sending a message");
+    const requestedSelection = options?.intent?.modelSelection ?? this.get();
+    if (!requestedSelection) throw new Error("Select a model before sending a message");
+    // XCODE: 显式 intent 绕过默认值 setter，同一 owner 在 admission 前统一迁移。
+    const selection = normalizeAiscooModelSelection(requestedSelection);
     if (options?.intent) {
       return {
         ...options,

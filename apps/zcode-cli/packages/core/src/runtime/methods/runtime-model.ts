@@ -20,6 +20,7 @@ import {
 } from "./model-request-session-type.js";
 import { getOffPeakModelBinding } from "../off-peak/model-binding.js";
 import { readSessionFeatures } from "../session-features/contract.js";
+import { normalizeAiscooModelSelection } from "@zcode/shared/model-provider-types";
 
 export function createRuntimeModel(
   runtime: AgentRuntimeInternal,
@@ -40,6 +41,8 @@ export function createRuntimeModel(
       recoverable: true,
     });
   }
+  // XCODE: 显式 typed 执行选择也可能来自旧子任务，进入唯一 Factory 边界前迁移身份。
+  factoryInput.selection = normalizeAiscooModelSelection(factoryInput.selection);
   const model = withRuntimeInvocationLayer(
     runtime,
     runtime.modelFactory({ ...factoryInput, selection: factoryInput.selection }),

@@ -1,11 +1,91 @@
 /* eslint-disable max-lines -- 模型供应商 schema、迁移和运行时投影 helper 需要共享同一套类型边界，暂时集中在单文件避免契约分散。 */
 import { z } from "zod";
 
-export const NEW_API_MODEL_PROVIDER_IDS = {
-  "anthropic-messages": "account:new-api-anthropic-messages",
-  "openai-chat-completions": "account:new-api-openai-chat-completions",
-  "openai-responses": "account:new-api-openai-responses",
+// XCODE: 产品模型身份与网关适配器名称分离，旧 ID 只在读取边界迁移。
+export const AISCOO_MODEL_PROVIDER_IDS = {
+  "anthropic-messages": "account:aiscoo-anthropic-messages",
+  "openai-chat-completions": "account:aiscoo-openai-chat-completions",
+  "openai-responses": "account:aiscoo-openai-responses",
 } as const;
+
+export const NEW_API_MODEL_PROVIDER_IDS = AISCOO_MODEL_PROVIDER_IDS;
+
+/** 只迁移已发布的三个精确身份，不猜测自配 Provider、模型或协议。 */
+export function normalizeAiscooModelProviderId(providerId: string): string {
+  switch (providerId) {
+    case "account:new-api-anthropic-messages":
+      return AISCOO_MODEL_PROVIDER_IDS["anthropic-messages"];
+    case "account:new-api-openai-chat-completions":
+      return AISCOO_MODEL_PROVIDER_IDS["openai-chat-completions"];
+    case "account:new-api-openai-responses":
+      return AISCOO_MODEL_PROVIDER_IDS["openai-responses"];
+    default:
+      return providerId;
+  }
+}
+
+/** typed selection 同样经过共享迁移，保留模型、options 和额外历史事实。 */
+export function normalizeAiscooModelSelection<T extends { readonly providerId: string }>(
+  selection: T,
+): T {
+  const providerId = normalizeAiscooModelProviderId(selection.providerId);
+  return providerId === selection.providerId ? selection : { ...selection, providerId };
+}
+
+/** 新旧键冲突时规范键的完整条目优先，不改写调用者持有的快照。 */
+export function normalizeAiscooModelProviderRecord<T>(
+  record: Readonly<Record<string, T>>,
+): Record<string, T> {
+  const entries = Object.entries(record);
+  const normalized = new Map(
+    entries.map(([providerId, value]) => [normalizeAiscooModelProviderId(providerId), value]),
+  );
+  for (const [providerId, value] of entries) {
+    if (normalizeAiscooModelProviderId(providerId) === providerId) {
+      normalized.set(providerId, value);
+    }
+  }
+  return Object.fromEntries(normalized);
+}
+
+/** 只规范完整引用的 Provider 片段，保留模型名中的斜线、字面量 $ 与后缀。 */
+export function normalizeAiscooModelReference(value: string): string {
+  const separator = value.indexOf("/");
+  return separator > 0
+    ? `${normalizeAiscooModelProviderId(value.slice(0, separator))}${value.slice(separator)}`
+    : value;
+}
+
+/** 工作流恢复只转换模型引用的值，保留脚本绑定键、事件事实和未知身份。 */
+export function normalizeAiscooStoredModelReferences<
+  T extends {
+    readonly subagentModel?: string;
+    readonly modelBindings?: Readonly<Record<string, string>>;
+  },
+>(value: T): T {
+  const subagentModel =
+    value.subagentModel === undefined
+      ? undefined
+      : normalizeAiscooModelReference(value.subagentModel);
+  let changed = subagentModel !== value.subagentModel;
+  const modelBindings =
+    value.modelBindings === undefined
+      ? undefined
+      : Object.fromEntries(
+          Object.entries(value.modelBindings).map(([name, model]) => {
+            const normalized = normalizeAiscooModelReference(model);
+            changed ||= normalized !== model;
+            return [name, normalized];
+          }),
+        );
+  return changed
+    ? {
+        ...value,
+        ...(subagentModel === undefined ? {} : { subagentModel }),
+        ...(modelBindings === undefined ? {} : { modelBindings }),
+      }
+    : value;
+}
 
 export function isNewApiModelProviderId(id: string): boolean {
   return Object.values(NEW_API_MODEL_PROVIDER_IDS).some((value) => value === id);

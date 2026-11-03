@@ -18,7 +18,7 @@ import { owner, catalog, entitlements } from "../../services/test/newApiRegistry
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const requireRoot = createRequire(new URL("../../../package.json", import.meta.url));
 const requireDesktop = createRequire(new URL("../package.json", import.meta.url));
-const id = "account:new-api-openai-chat-completions";
+const id = "account:aiscoo-openai-chat-completions";
 const plan = {
   id: "1",
   title: "Personal",

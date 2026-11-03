@@ -5,7 +5,7 @@ import {
   type SessionEntryType,
   type SessionId,
 } from "@zcode/contracts";
-import { decodeSessionEntryRow } from "../codecs.js";
+import { decodeSessionEntryRow, normalizeStoredModelSelection } from "../codecs.js";
 import { encodeJson } from "../json.js";
 import type { SessionEntryRow } from "../rows.js";
 import { touchSession } from "./sessions.js";
@@ -15,7 +15,10 @@ export function saveSessionEntry(db: DatabaseSync, input: SessionEntryInfo): voi
   // 旧版读取 data 的平铺身份；新版 port 仍传逻辑 Selection，包装只属于存储 adapter。
   // undefined 与既有 fork 的 null 都写成明确空值，防止重启重新导入旧字段。
   const encoded = encodeJson(
-    isModelSelection ? { modelSelection: input.data ?? null } : input.data,
+    // XCODE: 只更新正常保存的逻辑 Selection，不批量改写旧 entry 的回滚字段。
+    isModelSelection
+      ? { modelSelection: normalizeStoredModelSelection(input.data) ?? null }
+      : input.data,
   );
   if (!encoded) {
     throw new Error("Session entry data must be JSON-serializable");

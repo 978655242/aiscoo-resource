@@ -43,7 +43,7 @@ const catalog: ModelSelectionView = {
       models: [{ modelId: "deepseek-v4-pro", config: modelConfig }],
     },
     {
-      providerId: "account:new-api-openai-chat-completions",
+      providerId: "account:aiscoo-openai-chat-completions",
       providerName: "XWork",
       config: {
         access: {

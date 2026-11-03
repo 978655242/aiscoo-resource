@@ -40,7 +40,12 @@ import {
   completeModelPropertiesDataSchema,
   completeModelConfigDataSchema,
 } from "../model-config.js";
-import { newApiCatalogIssueSchema, newApiRegistryOwnerSchema } from "../model-provider-types.js";
+import {
+  newApiCatalogIssueSchema,
+  newApiRegistryOwnerSchema,
+  // XCODE: 请求外层 Provider 与内层 ModelSelection 使用相同的旧身份迁移。
+  normalizeAiscooModelProviderId,
+} from "../model-provider-types.js";
 import { modelExecutionSchema } from "../model-execution.js";
 export type { ModelExecutionSelectionFallback } from "../model-execution.js";
 export * from "../off-peak-execution.js";
@@ -2908,7 +2913,7 @@ export const zcodeProviderRuntimeHeadersRequestParamsSchema = z
     turnId: nonEmptyString.optional(),
     workspace: zcodeWorkspaceRefSchema,
     modelSelection: modelSelectionSchema,
-    providerId: nonEmptyString,
+    providerId: nonEmptyString.transform(normalizeAiscooModelProviderId),
     accountAccess: zcodeProviderAccountAccessSchema.optional(),
     expectedAccountScope: z
       .string()

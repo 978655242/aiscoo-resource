@@ -1,6 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import {
+  addPendingSettingsSectionListener,
+  consumePendingSettingsModelProviderTarget,
+  setPendingSettingsSectionIntent,
+} from "@/lib/settingsNavigation.js";
 import * as currentBrand from "@zcode/ui/aiscoo-brand";
 import * as implementationBrand from "../src/aiscoo/brand/index.js";
 import * as currentSharedBrand from "@zcode/shared/aiscoo-brand";
@@ -31,6 +36,48 @@ const oldBrand: ProductBrand = {
 };
 
 describe("Aiscoo naming compatibility", () => {
+  it("keeps stored and live model settings navigation canonical without guessing custom IDs", () => {
+    const records = new Map<string, string>();
+    const events = new EventTarget();
+    vi.stubGlobal("window", {
+      sessionStorage: {
+        getItem: (key: string) => records.get(key) ?? null,
+        setItem: (key: string, value: string) => records.set(key, value),
+        removeItem: (key: string) => records.delete(key),
+      },
+      addEventListener: events.addEventListener.bind(events),
+      removeEventListener: events.removeEventListener.bind(events),
+      dispatchEvent: events.dispatchEvent.bind(events),
+    });
+    const received: string[] = [];
+    let dispose = () => {};
+    try {
+      for (const api of ["anthropic-messages", "openai-chat-completions", "openai-responses"]) {
+        const legacyId = `account:new-api-${api}`;
+        const canonicalId = `account:aiscoo-${api}`;
+        setPendingSettingsSectionIntent("modelProvider", { modelProviderId: legacyId });
+        expect(records.get("zcode-settings-model-provider-id-intent")).toBe(canonicalId);
+        expect(consumePendingSettingsModelProviderTarget()).toEqual({ providerId: canonicalId });
+        records.set("zcode-settings-model-provider-id-intent", legacyId);
+        expect(consumePendingSettingsModelProviderTarget()).toEqual({ providerId: canonicalId });
+        expect(consumePendingSettingsModelProviderTarget()).toBeUndefined();
+        dispose = addPendingSettingsSectionListener((_section, detail) => {
+          if (detail?.modelProviderId) received.push(detail.modelProviderId);
+        });
+        setPendingSettingsSectionIntent("modelProvider", { modelProviderId: legacyId });
+        expect(received.at(-1)).toBe(canonicalId);
+        expect(consumePendingSettingsModelProviderTarget()).toBeUndefined();
+        dispose();
+      }
+      const customId = "account:new-api-openai-chat-completions-custom";
+      setPendingSettingsSectionIntent("modelProvider", { modelProviderId: customId });
+      expect(consumePendingSettingsModelProviderTarget()).toEqual({ providerId: customId });
+    } finally {
+      dispose();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("publishes one Aiscoo entry per package and no retired xwork subpath", async () => {
     const manifests = {
       "@zcode/shared": "../../shared/package.json",

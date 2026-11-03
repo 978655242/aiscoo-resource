@@ -1,4 +1,6 @@
 import type { AccountProviderStates } from "./account-provider-state.js";
+// XCODE: 历史 typed 意图与协议解析共用同一精确身份迁移。
+import { normalizeAiscooModelSelection } from "@zcode/shared/model-provider-types";
 import type { EffectiveModelSelectionResult } from "@zcode/shared/model-selection";
 export type { EffectiveModelSelectionResult } from "@zcode/shared/model-selection";
 import {
@@ -21,7 +23,8 @@ export function resolveEffectiveModelSelection(input: {
   readonly classifyProvider: ModelSelectionProviderClassifier;
   readonly resolveLegacyReasoningLevel?: (selection: ModelSelection) => string | undefined;
 }): EffectiveModelSelectionResult {
-  const original = input.selection;
+  // XCODE: 创建纯投影，不改历史引用、模型与 options，也不借迁移授予权限。
+  const original = input.selection && normalizeAiscooModelSelection(input.selection);
   if (!original)
     return Object.freeze({ effectiveSelection: null, selectionIssue: "selection-missing" });
   const kind = input.classifyProvider(original.providerId);

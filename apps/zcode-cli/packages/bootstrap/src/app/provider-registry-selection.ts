@@ -6,6 +6,10 @@ import {
   type ProviderModel,
 } from "@zcode/provider";
 import type { ZCodeModelOption } from "@zcode/shared";
+import {
+  normalizeAiscooModelProviderId,
+  normalizeAiscooModelSelection,
+} from "@zcode/shared/model-provider-types";
 import type { ProviderRegistryModelSource } from "./provider-registry-model-runtime.js";
 
 export interface ResolvedRegistrySelection {
@@ -31,6 +35,8 @@ export function getRegistryBackedModel(
   registry: ProviderRegistryModelSource,
   selection: ModelSelection,
 ): ZCodeModelOption | undefined {
+  // XCODE: typed 选择也经共享身份规范化，Registry 本身只注册新 ID。
+  selection = normalizeAiscooModelSelection(selection);
   const provider = registry.getProvider(selection.providerId);
   const model = registry.getModel(selection.providerId, selection.modelId);
   return provider && model ? toModelOption(provider, model) : undefined;
@@ -44,6 +50,8 @@ export function completeAuxiliaryRegistryModelSelection(
   registry: ProviderRegistryModelSource,
   selection: ModelSelection,
 ): ModelSelection {
+  // XCODE: 辅助执行在补档位前也按规范身份读取模型事实。
+  selection = normalizeAiscooModelSelection(selection);
   const model = registry.getModel(selection.providerId, selection.modelId);
   const reasoningLevel = model?.config.optionSpecs.reasoningLevel.values[0];
   if (!reasoningLevel) return selection;
@@ -86,7 +94,8 @@ export function parseProviderQualifiedModelSelection(
   const normalized = requested.trim();
   const separator = normalized.indexOf("/");
   if (separator <= 0 || separator === normalized.length - 1) return undefined;
-  const providerId = normalized.slice(0, separator).trim();
+  // XCODE: CLI 字符串、协议展示与旧 actor pin 共用此读取边界，只迁移精确旧身份。
+  const providerId = normalizeAiscooModelProviderId(normalized.slice(0, separator).trim());
   const modelId = normalized.slice(separator + 1).trim();
   return providerId && modelId ? { providerId, modelId } : undefined;
 }
@@ -102,6 +111,8 @@ export function resolveRegistryOwnedModelSelection(
   selection: ModelSelection,
   options?: { allowMissingReasoning?: boolean },
 ): ResolvedRegistrySelection | undefined {
+  // XCODE: typed 配置/切换入口不一定经过 schema，先规范身份再校验执行资格。
+  selection = normalizeAiscooModelSelection(selection);
   const validation = registry.validateSelection(selection);
   if (!validation.ok) {
     if (validation.code === "provider-not-found") return undefined;
@@ -147,6 +158,8 @@ export function resolveRegistryModelSelection(
   registry: ProviderRegistryModelSource,
   selection: ModelSelection,
 ): ResolvedRegistrySelection | undefined {
+  // XCODE: typed 选择也经共享身份规范化，Registry 本身只注册新 ID。
+  selection = normalizeAiscooModelSelection(selection);
   const provider = registry.getProvider(selection.providerId);
   const model = registry.getModel(selection.providerId, selection.modelId);
   if (!provider || !model) return undefined;

@@ -19,7 +19,7 @@ import {
 import { mapNewApiEntitlement } from "../src/new-api/newApiUsageMapper.js";
 import { entitlements } from "./newApiRegistryFixtures.js";
 
-const providerId = "account:new-api-anthropic-messages";
+const providerId = "account:aiscoo-anthropic-messages";
 const access = {
   type: "new-api-account",
   accountType: "new-api",

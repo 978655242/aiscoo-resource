@@ -1,5 +1,9 @@
 # Tool Change Chain Spec
 
+## Aiscoo 模型引用迁移（2026-11-03）
+
+CreateWorkflow / AmendWorkflow 与脚本模型绑定在公共模型引用解析器中复用共享的精确 Provider ID 规范化，旧 run 的显式模型与绑定仍按同一协议、模型和思考档位恢复。工具 schema、权限、确认与事件顺序不变；新引用仅保存规范身份，不批量改写旧 journal。完整映射与验收见 [Provider ID 命名迁移规格](../../../../../../docs/aiscoo/specs/new-api-integration.md#511-provider-id-命名迁移与旧引用兼容)。
+
 ## ReplyToChannel 输出 Schema（2026-10-19）
 
 `ReplyToChannel` 的 provider 可见输出使用互斥状态分支的 `oneOf`，避免直接投影 Zod union 生成供应商不接受的 `anyOf`。运行时仍使用严格 union 校验，不放宽字段、状态或工具执行权限。

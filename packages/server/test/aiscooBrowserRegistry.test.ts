@@ -25,7 +25,7 @@ import {
 } from "../src/aiscoo-browser-account/index.js";
 
 const owner: NewApiOwner = { ...fixtureOwner, origin: "https://browser-account.example.test" };
-const providerId = "account:new-api-openai-chat-completions";
+const providerId = "account:aiscoo-openai-chat-completions";
 const browserCatalog = {
   ...catalog,
   models: [

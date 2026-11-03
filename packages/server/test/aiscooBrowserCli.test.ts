@@ -169,7 +169,7 @@ it("browser QueuePair authority authorizes a real CLI model HTTP request through
     registry = new ProviderRegistryService({ configSource: config.configService, accountSource });
     await registry.start();
     const selection = {
-      providerId: "account:new-api-openai-chat-completions",
+      providerId: "account:aiscoo-openai-chat-completions",
       modelId: "real-model",
       options: { reasoningLevel: "none" },
     };

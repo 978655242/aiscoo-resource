@@ -17,6 +17,7 @@
 import type { TraceContext } from "@zcode/contracts";
 import type { JournalStorePort, RunEvent } from "@zcode/dynamic-workflow";
 import { uuidv7 } from "@zcode/shared";
+import { normalizeAiscooStoredModelReferences } from "@zcode/shared/model-provider-types";
 import {
   parseWorkflowSubagentPermissionMode,
   type WorkflowSubagentPermissionMode,
@@ -72,7 +73,10 @@ function firstRunLaunched(
     reportItems: { limit: 0 },
     limit: 1,
   });
-  return stored?.event.type === "run-launched" ? stored.event : undefined;
+  // XCODE: 冷恢复与读面复用共享迁移，不改逐字绑定键或已持久化的 journal。
+  return stored?.event.type === "run-launched"
+    ? normalizeAiscooStoredModelReferences(stored.event)
+    : undefined;
 }
 
 /**

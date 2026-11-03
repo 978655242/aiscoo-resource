@@ -40,7 +40,7 @@ async function run() {
           import { TooltipProvider } from "./packages/ui/src/components/ui/tooltip.tsx";
           import { connectProviderSettingsSnapshot } from "./packages/ui/src/lib/providerSettingsSnapshot.ts";
           import { mapNewApiEntitlement } from "./packages/services/src/new-api/newApiUsageMapper.ts";
-          const providerId = "account:new-api-anthropic-messages";
+          const providerId = "account:aiscoo-anthropic-messages";
           const access = { type: "new-api-account", accountType: "new-api", mode: "private-subscription", entitled: true };
           const entitlement = mapNewApiEntitlement({
             schema_version: 1, server_time: 1800000000000, status: "active", authorization_revision: "42",
@@ -179,9 +179,9 @@ async function run() {
       await waitFor(`document.querySelector(${JSON.stringify(popup)}) !== null`);
     };
     for (const providerId of [
-      "account:new-api-anthropic-messages",
-      "account:new-api-openai-chat-completions",
-      "account:new-api-openai-responses",
+      "account:aiscoo-anthropic-messages",
+      "account:aiscoo-openai-chat-completions",
+      "account:aiscoo-openai-responses",
     ]) {
       await render(providerId, false);
       await hover();
@@ -212,7 +212,7 @@ async function run() {
       callsBefore,
       "hovering custom context must not query the Native account",
     );
-    await render("account:new-api-openai-chat-completions", true);
+    await render("account:aiscoo-openai-chat-completions", true);
     await hover();
     await waitFor(`!!document.querySelector(${JSON.stringify(popup)}).querySelector('button')`);
     await render(null, false);

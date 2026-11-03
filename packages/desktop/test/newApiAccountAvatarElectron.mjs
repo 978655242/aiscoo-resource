@@ -103,7 +103,7 @@ import { TooltipProvider } from "./packages/ui/src/components/ui/tooltip.tsx";
 import { connectProviderSettingsSnapshot } from "./packages/ui/src/lib/providerSettingsSnapshot.ts";
 import { mapNewApiEntitlement } from "./packages/services/src/new-api/newApiUsageMapper.ts";
 import { applyTheme } from "./packages/ui/src/useTheme.ts";
-const providerId = "account:new-api-anthropic-messages";
+const providerId = "account:aiscoo-anthropic-messages";
 const access = { type: "new-api-account", accountType: "new-api", mode: "private-subscription", entitled: true };
 const native = mapNewApiEntitlement({
   schema_version: 1, server_time: 1800000000000, status: "active", authorization_revision: "42",
@@ -561,7 +561,7 @@ window.avatarSmoke.ready = providerConnection.ready.then(() => {
       audit.entitlementCalls.length > 0,
       "real Footer usage hook received its Native snapshot",
     );
-    assert.ok(audit.entitlementCalls.every((id) => id === "account:new-api-anthropic-messages"));
+    assert.ok(audit.entitlementCalls.every((id) => id === "account:aiscoo-anthropic-messages"));
     const result = {
       realFooterAndProfileMenu: true,
       svgDecodedWithCsp: true,

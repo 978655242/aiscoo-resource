@@ -42,7 +42,7 @@ describe("Aiscoo Native identity projection", () => {
     let listener: ((next: ModelSelectionView) => void) | undefined;
     let rejectRead: ((error: Error) => void) | undefined;
     const selection = {
-      providerId: "account:new-api-openai-chat-completions",
+      providerId: "account:aiscoo-openai-chat-completions",
       modelId: "m1",
     };
     const nativeView: ModelSelectionView = {

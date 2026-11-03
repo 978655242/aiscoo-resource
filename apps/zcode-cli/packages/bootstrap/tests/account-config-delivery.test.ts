@@ -8,7 +8,7 @@ import {
   ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV,
   ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV,
 } from "@zcode/provider-node";
-import { zcodeProtocolMethods } from "@zcode/shared";
+import { AISCOO_MODEL_PROVIDER_IDS, zcodeProtocolMethods } from "@zcode/shared";
 import {
   startProcessProviderRegistryRuntime,
   parseProcessAccountProviderConfigSnapshot,
@@ -58,7 +58,7 @@ describe("托管 Worker 账号交付", () => {
     const started = await startRuntime(env);
     // 配置地址只装配锚点；账号未授权时 Registry 仍关闭，不能用可执行投影验证配置。
     const provider = started.snapshot.config.zcodeBuiltinProviders.get(
-      "account:new-api-openai-chat-completions",
+      AISCOO_MODEL_PROVIDER_IDS["openai-chat-completions"],
     );
     if (enabled) {
       expect(provider?.api?.baseUrl).toBe("http://127.0.0.1:3001/v1");
@@ -134,7 +134,7 @@ describe("托管 Worker 账号交付", () => {
   it("Native 完整能力与 owner 同一快照应用，缺失能力或 current 时失败关闭", async () => {
     const origin = "http://127.0.0.1:3001";
     const started = await startRuntime({ AISCOO_ADMIN_BASE_URL: origin });
-    const providerId = "account:new-api-anthropic-messages";
+    const providerId = AISCOO_MODEL_PROVIDER_IDS["anthropic-messages"];
     const modelId = "native-model";
     const modelConfig = createTestProviderRegistry([{ providerId, modelId }])
       .getModel(providerId, modelId)!
