@@ -50,8 +50,10 @@ export function createAiscooProductCredentialStore(
       return loadCanonical(canonicalKey(key));
     },
     async loadMany(keys) {
-      // 整批预检在任何 backing IO 前完成，禁止混合批次先读取其他凭据。
-      const canonical = writableKeys(keys);
+      // 修复原因：旧实现遇到官方 key 就整批抛错，上游批量读取一旦混入官方 key（如并发写入使
+      // auth-source 变为 oauth），同批 Zen 与自配凭据会一起失效。读取改为与 load 一致：
+      // 先全部规范化（空 key 仍在任何 IO 前失败），官方 key 逐项返回 null 且不读 backing。
+      const canonical = keys.map(canonicalKey);
       return Object.fromEntries(
         await Promise.all(canonical.map(async (key) => [key, await loadCanonical(key)])),
       );
