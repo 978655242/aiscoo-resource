@@ -23,7 +23,7 @@ import { cn } from "@/components/lib/utils.js";
 import {
   BUILTIN_MODEL_PROVIDER_IDS,
   getModelProviderFamilySpec,
-  isNewApiModelProviderId,
+  isAiscooAdminModelProviderId,
   resolveModelProviderFamilySpecByProviderId,
   ZCODE_AGENT_PROVIDER,
   type ProviderFamilyConnectionSelection,
@@ -495,7 +495,7 @@ function V4ComposerModelControlsImpl({
   const nativeSource = useMemo(
     // XCODE: 全局登录不代表当前模型使用订阅；按 Composer 选择隔离，恢复 API Key 模型原有上下文 UI。
     () =>
-      isNewApiModelProviderId(effectiveConfig?.provider ?? "")
+      isAiscooAdminModelProviderId(effectiveConfig?.provider ?? "")
         ? buildNativeCodingPlanUsageSource(providerSettingsView, effectiveConfig?.provider)
         : null,
     [effectiveConfig?.provider, providerSettingsView],
@@ -953,7 +953,7 @@ function V4ComposerModelControlsImpl({
       modelGroupLabels,
     );
     if (groups.length === 0) return [];
-    // XCODE: 官方 New API 模型合并为「XWork Zen」一组；自配供应商保持上游每供应商一组。图标统一用后端同源的 @lobehub/icons。
+    // XCODE: 官方 Aiscoo 模型合并为「XWork Zen」一组；自配供应商保持上游每供应商一组。图标统一用后端同源的 @lobehub/icons。
     const providers = new Map(
       modelSelectionView.providers.map((provider) => [provider.providerId, provider]),
     );

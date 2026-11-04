@@ -1,7 +1,7 @@
 import { createElement, type ReactElement } from "react";
 import { useDraftComposerCentering } from "./useDraftComposerCentering.js";
 import "./brand.css";
-import { NEW_API_PROVIDER_ID } from "@zcode/shared";
+import { AISCOO_ADMIN_PROVIDER_ID } from "@zcode/shared";
 import { brandMessageCatalog, PRODUCT_NAME, PRODUCT_WORDMARK } from "@zcode/shared/aiscoo-brand";
 import { useZCodeIntl, ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import type {
@@ -249,16 +249,16 @@ function aiscooMessageCatalog(messages: Record<string, string>): Record<string, 
     catalog["login.description"] = "连接账号，开始使用";
   }
   // 产品主登录按钮不展示后端名称；其他供应商模板与身份保持不变。
-  if (messages["login.oauth.button.native"] === "登录 New API") {
+  if (messages["login.oauth.button.native"] === "登录 Aiscoo") {
     catalog["login.oauth.button.native"] = "登录";
-  } else if (messages["login.oauth.button.native"] === "Sign in to New API") {
+  } else if (messages["login.oauth.button.native"] === "Sign in to Aiscoo") {
     catalog["login.oauth.button.native"] = "Sign in";
   }
   // 产品只有 Aiscoo 账号：服务包装过滤后没有可用渠道即表示账号服务未配置，
   // 在产品词典里替换通用“无提供方”文案，上游登录页不需要感知产品策略。
   const unavailable = messages["aiscoo.login.configUnavailable"];
   if (unavailable) catalog["login.oauth.noProviders"] = unavailable;
-  // 缺模型时不应向用户暴露 New API 后端术语；只替换 Aiscoo 产品词典中的展示文案。
+  // 缺模型时不应向用户暴露 Aiscoo 后端术语；只替换 Aiscoo 产品词典中的展示文案。
   const noNativeModel = messages["aiscoo.chat.error.noNativeModel"];
   if (noNativeModel) catalog["chat.error.noNativeModel"] = noNativeModel;
   return catalog;
@@ -266,7 +266,7 @@ function aiscooMessageCatalog(messages: Record<string, string>): Record<string, 
 
 /** OAuth 身份继续由原服务拥有；这里只提供等待提示的静态品牌投影。 */
 export function resolveAiscooOAuthWaitingDisplayNames(): Readonly<Record<string, string>> {
-  return { [NEW_API_PROVIDER_ID]: PRODUCT_WORDMARK };
+  return { [AISCOO_ADMIN_PROVIDER_ID]: PRODUCT_WORDMARK };
 }
 
 /** 产品入口显式投影词典，原 Provider 仍拥有同一套语言偏好、广播与插值状态。 */

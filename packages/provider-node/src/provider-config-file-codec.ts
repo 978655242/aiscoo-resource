@@ -10,7 +10,7 @@ import {
 } from "@zcode/provider";
 
 // XCODE: 复用下游配置投影兼容精确旧身份，上游文件仍拥有 schema 与版本校验。
-import { normalizeAiscooProviderConfigLayer } from "./new-api-provider-anchors.js";
+import { normalizeAiscooProviderConfigLayer } from "./aiscoo-admin-provider-anchors.js";
 
 const CURRENT_SCHEMA_VERSION = 1 as const;
 

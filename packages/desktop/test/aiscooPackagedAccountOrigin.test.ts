@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { normalizeNewApiOrigin } from "@zcode/shared";
+import { normalizeAiscooAdminOrigin } from "@zcode/shared";
 import {
   AISCOO_ADMIN_BASE_URL_ENV,
   applyCompiledAiscooAccountOrigin,
@@ -127,11 +127,13 @@ describe("build-time validator stays identical to the runtime validator", () => 
   }
 
   it.each(matrix)("accepts and rejects %j exactly like the runtime validator", (raw) => {
-    expect(outcome(normalizeAiscooAccountOrigin)(raw)).toEqual(outcome(normalizeNewApiOrigin)(raw));
+    expect(outcome(normalizeAiscooAccountOrigin)(raw)).toEqual(
+      outcome(normalizeAiscooAdminOrigin)(raw),
+    );
   });
 
   it("covers both outcomes, so the matrix cannot pass vacuously", () => {
-    const results = matrix.map((raw) => outcome(normalizeNewApiOrigin)(raw).ok);
+    const results = matrix.map((raw) => outcome(normalizeAiscooAdminOrigin)(raw).ok);
     expect(results).toContain(true);
     expect(results).toContain(false);
   });
@@ -247,7 +249,7 @@ describe("the account origin includes its port", () => {
     expect(normalizeAiscooAccountOrigin("https://112.124.202.60:8443")).toBe(
       "https://112.124.202.60:8443",
     );
-    expect(normalizeNewApiOrigin("https://112.124.202.60:8443")).toBe(
+    expect(normalizeAiscooAdminOrigin("https://112.124.202.60:8443")).toBe(
       "https://112.124.202.60:8443",
     );
     expect(normalizeAiscooAccountOrigin("https://112.124.202.60:8443/")).toBe(

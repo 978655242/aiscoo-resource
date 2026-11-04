@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { NEW_API_PROVIDER_ID, resolveModelProviderFamilyIdByProviderId } from "@zcode/shared";
+import { AISCOO_ADMIN_PROVIDER_ID, resolveModelProviderFamilyIdByProviderId } from "@zcode/shared";
 import { useProviderSettingsView } from "@/hooks/useProviderSettingsView.js";
 import { useServices } from "@/hooks/useServices.js";
 import { type CodingPlanProviderId } from "@/settings/model-provider-section/constants.js";
@@ -165,7 +165,9 @@ export function CodingPlanUpgradeDialog(props: CodingPlanUpgradeDialogProps) {
       (providers) => {
         if (active)
           setMode(
-            providers.some((entry) => entry.id === NEW_API_PROVIDER_ID) ? "native" : "official",
+            providers.some((entry) => entry.id === AISCOO_ADMIN_PROVIDER_ID)
+              ? "native"
+              : "official",
           );
       },
       () => {

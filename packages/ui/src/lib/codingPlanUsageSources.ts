@@ -1,7 +1,7 @@
 import {
   BUILTIN_MODEL_PROVIDER_IDS,
-  NEW_API_MODEL_PROVIDER_IDS,
-  isNewApiModelProviderId,
+  AISCOO_ADMIN_MODEL_PROVIDER_IDS,
+  isAiscooAdminModelProviderId,
   getModelProviderFamilySpec,
   resolveModelProviderFamilySpecByProviderId,
   type ProviderFamilyConnectionSelectionSettings,
@@ -79,7 +79,7 @@ export function buildPersonalCodingPlanUsageSource({
     label:
       normalizedLabel ||
       (accountAccess.type === "new-api-account"
-        ? "New API"
+        ? "Aiscoo"
         : providerId === BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan
           ? "Z.ai - Coding Plan"
           : providerId === BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan
@@ -95,7 +95,7 @@ export function buildNativeCodingPlanUsageSource(
 ): CodingPlanUsageSource | null {
   // XCODE: 修复原因：曾固定读取 anthropic-messages，目录只投影 chat-completions 时额度面板整段消失；
   // 按当前所选 transport 优先，再回退其余 Native transport，三者共享同一账号权益。
-  const candidates = Object.values(NEW_API_MODEL_PROVIDER_IDS).sort(
+  const candidates = Object.values(AISCOO_ADMIN_MODEL_PROVIDER_IDS).sort(
     (a, b) => Number(b === preferredProviderId) - Number(a === preferredProviderId),
   );
   for (const providerId of candidates) {
@@ -106,7 +106,7 @@ export function buildNativeCodingPlanUsageSource(
       view?.providers.find((provider) => provider.providerId === providerId)?.accountState
         ?.connectionKey
     )
-      return { id: providerId, providerId, label: "New API", accountAccess: resolved.access };
+      return { id: providerId, providerId, label: "Aiscoo", accountAccess: resolved.access };
   }
   return null;
 }
@@ -296,7 +296,7 @@ function formatTeamUsageSourceLabel({
 }
 
 function formatCodingPlanProviderTabAriaLabel(providerId: string): string {
-  if (isNewApiModelProviderId(providerId)) return "New API";
+  if (isAiscooAdminModelProviderId(providerId)) return "Aiscoo";
   return providerId === BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan
     ? "Z.ai Coding Plan"
     : "BigModel Coding Plan";

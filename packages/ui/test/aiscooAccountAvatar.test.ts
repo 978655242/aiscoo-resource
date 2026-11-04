@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createElement, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { NEW_API_PROVIDER_ID } from "@zcode/shared";
+import { AISCOO_ADMIN_PROVIDER_ID } from "@zcode/shared";
 
 vi.mock("@/aiscoo/account-avatar/generator.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/aiscoo/account-avatar/generator.js")>();
@@ -70,9 +70,9 @@ describe("XWork account avatar rendering", () => {
     expect(screen.getByRole("img", { name: "Grace" }).tagName.toLowerCase()).toBe("img");
   });
 
-  it("injects the default avatar only after the root service confirms New API", async () => {
+  it("injects the default avatar only after the root service confirms Aiscoo", async () => {
     const user = Object.freeze({ id: "42", username: "ada", displayName: "Ada" });
-    const oauthService = makeOAuthService([NEW_API_PROVIDER_ID], NEW_API_PROVIDER_ID);
+    const oauthService = makeOAuthService([AISCOO_ADMIN_PROVIDER_ID], AISCOO_ADMIN_PROVIDER_ID);
     function Root(_props: { services: { oauthService: typeof oauthService } }) {
       return createElement("div", null, useProfileAvatarFallback(user, "A"));
     }
@@ -108,7 +108,7 @@ describe("XWork account avatar rendering", () => {
     const pending = new Promise<string | null>((resolve) => {
       resolveActive = resolve;
     });
-    const oauthService = makeOAuthService([NEW_API_PROVIDER_ID], NEW_API_PROVIDER_ID);
+    const oauthService = makeOAuthService([AISCOO_ADMIN_PROVIDER_ID], AISCOO_ADMIN_PROVIDER_ID);
     oauthService.getActiveProvider.mockImplementationOnce(() => pending);
     const user = { id: "42", username: "ada", displayName: "Ada" };
     function Root(_props: { services: { oauthService: typeof oauthService } }) {
@@ -117,10 +117,10 @@ describe("XWork account avatar rendering", () => {
     const WrappedRoot = createAiscooAccountAvatarRoot(Root);
     render(createElement(WrappedRoot, { services: { oauthService } }));
     await waitFor(() => expect(oauthService.getActiveProvider).toHaveBeenCalledTimes(1));
-    oauthService.getProviders.mockResolvedValue([{ id: NEW_API_PROVIDER_ID }, { id: "zai" }]);
+    oauthService.getProviders.mockResolvedValue([{ id: AISCOO_ADMIN_PROVIDER_ID }, { id: "zai" }]);
     await act(async () => {
       oauthService.emit("signed-out");
-      resolveActive(NEW_API_PROVIDER_ID);
+      resolveActive(AISCOO_ADMIN_PROVIDER_ID);
       await pending;
     });
     expect(oauthService.getProviders).toHaveBeenCalledTimes(1);
@@ -155,7 +155,7 @@ describe("XWork account avatar rendering", () => {
   });
 
   it("keeps the wrapped root mounted while the avatar projection changes", async () => {
-    const oauthService = makeOAuthService([NEW_API_PROVIDER_ID], NEW_API_PROVIDER_ID);
+    const oauthService = makeOAuthService([AISCOO_ADMIN_PROVIDER_ID], AISCOO_ADMIN_PROVIDER_ID);
     const user = { id: "42", username: "ada", displayName: "Ada" };
     function Root(_props: { services: { oauthService: typeof oauthService } }) {
       const [count, setCount] = useState(0);
@@ -176,8 +176,8 @@ describe("XWork account avatar rendering", () => {
     expect(screen.getByRole("button", { name: "1" })).toBeTruthy();
   });
 
-  it("drops confirmed New API presentation immediately on sign-out and restores it on sign-in", async () => {
-    const oauthService = makeOAuthService([NEW_API_PROVIDER_ID], NEW_API_PROVIDER_ID);
+  it("drops confirmed Aiscoo presentation immediately on sign-out and restores it on sign-in", async () => {
+    const oauthService = makeOAuthService([AISCOO_ADMIN_PROVIDER_ID], AISCOO_ADMIN_PROVIDER_ID);
     const user = { id: "42", username: "ada", displayName: "Ada" };
     function Root(_props: { services: { oauthService: typeof oauthService } }) {
       return createElement("div", null, useProfileAvatarFallback(user, "original fallback"));
@@ -188,13 +188,13 @@ describe("XWork account avatar rendering", () => {
     oauthService.getActiveProvider.mockResolvedValue(null);
     act(() => oauthService.emit("signed-out"));
     expect(screen.getByText("original fallback")).toBeTruthy();
-    oauthService.getActiveProvider.mockResolvedValue(NEW_API_PROVIDER_ID);
+    oauthService.getActiveProvider.mockResolvedValue(AISCOO_ADMIN_PROVIDER_ID);
     act(() => oauthService.emit("signed-in"));
     await waitFor(() => expect(screen.getByRole("img", { name: "Ada" })).toBeTruthy());
   });
 
   it("keeps the fallback when session events cannot be observed", async () => {
-    const oauthService = makeOAuthService([NEW_API_PROVIDER_ID], NEW_API_PROVIDER_ID);
+    const oauthService = makeOAuthService([AISCOO_ADMIN_PROVIDER_ID], AISCOO_ADMIN_PROVIDER_ID);
     oauthService.onDidChangeSession = () => {
       throw new Error("subscription unavailable");
     };
@@ -209,7 +209,7 @@ describe("XWork account avatar rendering", () => {
   });
 
   it("keeps the fallback on provider errors and replaces an old service projection", async () => {
-    const first = makeOAuthService([NEW_API_PROVIDER_ID], NEW_API_PROVIDER_ID);
+    const first = makeOAuthService([AISCOO_ADMIN_PROVIDER_ID], AISCOO_ADMIN_PROVIDER_ID);
     const second = makeOAuthService(["zai"], "zai");
     const user = { id: "42", username: "ada", displayName: "Ada" };
     function Root(_props: { services: { oauthService: typeof first } }) {
@@ -228,7 +228,7 @@ describe("XWork account avatar rendering", () => {
 
   it("keeps the fallback when the active provider read fails or reports no owner", async () => {
     for (const outcome of [new Error("active unavailable"), null] as const) {
-      const oauthService = makeOAuthService([NEW_API_PROVIDER_ID], NEW_API_PROVIDER_ID);
+      const oauthService = makeOAuthService([AISCOO_ADMIN_PROVIDER_ID], AISCOO_ADMIN_PROVIDER_ID);
       if (outcome instanceof Error) oauthService.getActiveProvider.mockRejectedValue(outcome);
       else oauthService.getActiveProvider.mockResolvedValue(outcome);
       const user = { id: "42", username: "ada", displayName: "Ada" };
@@ -250,7 +250,7 @@ describe("XWork account avatar rendering", () => {
     const oldRead = new Promise<string | null>((resolve) => {
       resolveOld = resolve;
     });
-    const oauthService = makeOAuthService([NEW_API_PROVIDER_ID], NEW_API_PROVIDER_ID);
+    const oauthService = makeOAuthService([AISCOO_ADMIN_PROVIDER_ID], AISCOO_ADMIN_PROVIDER_ID);
     oauthService.getActiveProvider.mockImplementationOnce(() => oldRead);
     const user = { id: "42", username: "ada", displayName: "Ada" };
     function Root(_props: { services: { oauthService: typeof oauthService } }) {
@@ -263,7 +263,7 @@ describe("XWork account avatar rendering", () => {
     act(() => oauthService.emit("signed-in"));
     await waitFor(() => expect(oauthService.getActiveProvider).toHaveBeenCalledTimes(2));
     await act(async () => {
-      resolveOld(NEW_API_PROVIDER_ID);
+      resolveOld(AISCOO_ADMIN_PROVIDER_ID);
       await oldRead;
     });
     expect(screen.getByText("original fallback")).toBeTruthy();
@@ -271,7 +271,7 @@ describe("XWork account avatar rendering", () => {
   });
 
   it("follows an account switch through sign-out and sign-in without showing the old projection", async () => {
-    const oauthService = makeOAuthService([NEW_API_PROVIDER_ID], NEW_API_PROVIDER_ID);
+    const oauthService = makeOAuthService([AISCOO_ADMIN_PROVIDER_ID], AISCOO_ADMIN_PROVIDER_ID);
     let currentUser = { id: "42", username: "ada", displayName: "Ada" };
     function Root(_props: { services: { oauthService: typeof oauthService } }) {
       return createElement("div", null, useProfileAvatarFallback(currentUser, "original fallback"));
@@ -302,7 +302,7 @@ describe("XWork account avatar rendering", () => {
     const pending = new Promise<string | null>((resolve) => {
       resolveActive = resolve;
     });
-    const oauthService = makeOAuthService([NEW_API_PROVIDER_ID], NEW_API_PROVIDER_ID);
+    const oauthService = makeOAuthService([AISCOO_ADMIN_PROVIDER_ID], AISCOO_ADMIN_PROVIDER_ID);
     oauthService.getActiveProvider.mockImplementationOnce(() => pending);
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const user = { id: "42", username: "ada", displayName: "Ada" };
@@ -314,7 +314,7 @@ describe("XWork account avatar rendering", () => {
     await waitFor(() => expect(oauthService.getActiveProvider).toHaveBeenCalledTimes(1));
     view.unmount();
     await act(async () => {
-      resolveActive(NEW_API_PROVIDER_ID);
+      resolveActive(AISCOO_ADMIN_PROVIDER_ID);
       await pending;
     });
     expect(error).not.toHaveBeenCalled();

@@ -1,6 +1,6 @@
 import type { ProviderSettingsView } from "@zcode/services";
 import {
-  isNewApiModelProviderId,
+  isAiscooAdminModelProviderId,
   type ZCodeAccountAccess,
   type ZCodeProviderAccountAccess,
 } from "@zcode/shared";
@@ -14,7 +14,7 @@ export function resolveUsageAccountScope(params: {
 }): { native: boolean; ownerKey: string } {
   const native =
     params.accountAccess?.type === "new-api-account" ||
-    isNewApiModelProviderId(params.providerId ?? "");
+    isAiscooAdminModelProviderId(params.providerId ?? "");
   if (!native) return { native: false, ownerKey: "" };
   const connectionKey = params.view?.providers.find(
     (provider) => provider.providerId === params.providerId,

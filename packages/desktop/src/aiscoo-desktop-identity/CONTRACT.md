@@ -29,7 +29,7 @@ Host 的 `host-aiscoo-data-directory` 纯适配从已装配的 `ZCODE_STORAGE_DI
 
 正式包不继承构建 shell 的环境，也不读取开发 `.env`，所以公开账号源由构建期编译常量 `__AISCOO_ADMIN_BASE_URL__` 携带。规则见 [Aiscoo 唯一账号登录](../../../../docs/aiscoo/specs/aiscoo-only-login.md) 的“正式安装包的账号源”。
 
-- `resolvePackagedAiscooAccountOrigin` 只在编译了 Aiscoo 渠道且常量非空时返回值，并用 `normalizeNewApiOrigin` 复核；未编译的上游构建返回 `undefined`，行为不变。
+- `resolvePackagedAiscooAccountOrigin` 只在编译了 Aiscoo 渠道且常量非空时返回值，并用 `normalizeAiscooAdminOrigin` 复核；未编译的上游构建返回 `undefined`，行为不变。
 - `applyPackagedAiscooAccountOrigin` 仅在 `app.isPackaged` 时把该值写入 `process.env.AISCOO_ADMIN_BASE_URL`，覆盖继承值；开发运行不覆盖。它不拥有账号状态，Main、Host、scheduler 与 Agent 继续经现有环境继承读取同一值。
 - 不记录实际地址到日志。编译值在运行时复核失败（构建门禁理论上已拦截）时失败关闭：清除继承到的值，由现有账号策略显示稳定的“配置不可用”，不在启动最早期抛错，也不回退到用户环境里的值。
 - 调用点只有一处：`main/desktopEarlyDataBaseDirBootstrap.ts` 既有的早期 bootstrap，位于 `main/index.ts` 的最早导入序列，早于 Main、Host 与 scheduler 的任何账号源读取。

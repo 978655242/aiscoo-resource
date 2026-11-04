@@ -7,7 +7,7 @@ import {
   type IChannel,
   type IChannelClient,
 } from "@zcode/rpc";
-import type { NewApiOwner, OAuthSessionState } from "@zcode/shared";
+import type { AiscooAdminOwner, OAuthSessionState } from "@zcode/shared";
 import {
   BROWSER_ACCOUNT_CHANNEL,
   createBrowserAccountBridge,
@@ -17,9 +17,9 @@ import {
 } from "../src/aiscoo-browser-account/index.js";
 
 const origin = "https://account.example.test";
-const owner: NewApiOwner = { origin, userId: "1", sid: "session-a", authGeneration: 1 };
-const nextOwner: NewApiOwner = { ...owner, userId: "2", sid: "session-b", authGeneration: 2 };
-const restoreResult = (account: NewApiOwner | null = owner): BrowserAccountRestoreResult => ({
+const owner: AiscooAdminOwner = { origin, userId: "1", sid: "session-a", authGeneration: 1 };
+const nextOwner: AiscooAdminOwner = { ...owner, userId: "2", sid: "session-b", authGeneration: 2 };
+const restoreResult = (account: AiscooAdminOwner | null = owner): BrowserAccountRestoreResult => ({
   owner: account,
   session: account
     ? {
@@ -36,7 +36,7 @@ afterEach(() =>
     .forEach((dispose) => dispose()),
 );
 
-function peer(account: NewApiOwner | null = owner) {
+function peer(account: AiscooAdminOwner | null = owner) {
   const events = new Emitter<BrowserAccountSessionEvent>();
   const call = vi.fn(async (command: string, _arg?: unknown): Promise<unknown> => {
     switch (command) {
@@ -68,7 +68,10 @@ function peer(account: NewApiOwner | null = owner) {
   cleanups.push(() => events.dispose());
   return { client, channel, events, call };
 }
-function fixture(options: BrowserAccountBridgeOptions = {}, account: NewApiOwner | null = owner) {
+function fixture(
+  options: BrowserAccountBridgeOptions = {},
+  account: AiscooAdminOwner | null = owner,
+) {
   const bridge = createBrowserAccountBridge(origin, options);
   const browser = peer(account);
   cleanups.push(() => bridge.dispose());
@@ -731,7 +734,7 @@ describe("browser account reverse bridge", () => {
   );
 
   it("fails closed when an admitted source's replacement owner hook rejects", async () => {
-    const hook = vi.fn((account: NewApiOwner | null) => {
+    const hook = vi.fn((account: AiscooAdminOwner | null) => {
       if (account?.sid === nextOwner.sid)
         throw Object.assign(new Error("hook secret"), { code: "XCODE_BACKEND_UNAVAILABLE" });
     });
@@ -761,7 +764,7 @@ describe("browser account reverse bridge", () => {
       const nullEntered = Promise.withResolvers<void>();
       const nextHook = Promise.withResolvers<void>();
       const nextEntered = Promise.withResolvers<void>();
-      const hook = vi.fn((account: NewApiOwner | null) => {
+      const hook = vi.fn((account: AiscooAdminOwner | null) => {
         if (account === null) {
           nullEntered.resolve();
           return nullHook.promise;
@@ -818,7 +821,7 @@ describe("browser account reverse bridge", () => {
         return { owner: nextOwner, accessToken: "accepted-o2-control" };
       });
       await expect(attachment.oauth.getActiveProvider()).resolves.toBe("new-api");
-      const action = vi.fn(async (token: string, captured: NewApiOwner) => {
+      const action = vi.fn(async (token: string, captured: AiscooAdminOwner) => {
         expect(captured).toEqual(nextOwner);
         return token;
       });
@@ -837,7 +840,7 @@ describe("browser account reverse bridge", () => {
 
   it("invalidates an old read before the async owner hook completes", async () => {
     const accepted = Promise.withResolvers<void>();
-    const hook = vi.fn((account: NewApiOwner | null) =>
+    const hook = vi.fn((account: AiscooAdminOwner | null) =>
       account?.sid === nextOwner.sid ? accepted.promise : undefined,
     );
     const { bridge, authority, browser } = fixture({ onOwnerChanged: hook });
@@ -1044,7 +1047,7 @@ describe("browser account reverse bridge", () => {
       const accepted = Promise.withResolvers<void>();
       const notified = Promise.withResolvers<void>();
       const entered = Promise.withResolvers<void>();
-      const hook = vi.fn((account: NewApiOwner | null) =>
+      const hook = vi.fn((account: AiscooAdminOwner | null) =>
         account === null ? accepted.promise : undefined,
       );
       const { bridge, authority, browser } = fixture({ onOwnerChanged: hook });

@@ -1,4 +1,4 @@
-import { normalizeNewApiOrigin } from "@zcode/shared/new-api";
+import { normalizeAiscooAdminOrigin } from "@zcode/shared/aiscoo-admin";
 import type { AiscooUpdateEndpointRuntime } from "./contract.js";
 
 /**
@@ -17,7 +17,7 @@ export function resolveAiscooUpdateEndpointOrigin(
   const raw = runtime.accountOrigin?.trim();
   if (!raw) return null;
   try {
-    return normalizeNewApiOrigin(raw);
+    return normalizeAiscooAdminOrigin(raw);
   } catch {
     return null;
   }

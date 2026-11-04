@@ -8,7 +8,7 @@ export const AISCOO_MODEL_PROVIDER_IDS = {
   "openai-responses": "account:aiscoo-openai-responses",
 } as const;
 
-export const NEW_API_MODEL_PROVIDER_IDS = AISCOO_MODEL_PROVIDER_IDS;
+export const AISCOO_ADMIN_MODEL_PROVIDER_IDS = AISCOO_MODEL_PROVIDER_IDS;
 
 /** 只迁移已发布的三个精确身份，不猜测自配 Provider、模型或协议。 */
 export function normalizeAiscooModelProviderId(providerId: string): string {
@@ -87,11 +87,11 @@ export function normalizeAiscooStoredModelReferences<
     : value;
 }
 
-export function isNewApiModelProviderId(id: string): boolean {
-  return Object.values(NEW_API_MODEL_PROVIDER_IDS).some((value) => value === id);
+export function isAiscooAdminModelProviderId(id: string): boolean {
+  return Object.values(AISCOO_ADMIN_MODEL_PROVIDER_IDS).some((value) => value === id);
 }
 
-export const newApiCatalogIssueSchema = z
+export const aiscooAdminCatalogIssueSchema = z
   .object({
     source: z.literal("new-api"),
     modelId: z.string().min(1),
@@ -99,9 +99,9 @@ export const newApiCatalogIssueSchema = z
     code: z.string().min(1),
   })
   .strict();
-export type NewApiCatalogIssue = z.infer<typeof newApiCatalogIssueSchema>;
+export type AiscooAdminCatalogIssue = z.infer<typeof aiscooAdminCatalogIssueSchema>;
 
-export const newApiRegistryOwnerSchema = z
+export const aiscooAdminRegistryOwnerSchema = z
   .object({
     origin: z.string().url(),
     userId: z.string().regex(/^[1-9]\d*$/),

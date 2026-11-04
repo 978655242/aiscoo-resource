@@ -13,7 +13,7 @@ import {
 } from "./zcode-builtin-release.js";
 
 // XCODE: 只规范化已选 Release 的对外投影，原文版本与内容冲突判定保持不变。
-import { normalizeAiscooProviderConfigLayer } from "./new-api-provider-anchors.js";
+import { normalizeAiscooProviderConfigLayer } from "./aiscoo-admin-provider-anchors.js";
 
 export interface NodeZCodeBuiltinProviderConfigSourceOptions {
   readonly bundledFilePath: string;

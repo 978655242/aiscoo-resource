@@ -17,11 +17,11 @@ import {
   NodePersonalProviderConfigRepository,
   type PersonalProviderConfigRecoveryEvent,
 } from "./personal-provider-config-repository.js";
-import { createNewApiProviderAnchors } from "./new-api-provider-anchors.js";
+import { createAiscooAdminProviderAnchors } from "./aiscoo-admin-provider-anchors.js";
 
 export interface NodeProviderConfigRuntimeOptions {
   readonly zcodeBuiltinFilePath: string;
-  readonly newApiOrigin?: string;
+  readonly aiscooAdminOrigin?: string;
   readonly zcodeBuiltinActiveFilePath?: string;
   readonly zcodeBuiltinRemote?: Omit<ZCodeBuiltinRemoteSynchronizerOptions, "source">;
   readonly zcodeBuiltinEnvironment?: Omit<
@@ -86,8 +86,8 @@ export class NodeProviderConfigRuntime {
         : {}),
     });
     const builtinSource = this.#zcodeBuiltinSource;
-    const anchors = options.newApiOrigin
-      ? createNewApiProviderAnchors(options.newApiOrigin)
+    const anchors = options.aiscooAdminOrigin
+      ? createAiscooAdminProviderAnchors(options.aiscooAdminOrigin)
       : undefined;
     this.configService = new ProviderConfigService({
       zcodeBuiltinSource: anchors
@@ -96,7 +96,7 @@ export class NodeProviderConfigRuntime {
               const snapshot = await builtinSource.read();
               return {
                 ...snapshot,
-                revision: `${snapshot.revision}:native:${options.newApiOrigin}`,
+                revision: `${snapshot.revision}:native:${options.aiscooAdminOrigin}`,
                 providers: snapshot.providers.overlay(anchors),
               };
             },

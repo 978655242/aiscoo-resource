@@ -6,7 +6,7 @@
 
 - 合成 HOME 位于 `packages/desktop/.e2e-home-aiscoo-storage-*`，渠道默认根是其下的 `channel/`，保证与 HOME 不同。
 - 不设置 `ZCODE_STORAGE_DIR`、`ZCODE_SESSION_DB_PATH`、`ZCODE_LOG_DIR` 或设置文件覆盖，避免测试固定 CLI 路径而掩盖漂移。
-- 账号由本地 HTTP 合成 fixture 提供，经真实 `NewApiSessionRepo` 写入加密缓存；Host 冷启动时仍真实校验 Me。模型请求只用 `common.json` 与本例回放，禁止 capture。
+- 账号由本地 HTTP 合成 fixture 提供，经真实 `AiscooAdminSessionRepo` 写入加密缓存；Host 冷启动时仍真实校验 Me。模型请求只用 `common.json` 与本例回放，禁止 capture。
 - 只在 idle 时保存目录，并立即完整退出 Electron、Host 与 Agent。完整重启复用 `restartIntoWorkspacePreservingProfile`；runner 确认进程树退出后才清理合成 HOME，失败时保留现场。
 
 ## 复跑

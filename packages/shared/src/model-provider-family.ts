@@ -1,7 +1,7 @@
 import { BIGMODEL_PROVIDER_ID, type OAuthProviderId, ZAI_PROVIDER_ID } from "./oauth.js";
 import {
   BUILTIN_MODEL_PROVIDER_IDS,
-  isNewApiModelProviderId,
+  isAiscooAdminModelProviderId,
   type BuiltinModelProviderId,
 } from "./model-provider-types.js";
 import { ZCODE_ENV } from "./env.js";
@@ -108,7 +108,7 @@ export function resolveModelProviderFamilySpecByProviderId(
 }
 
 export function resolveModelProviderFamilyLabelByProviderId(providerId: string): string | null {
-  if (isNewApiModelProviderId(providerId)) return "New API";
+  if (isAiscooAdminModelProviderId(providerId)) return "Aiscoo";
   return resolveModelProviderFamilySpecByProviderId(providerId)?.label ?? null;
 }
 

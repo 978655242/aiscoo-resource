@@ -24,7 +24,7 @@ import { auxiliaryModelOptions } from "../../model/auxiliary-model-options.js";
 import { INPUT_PREDICTION_QUERY_SOURCE } from "./input-prediction-sidecar.js";
 
 const WORKSPACE_GENERATE_TEXT_TIMEOUT_MS = 60_000;
-// 修复：New API 原生 Claude 渠道强制 max_tokens ∈ [1024, 128000]（"Token counts are
+// 修复：Aiscoo 原生 Claude 渠道强制 max_tokens ∈ [1024, 128000]（"Token counts are
 // never clamped."），固定 1/512 都会被 400 拒绝；统一 1,024 并按模型公开上限钳制，
 // 不做渠道特判、失败也不动态加价（Todo159 2026-10-19 修订）。
 const CONNECTIVITY_PROBE_MAX_OUTPUT_TOKENS = 1_024;

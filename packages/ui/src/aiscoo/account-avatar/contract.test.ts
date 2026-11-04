@@ -10,7 +10,7 @@ function svgFor(userId: string) {
 }
 
 describe("XWork default account avatar", () => {
-  it("matches the new-api ID 42 SVG golden without network or identity metadata", () => {
+  it("matches the aiscoo-admin ID 42 SVG golden without network or identity metadata", () => {
     const svg = svgFor("42");
     expect(createHash("sha256").update(svg).digest("hex")).toBe(
       "f0d93b3eb893342c11ba3dfd82ac35b8e525bd4658437d8be1bd4ef1f3d91892",
@@ -33,7 +33,7 @@ describe("XWork default account avatar", () => {
     expect(renamed).toContain('alt="Renamed"');
   });
 
-  it("rejects non-New API identities and uses a neutral fallback for no identity", () => {
+  it("rejects non-Aiscoo identities and uses a neutral fallback for no identity", () => {
     const markup = renderToStaticMarkup(
       createElement(AiscooAccountAvatar, { userId: '<script>alert("x")</script>', label: "User" }),
     );

@@ -3,7 +3,7 @@ import { modelConfigDataSchema } from "@zcode/shared/model-config";
 import {
   providerConfigDataSchema,
   zhipuAccountAccessDataSchema,
-  newApiAccountAccessDataSchema,
+  aiscooAdminAccountAccessDataSchema,
 } from "./provider-data-schema.js";
 import { ModelConfig, ModelConfigRules } from "./model-config.js";
 import {
@@ -14,7 +14,7 @@ import {
   ProviderTemplate,
   ProviderTemplateMap,
   ZhipuAccountAccessConfig,
-  NewApiAccountAccessConfig,
+  AiscooAdminAccountAccessConfig,
 } from "./provider-config.js";
 import {
   builtinModelConfigRulesSchema,
@@ -34,7 +34,7 @@ const accountProviderConfigSchema = providerConfigDataSchema
     access: z
       .union([
         zhipuAccountAccessDataSchema.pick({ type: true, entitled: true }),
-        newApiAccountAccessDataSchema,
+        aiscooAdminAccountAccessDataSchema,
       ])
       .nullable()
       .optional(),
@@ -160,7 +160,7 @@ function createProviderConfig(config: z.infer<typeof providerConfigDataSchema>):
       config.access == null
         ? config.access
         : config.access.type === "new-api-account"
-          ? new NewApiAccountAccessConfig(config.access)
+          ? new AiscooAdminAccountAccessConfig(config.access)
           : config.access.type === "zhipu-account"
             ? new ZhipuAccountAccessConfig(config.access)
             : new ApiKeyAccessConfig(config.access),

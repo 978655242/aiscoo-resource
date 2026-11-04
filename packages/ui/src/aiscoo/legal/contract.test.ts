@@ -56,7 +56,7 @@ const legalLinks = {
 };
 const native: OAuthProviderMeta = {
   id: "new-api",
-  displayName: "New API",
+  displayName: "Aiscoo",
   enabled: true,
   order: 0,
   legalLinks,

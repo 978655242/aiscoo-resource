@@ -1,4 +1,4 @@
-import { normalizeNewApiOrigin } from "@zcode/shared";
+import { normalizeAiscooAdminOrigin } from "@zcode/shared";
 import { prepareCliProviderRuntimeEnv } from "../provider-runtime-env.js";
 import { parseGlobalArgs, isProtocolServerInvocation } from "../arguments.js";
 import { resolveCliCwd } from "../cwd.js";
@@ -30,7 +30,7 @@ export function prepareAiscooProviderRuntimeEnv(
         }
       }
       try {
-        return normalizeNewApiOrigin(options.env.AISCOO_ADMIN_BASE_URL?.trim() ?? "");
+        return normalizeAiscooAdminOrigin(options.env.AISCOO_ADMIN_BASE_URL?.trim() ?? "");
       } catch {
         return null;
       }

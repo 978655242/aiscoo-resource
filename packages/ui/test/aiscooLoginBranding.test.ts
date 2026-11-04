@@ -17,7 +17,7 @@ import { WelcomeScreen } from "@/WelcomeScreen.js";
 const oauthState = vi.hoisted(() => ({
   status: "idle" as "idle" | "waiting" | "error",
   providers: [
-    { id: "new-api", displayName: "New API", enabled: true, order: 0 },
+    { id: "new-api", displayName: "Aiscoo", enabled: true, order: 0 },
   ] as OAuthProviderMeta[],
   startLogin: vi.fn(),
   cancel: vi.fn(),
@@ -69,7 +69,7 @@ afterEach(() => {
   oauthState.status = "idle";
   oauthState.authorizeUrl = null;
   oauthState.pendingProvider = "new-api";
-  oauthState.providers = [{ id: "new-api", displayName: "New API", enabled: true, order: 0 }];
+  oauthState.providers = [{ id: "new-api", displayName: "Aiscoo", enabled: true, order: 0 }];
   oauthState.startLogin.mockClear();
   oauthState.cancel.mockClear();
 });
@@ -114,7 +114,7 @@ describe("Aiscoo 登录页完整字标", () => {
         children: createElement(WelcomeScreen, { onComplete: vi.fn() }),
       }),
     );
-    expect(screen.getByText("等待 New API 完成认证...")).toBeTruthy();
+    expect(screen.getByText("等待 Aiscoo 完成认证...")).toBeTruthy();
   });
 
   it("品牌映射不覆盖其他提供方的名称", () => {
@@ -163,15 +163,16 @@ describe("Aiscoo 登录页完整字标", () => {
         }),
       );
       expect(screen.queryByText(apiKey)).toBeNull();
-      expect(screen.queryByText(/New API/u)).toBeNull();
+      // 登录按钮只显示“登录/Sign in”；后端名称 aiscoo-admin 不应出现在页面上。
+      expect(screen.queryByText(/aiscoo-admin/iu)).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: login }));
       expect(oauthState.startLogin).toHaveBeenCalledExactlyOnceWith("new-api", undefined);
     },
   );
 
   it.each([
-    ["zh-CN", "登录 New API", "使用 API key"],
-    ["en-US", "Sign in to New API", "Use API key"],
+    ["zh-CN", "登录 Aiscoo", "使用 API key"],
+    ["en-US", "Sign in to Aiscoo", "Use API key"],
   ] as const)("%s 默认欢迎页保留原文案和可打开的 API key 表单", (locale, login, apiKey) => {
     render(
       createElement(ZCodeIntlProvider, {

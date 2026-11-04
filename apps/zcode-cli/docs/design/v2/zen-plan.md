@@ -11,9 +11,9 @@
 ## 实现前源码事实
 
 - CLI `login-command.ts` 仅接受 zai/bigmodel，TUI `command-center/login-flow.ts` 仅有官方 OAuth/API Key 选项。
-- `process-provider-registry-runtime.ts` 的 standalone account source 仍读取官方凭据；托管 Worker 已支持 New API Account overlay，不等于独立 CLI 已支持登录。
-- 桌面 `NewApiAccountService` 使用窗口 Host owner；2026-11-01 起它与上游一致使用上游 cipher 加密，不再经 Main 提供安全密钥或 Electron safeStorage（见 [客户端集成规格 §4.2](../../../../../docs/aiscoo/specs/new-api-integration.md)）。CLI 的 Zen 凭据仍使用下文的系统钥匙串条目，与桌面互相独立。
-- New API canonical spec `docs/specs/xcode-integration.md` §4.2/§6 目前只允许 `xcode-desktop` 与精确 `zcode://oauth/callback`，且明确不提供 CLI polling。必须先扩展后端契约，不能把动态回调直接塞入现有客户端。
+- `process-provider-registry-runtime.ts` 的 standalone account source 仍读取官方凭据；托管 Worker 已支持 aiscoo-admin Account overlay，不等于独立 CLI 已支持登录。
+- 桌面 `AiscooAdminAccountService` 使用窗口 Host owner；2026-11-01 起它与上游一致使用上游 cipher 加密，不再经 Main 提供安全密钥或 Electron safeStorage（见 [客户端集成规格 §4.2](../../../../../docs/aiscoo/specs/aiscoo-admin-integration.md)）。CLI 的 Zen 凭据仍使用下文的系统钥匙串条目，与桌面互相独立。
+- aiscoo-admin canonical spec `docs/specs/xcode-integration.md` §4.2/§6 目前只允许 `xcode-desktop` 与精确 `zcode://oauth/callback`，且明确不提供 CLI polling。必须先扩展后端契约，不能把动态回调直接塞入现有客户端。
 
 ## 产品规则
 
@@ -36,7 +36,7 @@
 - callback adapter 仅接受精确 path、一次 code/state、匹配的高熵 state；忽略或拒绝无关探测，不提前消费 pending。返回浏览器的成功页不含 token/code/state。
 - 服务端成功兑换后本机 commit 失败或登录已取消，尽力撤销该次签发的精确 SID，并报告补偿结果。
 
-跨仓库 HTTP 变更必须写入 New API canonical spec 并由后端实现验证。本文件不另造第二套 SessionBundle/金额/模型 schema。未实现后端支持前，此功能不能验收为完成。
+跨仓库 HTTP 变更必须写入 aiscoo-admin canonical spec 并由后端实现验证。本文件不另造第二套 SessionBundle/金额/模型 schema。未实现后端支持前，此功能不能验收为完成。
 
 ## 所有者、存储与边界
 
@@ -57,7 +57,7 @@ sequenceDiagram
   participant T as CLI/TUI
   participant A as Zen account owner
   participant L as Loopback callback adapter
-  participant B as Browser / New API
+  participant B as Browser / aiscoo-admin
   participant K as OS credential store
   participant R as Account Registry
   T->>A: login zen
@@ -74,7 +74,7 @@ sequenceDiagram
   R-->>T: 真实可选模型与不可用原因
 ```
 
-请求期 relay credential 从当前 owner resolver 获取，复用现有 New API 请求头和模型能力映射。每次异步返回核对 generation、origin、userId、SID；旧账号结果不得写入新账号。重连、刷新不建立第二套模型配置缓存。显式撤销或换号先失效 owner 与执行授权，再发布变化；正常 refresh 不模拟退出/登录。
+请求期 relay credential 从当前 owner resolver 获取，复用现有 aiscoo-admin 请求头和模型能力映射。每次异步返回核对 generation、origin、userId、SID；旧账号结果不得写入新账号。重连、刷新不建立第二套模型配置缓存。显式撤销或换号先失效 owner 与执行授权，再发布变化；正常 refresh 不模拟退出/登录。
 
 ## 验收场景
 
@@ -104,7 +104,7 @@ sequenceDiagram
 
 ### 完整 E2E 套件（2026-10-21，`apps/zcode-cli/e2e/zen-plan`）
 
-可重复执行的 17 个用例，覆盖矩阵见该目录 README。真实 Go New API（隔离）+ Chrome 原生页面 + CLI 构建产物 + node-pty/xterm 仿真 TUI + 合成上游。最终连续 3 次完整运行均 17/17 通过，无残留进程、隔离目录或仓库文件改动。完整测试新发现并修复：
+可重复执行的 17 个用例，覆盖矩阵见该目录 README。真实 Go aiscoo-admin（隔离）+ Chrome 原生页面 + CLI 构建产物 + node-pty/xterm 仿真 TUI + 合成上游。最终连续 3 次完整运行均 17/17 通过，无残留进程、隔离目录或仓库文件改动。完整测试新发现并修复：
 
 - TUI 首项 Zen 缺少 pending 定义，浏览器授权期间无法 Esc 取消；补 pending 文案与等待态（CLI 单测 RED→GREEN）。
 - 顶层 `login zen` 不处理 SIGINT；服务端已签发 SID 后 Ctrl+C 直接终止进程，补偿撤销不执行。现将信号转为 abort 并等待补偿后以 130 退出（CLI 单测 RED→GREEN）。

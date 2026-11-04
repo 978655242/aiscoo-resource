@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { NewApiCatalogIssue, NewApiEntitlements } from "@zcode/shared";
+import type { AiscooAdminCatalogIssue, AiscooAdminEntitlements } from "@zcode/shared";
 import { ModelRowIdentity } from "./ProviderFormControls.js";
 import { InfoIcon, Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
@@ -41,7 +41,7 @@ export function NativePlanProviderDetail({
   provider: ProviderSettingsFormProvider;
   read: NativePlanSettingsRead;
   onOpenPlans: () => void;
-  catalogIssues?: readonly NewApiCatalogIssue[];
+  catalogIssues?: readonly AiscooAdminCatalogIssue[];
   children?: (
     modelsVisible: boolean,
     modelListFooter: ReactNode,
@@ -207,7 +207,7 @@ export function NativePlanStatusCard({
   usageContent,
 }: {
   planTitle?: string | null;
-  authorizationStatus?: NewApiEntitlements["status"];
+  authorizationStatus?: AiscooAdminEntitlements["status"];
   expiresAt?: string | number | null;
   connected?: boolean;
   loading?: boolean;

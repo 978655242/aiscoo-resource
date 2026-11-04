@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { Emitter } from "@zcode/rpc";
 import {
   officialCloudFamilySchema,
-  type NewApiOwner,
+  type AiscooAdminOwner,
   type OfficialCloudFamily,
   type OfficialCloudConnectionSnapshot,
   resolveJwtExpiration,
@@ -35,7 +35,7 @@ import {
 
 export interface OfficialCloudCredentialSnapshot
   extends OfficialCloudLoginCredentials, OfficialCloudMaterial {
-  owner: NewApiOwner;
+  owner: AiscooAdminOwner;
   ownerEpoch: number;
   connectionKey: string;
   credentialGeneration: string;
@@ -63,7 +63,7 @@ export function officialCloudInvocationScope(credentials: OfficialCloudCredentia
 }
 export interface OfficialCloudConnectionHost {
   service: IOfficialCloudConnectionService;
-  onPrimaryOwnerChanged(nextOwner?: NewApiOwner | null): void;
+  onPrimaryOwnerChanged(nextOwner?: AiscooAdminOwner | null): void;
   resolveCredentials(): Promise<OfficialCloudCredentialSnapshot | null>;
   resolveCodingPlanMaterial(
     credentials: OfficialCloudCredentialSnapshot,
@@ -81,7 +81,7 @@ export interface OfficialCloudConnectionHost {
   captureOwnerFence(): { isCurrent(): boolean };
 }
 interface Dependencies {
-  account: { getOwner(): NewApiOwner | null; isCurrent(owner: NewApiOwner): boolean };
+  account: { getOwner(): AiscooAdminOwner | null; isCurrent(owner: AiscooAdminOwner): boolean };
   apiClient?: ApiClient;
   adapters?: readonly OAuthProviderAdapter[];
   store?: HostCredentialStoreDependencies;
@@ -113,17 +113,17 @@ export function createOfficialCloudConnectionHost(
   let epoch = 0;
   let credentialLifetime = 0;
   const changes = new Emitter<void>();
-  let primaryTransitionOwner: NewApiOwner | null | undefined;
+  let primaryTransitionOwner: AiscooAdminOwner | null | undefined;
   const blockedOwners = new Set<string>();
   let pending: {
     purpose: "official-cloud";
-    owner: NewApiOwner;
+    owner: AiscooAdminOwner;
     epoch: number;
     state: string;
     family: OfficialCloudFamily;
     expiresAt: number;
   } | null = null;
-  const current = (owner: NewApiOwner, capturedEpoch = epoch) =>
+  const current = (owner: AiscooAdminOwner, capturedEpoch = epoch) =>
     capturedEpoch === epoch &&
     dependencies.account.isCurrent(owner) &&
     (primaryTransitionOwner === undefined ||
@@ -135,7 +135,7 @@ export function createOfficialCloudConnectionHost(
       credentialLifetime++;
     },
   );
-  const pendingFamily = (owner: NewApiOwner) =>
+  const pendingFamily = (owner: AiscooAdminOwner) =>
     pending &&
     pending.expiresAt > now() &&
     current(pending.owner, pending.epoch) &&

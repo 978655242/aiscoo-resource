@@ -41,7 +41,7 @@ const enUS: Record<string, string> = {
   "settings.usage.nativePeriod.weekly": "Weekly",
   "settings.usage.nativePeriod.monthly": "Monthly",
   "settings.usage.nativePeriod.custom": "Custom period",
-  "login.oauth.button.native": "Sign in to New API",
+  "login.oauth.button.native": "Sign in to Aiscoo",
   "settings.modelProvider.native.planTitle": "Subscription · read only",
   "settings.modelProvider.native.manualGrant":
     "Plans and quota are assigned by your administrator. This page cannot purchase or change a subscription.",
@@ -50,12 +50,12 @@ const enUS: Record<string, string> = {
   "settings.modelProvider.native.catalogIssue":
     "Not selectable — {reason}. Ask your administrator to correct the model metadata.",
   "chat.error.noNativeModel":
-    "No New API model is available. Ask your administrator to check the assigned subscription and model access, or configure a custom model.",
+    "No Aiscoo model is available. Ask your administrator to check the assigned subscription and model access, or configure a custom model.",
   "settings.usage.native.currentPeriod": "Current subscription period",
   "settings.usage.native.planLimits": "Plan limits",
   "settings.usage.native.remaining": "{percentage} remaining",
   "settings.usage.native.resetsAt": "Resets {time}",
-  "settings.usage.nativeLoadingDescription": "Reading recorded usage for the New API account.",
+  "settings.usage.nativeLoadingDescription": "Reading recorded usage for the Aiscoo account.",
   "settings.usage.nativeStartDate": "Start date",
   "settings.usage.nativeEndDate": "End date",
   "settings.usage.nativeAdminReset":

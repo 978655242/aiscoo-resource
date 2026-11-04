@@ -54,7 +54,7 @@ const catalog: ModelSelectionView = {
         },
         api: {
           type: "openai-chat-completions",
-          baseUrl: "https://new-api.example.com/v1",
+          baseUrl: "https://aiscoo-admin.example.com/v1",
         },
       },
       models: [

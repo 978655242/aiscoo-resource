@@ -7,24 +7,24 @@ import {
   ProviderTemplateMap,
   type ProviderConfigSnapshot,
 } from "../../provider/src/index.js";
-import { createNewApiProviderAnchors } from "../../provider-node/src/new-api-provider-anchors.js";
+import { createAiscooAdminProviderAnchors } from "../../provider-node/src/aiscoo-admin-provider-anchors.js";
 import { ChannelClient, ChannelServer, createQueuePair, Emitter, Event } from "@zcode/rpc";
-import type { NewApiOwner } from "@zcode/shared";
-import { createNewApiAccountProviderResolver } from "../../services/src/new-api/newApiAccountProviderResolution.js";
-import { createNewApiAccountRequestAuthResolver } from "../../services/src/model-provider/accountProviderRequestAuthService.js";
+import type { AiscooAdminOwner } from "@zcode/shared";
+import { createAiscooAdminAccountProviderResolver } from "../../services/src/aiscoo-admin/aiscooAdminAccountProviderResolution.js";
+import { createAiscooAdminAccountRequestAuthResolver } from "../../services/src/model-provider/accountProviderRequestAuthService.js";
 import {
   catalog,
   entitlements,
   builtinModelRules,
   owner as fixtureOwner,
-} from "../../services/test/newApiRegistryFixtures.js";
+} from "../../services/test/aiscooAdminRegistryFixtures.js";
 import {
   BROWSER_ACCOUNT_CHANNEL,
   createBrowserAccountBridge,
   type BrowserAccountSessionEvent,
 } from "../src/aiscoo-browser-account/index.js";
 
-const owner: NewApiOwner = { ...fixtureOwner, origin: "https://browser-account.example.test" };
+const owner: AiscooAdminOwner = { ...fixtureOwner, origin: "https://browser-account.example.test" };
 const providerId = "account:aiscoo-openai-chat-completions";
 const browserCatalog = {
   ...catalog,
@@ -40,7 +40,7 @@ afterEach(() => {
   for (const dispose of cleanups.splice(0).reverse()) dispose();
 });
 
-function browserPeer(label: string, account: NewApiOwner = owner) {
+function browserPeer(label: string, account: AiscooAdminOwner = owner) {
   const control = `synthetic-${label}-browser-control`;
   const relay = { token: `sk-synthetic-${label}-browser-relay`, expiresAt: Date.now() + 60_000 };
   const changes = new Emitter<BrowserAccountSessionEvent>();
@@ -81,7 +81,7 @@ async function fixture() {
     revision: "browser-config-1",
     zcodeBuiltinRevision: "builtin-1",
     personalRevision: "personal-1",
-    zcodeBuiltinProviders: createNewApiProviderAnchors(owner.origin),
+    zcodeBuiltinProviders: createAiscooAdminProviderAnchors(owner.origin),
     zcodeBuiltinProviderTemplates: ProviderTemplateMap.empty(),
     personalProviders: ProviderConfigMap.empty(),
     zcodeBuiltinModelRules: builtinModelRules(),
@@ -97,7 +97,7 @@ async function fixture() {
   };
   accountSource = new AccountProviderService({
     configSource,
-    resolve: createNewApiAccountProviderResolver({ account: bridge.authority, client }),
+    resolve: createAiscooAdminAccountProviderResolver({ account: bridge.authority, client }),
   });
   const registry = new ProviderRegistryService({ configSource, accountSource });
   const first = browserPeer("a");
@@ -127,7 +127,7 @@ async function fixture() {
   const unexpectedOfficial = vi.fn(async (): Promise<never> => {
     throw new Error("Unexpected official auth");
   });
-  const auth = createNewApiAccountRequestAuthResolver({
+  const auth = createAiscooAdminAccountRequestAuthResolver({
     account: bridge.authority,
     accountSource,
     official: {

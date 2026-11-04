@@ -4,7 +4,7 @@ import type { z } from "zod";
 import {
   completeApiKeyAccessDataSchema,
   completeZhipuAccountAccessDataSchema,
-  completeNewApiAccountAccessDataSchema,
+  completeAiscooAdminAccountAccessDataSchema,
   completeProviderApiDataSchema,
   completeProviderConfigDataSchema,
   type providerApiTypeDataSchema,
@@ -112,7 +112,7 @@ export class ZhipuAccountAccessConfig extends ConfigOverlay<ZhipuAccountAccessCo
   }
 }
 
-export class NewApiAccountAccessConfig extends ConfigOverlay<NewApiAccountAccessConfig> {
+export class AiscooAdminAccountAccessConfig extends ConfigOverlay<AiscooAdminAccountAccessConfig> {
   readonly type = "new-api-account" as const;
   readonly accountType = "new-api" as const;
   readonly mode = "private-subscription" as const;
@@ -124,15 +124,15 @@ export class NewApiAccountAccessConfig extends ConfigOverlay<NewApiAccountAccess
     Object.freeze(this);
   }
 
-  overlay(next: NewApiAccountAccessConfig): NewApiAccountAccessConfig {
+  overlay(next: AiscooAdminAccountAccessConfig): AiscooAdminAccountAccessConfig {
     return next;
   }
 
   validateComplete(path: readonly string[] = []): readonly ConfigValidationIssue[] {
-    return validateConfigSchema(completeNewApiAccountAccessDataSchema, this.toJSON(), path);
+    return validateConfigSchema(completeAiscooAdminAccountAccessDataSchema, this.toJSON(), path);
   }
 
-  toJSON(): z.infer<typeof completeNewApiAccountAccessDataSchema> {
+  toJSON(): z.infer<typeof completeAiscooAdminAccountAccessDataSchema> {
     return {
       type: this.type,
       accountType: this.accountType,
@@ -145,7 +145,7 @@ export class NewApiAccountAccessConfig extends ConfigOverlay<NewApiAccountAccess
 export type ProviderAccessConfig =
   | ApiKeyAccessConfig
   | ZhipuAccountAccessConfig
-  | NewApiAccountAccessConfig;
+  | AiscooAdminAccountAccessConfig;
 
 export type ProviderAccessConfigObject = Readonly<z.infer<typeof providerAccessDataSchema>>;
 
@@ -540,7 +540,7 @@ function overlayProviderAccess(
     case "zhipu-account":
       return current.overlay(next as ZhipuAccountAccessConfig);
     case "new-api-account":
-      return current.overlay(next as NewApiAccountAccessConfig);
+      return current.overlay(next as AiscooAdminAccountAccessConfig);
   }
 }
 

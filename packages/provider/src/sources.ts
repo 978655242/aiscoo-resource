@@ -3,16 +3,16 @@ import {
   ProviderConfigMap,
   ProviderTemplateMap,
   ZhipuAccountAccessConfig,
-  NewApiAccountAccessConfig,
+  AiscooAdminAccountAccessConfig,
   type ModelConfigRules,
 } from "./config/index.js";
 import type { AccountProviderStates } from "./account-provider-state.js";
-import type { NewApiOwner, NewApiModelPresentation } from "@zcode/shared/new-api";
-import type { NewApiCatalogIssue } from "@zcode/shared/model-provider-types";
+import type { AiscooAdminOwner, AiscooAdminModelPresentation } from "@zcode/shared/aiscoo-admin";
+import type { AiscooAdminCatalogIssue } from "@zcode/shared/model-provider-types";
 
 // XCODE: 账号只补充名称/图标，不能成为第二份模型能力配置。
 export type AccountModelPresentation = Readonly<
-  Record<string, Readonly<Record<string, Readonly<NewApiModelPresentation[string][string]>>>>
+  Record<string, Readonly<Record<string, Readonly<AiscooAdminModelPresentation[string][string]>>>>
 >;
 
 export interface ProviderSource<TSnapshot> {
@@ -38,10 +38,10 @@ export interface AccountProviderConfigSnapshot {
   readonly providers: ProviderConfigMap;
   readonly states?: AccountProviderStates;
   readonly modelPresentation?: AccountModelPresentation;
-  readonly catalogIssues?: readonly NewApiCatalogIssue[];
+  readonly catalogIssues?: readonly AiscooAdminCatalogIssue[];
   readonly catalogRevision?: string;
   readonly authorizationRevision?: string;
-  readonly owner?: NewApiOwner | null;
+  readonly owner?: AiscooAdminOwner | null;
 }
 
 /** 首次 Account 事实尚未到达时，基于当前 Built-in 生成可发布的 fail-closed Overlay。 */
@@ -57,7 +57,7 @@ export function createFailClosedAccountProviderConfigSnapshot(
               new ProviderConfig({
                 access:
                   provider.access.type === "new-api-account"
-                    ? new NewApiAccountAccessConfig({ entitled: false })
+                    ? new AiscooAdminAccountAccessConfig({ entitled: false })
                     : new ZhipuAccountAccessConfig({ entitled: false }),
               }),
             ],

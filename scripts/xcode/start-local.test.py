@@ -54,7 +54,7 @@ class StartupTests(unittest.TestCase):
         server = ThreadingHTTPServer(("127.0.0.1", 0), BaseHTTPRequestHandler)
         try:
             with self.assertRaises(RuntimeError):
-                launcher.require_native_listener(server.server_port, {"binary": "/not/our/new-api", "label": "not-our-job"})
+                launcher.require_native_listener(server.server_port, {"binary": "/not/our/aiscoo-admin", "label": "not-our-job"})
         finally:
             server.server_close()
 

@@ -10,7 +10,7 @@ import {
   providerProvisioningEnvelopeSchema,
   providerProvisioningResultSchema,
   isProviderProvisioningAccountCredentialKey,
-  isNewApiModelProviderId,
+  isAiscooAdminModelProviderId,
   type ProviderProvisioningEnvelope,
   type ProviderProvisioningResult,
   type ProviderProvisioningErrorCode,
@@ -61,11 +61,11 @@ export function createProviderProvisioningTarget(
       const envelope = providerProvisioningEnvelopeSchema.parse(input);
       const personal = parsePersonalConfig(envelope);
       if (
-        personal.providers.keys().some(isNewApiModelProviderId) ||
+        personal.providers.keys().some(isAiscooAdminModelProviderId) ||
         (personal.defaultModelSelection &&
-          isNewApiModelProviderId(personal.defaultModelSelection.providerId)) ||
+          isAiscooAdminModelProviderId(personal.defaultModelSelection.providerId)) ||
         envelope.credentials.some(
-          ({ key }) => key.startsWith("new-api:") || key.includes("new-api-"),
+          ({ key }) => key.startsWith("new-api:") || key.includes("aiscoo-admin-"),
         )
       ) {
         return {

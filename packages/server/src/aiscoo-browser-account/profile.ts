@@ -1,9 +1,9 @@
-import { normalizeNewApiOrigin } from "@zcode/shared";
+import { normalizeAiscooAdminOrigin } from "@zcode/shared";
 
 /** 本机浏览器入口只接受配置中的两个精确 loopback Host，不接受 localhost 别名。 */
 export function resolveBrowserAccountProfile(env: Record<string, string | undefined>) {
   if (env.AISCOO_BROWSER_NEW_API !== "1") return null;
-  const origin = normalizeNewApiOrigin(env.AISCOO_ADMIN_BASE_URL ?? "");
+  const origin = normalizeAiscooAdminOrigin(env.AISCOO_ADMIN_BASE_URL ?? "");
   const browser = new URL(env.AISCOO_BROWSER_ORIGIN || "http://127.0.0.1:5173");
   const port = Number(env.PORT || 3030);
   if (

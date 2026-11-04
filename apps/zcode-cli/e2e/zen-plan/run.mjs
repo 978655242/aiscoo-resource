@@ -1,5 +1,5 @@
-// Aiscoo Zen Plan 完整端到端验收：真实 Go New API（隔离实例）+ 真实 Chrome + 真实 CLI 构建产物 + 真实 PTY TUI。
-// 用法：node run.mjs --backend <new-api binary> [--case=<name>]...
+// Aiscoo Zen Plan 完整端到端验收：真实 Go Aiscoo（隔离实例）+ 真实 Chrome + 真实 CLI 构建产物 + 真实 PTY TUI。
+// 用法：node run.mjs --backend <aiscoo-admin binary> [--case=<name>]...
 import { access, constants, readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
@@ -12,7 +12,7 @@ import {
 import { cleanupKeychainEntries } from "./keychain.mjs";
 
 const { values } = parseArgs({ options: { backend: { type: "string" }, case: { type: "string", multiple: true }, keep: { type: "boolean" } } });
-if (!values.backend) throw new Error("--backend <path to isolated new-api binary> is required");
+if (!values.backend) throw new Error("--backend <path to isolated aiscoo-admin binary> is required");
 
 const results = [];
 const CASE_TIMEOUT_MS = 240_000;

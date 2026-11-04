@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Start the existing local New API and this checkout's private desktop."""
+"""Start the existing local aiscoo-admin and this checkout's private desktop."""
 from contextlib import contextmanager
 import fcntl
 import hashlib
@@ -334,7 +334,7 @@ def start(spec, path):
     def backend_ready():
         value = http_json(ORIGIN + "/api/status")
         return require_native_listener(3001, backend) and isinstance(value, dict) and value.get("success") is True
-    wait_for(backend_ready, "原生new-api3001", 180)
+    wait_for(backend_ready, "原生aiscoo-admin3001", 180)
     if action == "start":
         ensure_desktop_job(spec, path)
     if action != "activate":
@@ -357,7 +357,7 @@ def main():
         with startup_lock(STATE / "start.lock"):
             spec, path = load_spec()
             start(spec, path)
-        print("关闭此启动窗口不停止桌面；退出桌面不会停止new-api。", flush=True)
+        print("关闭此启动窗口不停止桌面；退出桌面不会停止aiscoo-admin。", flush=True)
         return 0
     except BlockingIOError:
         print("另一启动检查/构建正在进行，未重复执行pre-dev。", flush=True)

@@ -1,8 +1,8 @@
-# Browser New API account
+# Browser aiscoo-admin account
 
 This adapter owns browser credentials for the local loopback Web mode. Its public surface is `index.ts` and `contract.ts`; all service imports are types. It uses shared wire schemas, the `xwork-cli` client, and the existing RPC emitter. No Node, CLI, keyring, navigation, or UI dependency is introduced.
 
-One canonical New API origin selects one atomic localStorage record containing the validated bundle and a cryptographically random safe integer authGeneration. The generation is public owner metadata, stable across refresh and page reload. Only `/me` can confirm a user/SID for login or restore. `getOwner()` is synchronous and initially null; the attachment must await `oauth.restoreCachedSessionState()` before publishing owner. Each read also checks persisted generation. `getStorageIdentity()` returns only an opaque stamp derived from the persisted owner tuple, without confirming identity or returning any token. The reverse attachment compares this stamp on storage events: a refresh retaining user/SID/generation leaves other documents running, while logout or a new login remounts the affected page. Unrelated backend-origin records do not trigger reload.
+One canonical aiscoo-admin origin selects one atomic localStorage record containing the validated bundle and a cryptographically random safe integer authGeneration. The generation is public owner metadata, stable across refresh and page reload. Only `/me` can confirm a user/SID for login or restore. `getOwner()` is synchronous and initially null; the attachment must await `oauth.restoreCachedSessionState()` before publishing owner. Each read also checks persisted generation. `getStorageIdentity()` returns only an opaque stamp derived from the persisted owner tuple, without confirming identity or returning any token. The reverse attachment compares this stamp on storage events: a refresh retaining user/SID/generation leaves other documents running, while logout or a new login remounts the affected page. Unrelated backend-origin records do not trigger reload.
 
 ```mermaid
 sequenceDiagram

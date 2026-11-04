@@ -110,7 +110,7 @@ try {
       page.off("response", onResponse);
     }
     assert.equal(await page.getByRole("button", { name: apiKey, exact: true }).count(), 0);
-    assert.equal(await page.getByText(/New API/).count(), 0);
+    assert.equal(await page.getByText(/Aiscoo/).count(), 0);
     const logo = page.getByRole("img", { name: "Aiscoo" });
     assert.equal(await logo.count(), 1);
     const animatedLogo = logo.locator('[data-aiscoo-brand="wordmark-animated"]');
@@ -143,7 +143,7 @@ try {
     }
     await button.click();
     await page.getByRole("button", { name: cancel, exact: true }).waitFor({ state: "visible" });
-    assert.equal(await page.getByText(/New API/u).count(), 0);
+    assert.equal(await page.getByText(/Aiscoo/u).count(), 0);
     await page.getByRole("button", { name: cancel, exact: true }).click();
     assert.deepEqual(
       await page.evaluate(() => window.loginFixture.events.filter((e) => e[0] === "cancel")),
@@ -216,7 +216,7 @@ try {
           const error = page.getByTestId("oauth-error");
           await error.waitFor();
           assert.match(await error.innerText(), /Aiscoo/u);
-          assert.doesNotMatch(await error.innerText(), /https?:|example\.|New API/u);
+          assert.doesNotMatch(await error.innerText(), /https?:|example\.|Aiscoo/u);
           assert.deepEqual(await page.evaluate(() => window.loginFixture.events), []);
         }
       } finally {
@@ -575,10 +575,10 @@ app.whenReady().then(() => {
       stdin: {
         resolveDir: root,
         contents: `
-export { NewApiAccountService } from "./packages/services/src/new-api/newApiAccountService.ts";
-export { NewApiSessionRepo } from "./packages/services/src/new-api/newApiSessionRepo.ts";
-export { NewApiClient } from "./packages/services/src/new-api/newApiClient.ts";
-export { NewApiProviderAdapter } from "./packages/services/src/oauth/providers/newApiProviderAdapter.ts";
+export { AiscooAdminAccountService } from "./packages/services/src/aiscoo-admin/aiscooAdminAccountService.ts";
+export { AiscooAdminSessionRepo } from "./packages/services/src/aiscoo-admin/aiscooAdminSessionRepo.ts";
+export { AiscooAdminClient } from "./packages/services/src/aiscoo-admin/aiscooAdminClient.ts";
+export { AiscooAdminProviderAdapter } from "./packages/services/src/oauth/providers/aiscooAdminProviderAdapter.ts";
 export { createCredentialCipherProvider } from "./packages/services/src/credential/providers/credentialCipherProvider.ts";
 export { setDataBaseDir } from "./packages/services/src/paths.ts";
 `,
@@ -634,7 +634,7 @@ export { setDataBaseDir } from "./packages/services/src/paths.ts";
       relay_credential: { token: "sk-synthetic-relay", expires_at: now + 600_000 },
     };
     const calls = [];
-    const client = new host.NewApiClient(backendOrigin, {
+    const client = new host.AiscooAdminClient(backendOrigin, {
       now: () => now,
       fetch: async (input, init) => {
         const url = new URL(String(input));
@@ -676,10 +676,10 @@ export { setDataBaseDir } from "./packages/services/src/paths.ts";
     });
     await writeFile(credentialsFile, before, { mode: 0o600 });
     const newRepo = () =>
-      new host.NewApiSessionRepo(backendOrigin, { credentialsFile, cipherProvider });
+      new host.AiscooAdminSessionRepo(backendOrigin, { credentialsFile, cipherProvider });
     const newService = () =>
-      new host.NewApiAccountService({
-        adapter: new host.NewApiProviderAdapter(client),
+      new host.AiscooAdminAccountService({
+        adapter: new host.AiscooAdminProviderAdapter(client),
         repo: newRepo(),
         now: () => now,
       });
@@ -775,7 +775,7 @@ export { setDataBaseDir } from "./packages/services/src/paths.ts";
       engine: "electron",
     });
     console.log(
-      "PASS: 12 Chrome viewport/theme/locale cases, 4 provider admission cases, upstream New API copy and official polling/API key controls, 2 isolated Electron cases; public product assembly, synthetic OAuth only",
+      "PASS: 12 Chrome viewport/theme/locale cases, 4 provider admission cases, upstream Aiscoo copy and official polling/API key controls, 2 isolated Electron cases; public product assembly, synthetic OAuth only",
     );
   }
 } finally {

@@ -57,7 +57,7 @@ const source = {
 const broadcastService = { send: async () => {}, onMessage: () => ({ dispose() {} }) };
 const services = {
   oauthService: {
-    getProviders: async () => [{ id: "new-api", displayName: "New API", enabled: true, order: 0 }],
+    getProviders: async () => [{ id: "new-api", displayName: "Aiscoo", enabled: true, order: 0 }],
     getActiveProvider: async () => null,
     logout: async () => { cleanup.push("logout"); await new Promise((resolve, fail) => { release = resolve; reject = fail; }); },
   },

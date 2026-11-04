@@ -1,6 +1,6 @@
 // XCODE: Aiscoo 专属回归；上游 App 业务套件已退役，仅保留下游差异的断言。
 import { describe, expect, it, vi } from "vitest";
-import type { NewApiOwner } from "@zcode/shared";
+import type { AiscooAdminOwner } from "@zcode/shared";
 import { createPluginUiAccountBindings } from "./instanceAccounts.js";
 const instance = {
   runtimeId: "agent",
@@ -22,7 +22,7 @@ describe("Aiscoo plugin UI Native owner", () => {
     { userId: "bob", sid: "sid-b", authGeneration: 2 },
     { userId: "alice", sid: "sid-a-new", authGeneration: 2 },
   ])("fences Native owner changes to $userId/$sid", async (next) => {
-    let account: NewApiOwner = {
+    let account: AiscooAdminOwner = {
       origin: "http://127.0.0.1:3001",
       userId: "alice",
       sid: "sid-a",
@@ -31,9 +31,9 @@ describe("Aiscoo plugin UI Native owner", () => {
     const gate = Promise.withResolvers<typeof instance>();
     const entered = Promise.withResolvers<void>();
     const currentInstance = { ...instance, token: "current" };
-    const open = vi.fn<
-      Parameters<typeof createPluginUiAccountBindings>[0]["open"]
-    >(async () => currentInstance);
+    const open = vi.fn<Parameters<typeof createPluginUiAccountBindings>[0]["open"]>(
+      async () => currentInstance,
+    );
     open.mockImplementationOnce(() => {
       entered.resolve();
       return gate.promise;

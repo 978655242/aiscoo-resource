@@ -82,7 +82,7 @@ function getRegistryAccountProviderGroupPresentation(
   labels: ModelProviderGroupLabelOptions,
 ): Pick<ModelSelectGroup, "label" | "labelBadge"> {
   const familySpec = resolveModelProviderFamilySpecByProviderId(providerId);
-  if (access.type === "new-api-account") return { label: "New API", labelBadge: "Native" };
+  if (access.type === "new-api-account") return { label: "Aiscoo", labelBadge: "Native" };
   const label = familySpec?.label ?? providerId;
   if (access.mode === "start-plan") {
     return { label: "Start Plan", labelBadge: labels.startPlanBadgeLabel ?? "Free" };

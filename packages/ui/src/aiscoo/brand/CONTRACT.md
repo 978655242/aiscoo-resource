@@ -31,7 +31,7 @@ flowchart LR
 
 `AiscooLoginHeader` 是登录头部的下游展示实现，包含完整动态字标和本地化说明，不渲染欢迎标题。Root 通过 `WelcomeScreen.header` 可选插槽装配；未传插槽时原登录页保留默认头部和完整 title／children 接口。品牌模块不引用或包装登录业务组件，不拥有 OAuth 状态。
 
-共享 Root 的 Aiscoo 登录页通过可选 `hideApiKeyLogin` 隐藏 API key 入口；未提供时保留上游完整入口与表单。品牌词典仅将 New API 按钮模板投影为中文“登录”或英文“Sign in”，其他 provider 名称与认证状态不变。桌面、普通 Web 和已连接远控的共享 Root 遵循此规则；远控连接前的独立 Web 登录页仍提供 Z.ai 和 BigModel 两个账号入口。
+共享 Root 的 Aiscoo 登录页通过可选 `hideApiKeyLogin` 隐藏 API key 入口；未提供时保留上游完整入口与表单。品牌词典仅将 aiscoo-admin 按钮模板投影为中文“登录”或英文“Sign in”，其他 provider 名称与认证状态不变。桌面、普通 Web 和已连接远控的共享 Root 遵循此规则；远控连接前的独立 Web 登录页仍提供 Z.ai 和 BigModel 两个账号入口。
 
 Root 通过 `oauthWaitingDisplayNames` 装配本模块的等待提示展示名：桌面、本机 Web 及其他 Web 的 `new-api` 均显示共享品牌配置中的小写 `aiscoo`，中文为“等待 aiscoo 完成认证...”，英文为“Waiting for aiscoo authentication...”。取消和登录仍使用原 provider ID，其他 provider 保留原名称；未传映射的上游登录页保留原默认行为。现有授权链接复制和桌面法律 footer 继续保留，法律 footer 仅在桌面且非远控 Root 装配，普通 Web 和手机远控不挂载。等待名映射只改变文案，不创建授权窗口、生命周期 hook 或账号状态。
 

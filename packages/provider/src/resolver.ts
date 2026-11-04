@@ -4,7 +4,7 @@ import type { completeModelConfigDataSchema } from "@zcode/shared/model-config";
 import type {
   completeApiKeyAccessDataSchema,
   completeZhipuAccountAccessDataSchema,
-  completeNewApiAccountAccessDataSchema,
+  completeAiscooAdminAccountAccessDataSchema,
   completeProviderConfigDataSchema,
 } from "./config/provider-data-schema.js";
 import type { ConfigValidationIssue } from "./config-overlay.js";
@@ -13,7 +13,7 @@ import {
   ModelConfig,
   ModelConfigRules,
   type ZhipuAccountAccessConfig,
-  type NewApiAccountAccessConfig,
+  type AiscooAdminAccountAccessConfig,
   type ModelId,
   ProviderConfig,
   type ProviderConfigRule,
@@ -24,7 +24,7 @@ import {
 import { resolveOwnedOrder } from "./owned-order.js";
 import type { AccountProviderStates } from "./account-provider-state.js";
 import type { AccountModelPresentation } from "./sources.js";
-import type { NewApiOwner } from "@zcode/shared/new-api";
+import type { AiscooAdminOwner } from "@zcode/shared/aiscoo-admin";
 
 export type RegistryZhipuAccountAccessConfig = ZhipuAccountAccessConfig &
   z.infer<typeof completeZhipuAccountAccessDataSchema>;
@@ -32,7 +32,7 @@ export type RegistryZhipuAccountAccessConfig = ZhipuAccountAccessConfig &
 export type RegistryProviderAccessConfig =
   | (ApiKeyAccessConfig & z.infer<typeof completeApiKeyAccessDataSchema>)
   | RegistryZhipuAccountAccessConfig
-  | (NewApiAccountAccessConfig & z.infer<typeof completeNewApiAccountAccessDataSchema>);
+  | (AiscooAdminAccountAccessConfig & z.infer<typeof completeAiscooAdminAccountAccessDataSchema>);
 
 export type RegistryProviderConfig = ProviderConfig &
   z.infer<typeof completeProviderConfigDataSchema> & {
@@ -142,7 +142,7 @@ export interface ProviderConfigResolverInput {
   readonly accountProviders: ProviderConfigMap;
   readonly accountStates?: AccountProviderStates;
   readonly accountModelPresentation?: AccountModelPresentation;
-  readonly accountOwner?: NewApiOwner | null;
+  readonly accountOwner?: AiscooAdminOwner | null;
   readonly accountRevision?: string;
   readonly accountAuthorizationRevision?: string;
   readonly personalProviderOrder?: readonly ProviderId[];
@@ -185,7 +185,7 @@ export interface Provider extends Pick<ProviderConfigRule, "templateId" | "provi
   readonly providerId: ProviderId;
   readonly config: RegistryProviderConfig;
   readonly models: readonly ProviderModel[];
-  readonly accountOwner?: NewApiOwner;
+  readonly accountOwner?: AiscooAdminOwner;
   readonly accountRevision?: string;
   readonly accountAuthorizationRevision?: string;
   /** XCODE: 官方连接的非秘密执行代际只留在内部 Registry。 */

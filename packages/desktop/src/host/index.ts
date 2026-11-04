@@ -321,21 +321,21 @@ function authorizeLocalMediaPreviewPath(path: string): Promise<string> {
 }
 
 // XCODE: 复用可信 Main 授权往返；等回执再发布 URL，不能用超时掩盖跨端口顺序。
-const pendingNewApiPlanWebHandoffs = new Map<
+const pendingAiscooAdminPlanWebHandoffs = new Map<
   string,
   {
     resolve: () => void;
     reject: (error: Error) => void;
   }
 >();
-function authorizeNewApiPlanWebHandoff(handoff: {
+function authorizeAiscooAdminPlanWebHandoff(handoff: {
   url: string;
   ownerGeneration: number;
 }): Promise<void> {
   if (!parentPort) return Promise.reject(new Error("XCODE_WEB_HANDOFF_ADMISSION_UNAVAILABLE"));
   const requestId = randomUUID();
   return new Promise<void>((resolve, reject) => {
-    pendingNewApiPlanWebHandoffs.set(requestId, { resolve, reject });
+    pendingAiscooAdminPlanWebHandoffs.set(requestId, { resolve, reject });
     try {
       parentPort.postMessage({
         type: HostResponseTypes.PrivatePlanWebHandoffAuthorizeRequest,
@@ -343,7 +343,7 @@ function authorizeNewApiPlanWebHandoff(handoff: {
         handoff,
       });
     } catch {
-      pendingNewApiPlanWebHandoffs.delete(requestId);
+      pendingAiscooAdminPlanWebHandoffs.delete(requestId);
       reject(new Error("XCODE_WEB_HANDOFF_ADMISSION_UNAVAILABLE"));
     }
   });
@@ -3339,9 +3339,9 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
   }
 
   if (msg.type === HostMessageTypes.PrivatePlanWebHandoffAuthorizeResult) {
-    const pending = pendingNewApiPlanWebHandoffs.get(msg.requestId);
+    const pending = pendingAiscooAdminPlanWebHandoffs.get(msg.requestId);
     if (!pending) return;
-    pendingNewApiPlanWebHandoffs.delete(msg.requestId);
+    pendingAiscooAdminPlanWebHandoffs.delete(msg.requestId);
     if (msg.ok) pending.resolve();
     else pending.reject(new Error("XCODE_STALE_WEB_HANDOFF"));
     return;
@@ -4006,7 +4006,7 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
               nativeDirectories,
               ...(pluginStorageRoot ? { pluginStorageRoot } : {}),
               // XCODE: 仅 Desktop Native 注入精确回调，服务默认与 Web/远端保持原有语义。
-              newApiRedirectUri: resolveAiscooDesktopIdentity()?.oauthRedirectUri,
+              aiscooAdminRedirectUri: resolveAiscooDesktopIdentity()?.oauthRedirectUri,
               // XCODE: 以渠道身份启用策略，空/非法 origin 由阻断权威投影稳定错误。
               ...(resolveAiscooDesktopIdentity()
                 ? {
@@ -4218,7 +4218,7 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
               registerPluginSandbox: pluginSandboxRegistrationBridge.register,
               runtimeProcessEnvPatch: msg.runtimeProcessEnvPatch,
               // XCODE: 仅Host→Main的非秘密分区生命周期，不能由Renderer认领owner。
-              onNewApiOwnerChanged: (owner) => {
+              onAiscooAdminOwnerChanged: (owner) => {
                 parentPort?.postMessage({
                   type: HostResponseTypes.PrivateAccountOwnerChanged,
                   owner: owner
@@ -4232,7 +4232,7 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
                   nativeOwnerKey,
                 });
               },
-              authorizeNewApiPlanWebHandoff,
+              authorizeAiscooAdminPlanWebHandoff,
               agentTelemetry: {
                 getDeviceMid: () => msg.deviceMid,
                 runtimeSurface: "desktop_local_host",

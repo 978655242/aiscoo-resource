@@ -9,9 +9,9 @@ import { fileURLToPath } from "node:url";
 import { ZenAccountRuntime } from "../src/zen/index.js";
 import { startProcessProviderRegistryRuntime } from "../src/zen/index.js";
 import {
-  NewApiCatalogSchema,
-  NewApiEntitlementsSchema,
-  NEW_API_MODEL_PROVIDER_IDS,
+  AiscooAdminCatalogSchema,
+  AiscooAdminEntitlementsSchema,
+  AISCOO_ADMIN_MODEL_PROVIDER_IDS,
 } from "@zcode/shared";
 
 describe("Zen account model authorization", () => {
@@ -309,7 +309,7 @@ describe("Zen account model authorization", () => {
           owner: account.getOwner()!,
           authorizationRevision: "2",
         },
-        providerId: NEW_API_MODEL_PROVIDER_IDS["openai-chat-completions"],
+        providerId: AISCOO_ADMIN_MODEL_PROVIDER_IDS["openai-chat-completions"],
         modelId: "zen-model",
         reason: "model-request" as const,
         sessionId: "test" as never,
@@ -345,7 +345,7 @@ describe("Zen account model authorization", () => {
             owner: account.getOwner()!,
             authorizationRevision: "1",
           },
-          providerId: NEW_API_MODEL_PROVIDER_IDS["openai-chat-completions"],
+          providerId: AISCOO_ADMIN_MODEL_PROVIDER_IDS["openai-chat-completions"],
           modelId: "missing-model",
           reason: "model-request",
           sessionId: "test" as never,
@@ -360,7 +360,7 @@ describe("Zen account model authorization", () => {
   });
   it("projects only enabled catalog members and presentation with the current entitlement", () => {
     const owner = { origin: "https://zen.example.com", userId: "1", sid: "sid", authGeneration: 1 };
-    const entitlements = NewApiEntitlementsSchema.parse({
+    const entitlements = AiscooAdminEntitlementsSchema.parse({
       schema_version: 1,
       server_time: 1,
       status: "active",
@@ -383,7 +383,7 @@ describe("Zen account model authorization", () => {
       self_service_reset: false,
       purchase_mode: "manual_admin",
     });
-    const catalog = NewApiCatalogSchema.parse({
+    const catalog = AiscooAdminCatalogSchema.parse({
       schema_version: 1,
       server_time: 1,
       catalog_revision: "catalog-1",
@@ -422,7 +422,7 @@ describe("Zen account model authorization", () => {
       ],
     });
     const result = resolveZenAccountProviders({ owner, entitlements, catalog });
-    const id = NEW_API_MODEL_PROVIDER_IDS["openai-chat-completions"];
+    const id = AISCOO_ADMIN_MODEL_PROVIDER_IDS["openai-chat-completions"];
     expect(result.providers.get(id)?.builtinModelIds).toEqual(["real-model"]);
     expect(result.states[id]?.entitled).toBe(true);
     expect(result.modelPresentation[id]?.["real-model"]).toEqual({ displayName: "Real" });

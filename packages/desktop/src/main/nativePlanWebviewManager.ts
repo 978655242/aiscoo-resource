@@ -1,13 +1,13 @@
 import { BrowserWindow, ipcMain, session } from "electron";
 import type { Session, WebContents } from "electron";
 import type { NativePlanDisplayContext, NativePlanWebviewPrepareRequest } from "@zcode/shared";
-import { NewApiPlanWebviewPolicy } from "./newApiPlanWebviewPolicy.js";
-import type { NativePlanWebviewOwner } from "./newApiPlanWebviewPolicy.js";
+import { AiscooAdminPlanWebviewPolicy } from "./aiscooAdminPlanWebviewPolicy.js";
+import type { NativePlanWebviewOwner } from "./aiscooAdminPlanWebviewPolicy.js";
 import { subscribeBeforeRequestGuard } from "./observeBeforeRequest.js";
 
 const windows = new Map<
   number,
-  { policy: NewApiPlanWebviewPolicy; guests: Map<string, WebContents> }
+  { policy: AiscooAdminPlanWebviewPolicy; guests: Map<string, WebContents> }
 >();
 const guardedSessions = new WeakMap<Session, { windowId: number; partition: string } | null>();
 
@@ -107,7 +107,7 @@ export async function setNativePlanWebviewOwner(
 ): Promise<void> {
   let entry = windows.get(windowId);
   if (!entry && owner) {
-    entry = { policy: new NewApiPlanWebviewPolicy(), guests: new Map() };
+    entry = { policy: new AiscooAdminPlanWebviewPolicy(), guests: new Map() };
     windows.set(windowId, entry);
   }
   if (!entry) return;

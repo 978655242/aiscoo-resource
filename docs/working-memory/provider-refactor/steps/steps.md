@@ -8,7 +8,7 @@
 
 - [Todo161：CLI 旧 config.json 首次迁移保留输出上限](todo-161-cli-legacy-output-token-migration.md)：2026-10-14 基于 staging 独立移植；仅 CLI 首次导入，已有配置和 Desktop 不处理。61 项定向回归通过，三种 API 请求预算及重启边界已验证；根与 CLI 类型/lint、架构和格式检查通过，详细证据见 Todo。
 
-- [Todo159：连接测试输出预算统一调整为 1,024 Token](todo-159-connectivity-512-token-budget.md)：**已实施**。原定 512 未实施即被新证据取代：New API 原生 Claude 渠道强制 `max_tokens ∈ [1024, 128000]`，1 与 512 均被 400 拒绝；目标值修订为 1,024 并按模型公开输出上限钳制，取代 Todo144 的 1 Token 裁决，保留最低推理档位、Prompt、流结束和错误契约。Core/Adapter/桌面 pending E2E 断言同步更新；真实 New API 渠道 App 内点击验收待用户复核。
+- [Todo159：连接测试输出预算统一调整为 1,024 Token](todo-159-connectivity-512-token-budget.md)：**已实施**。原定 512 未实施即被新证据取代：aiscoo-admin 原生 Claude 渠道强制 `max_tokens ∈ [1024, 128000]`，1 与 512 均被 400 拒绝；目标值修订为 1,024 并按模型公开输出上限钳制，取代 Todo144 的 1 Token 裁决，保留最低推理档位、Prompt、流结束和错误契约。Core/Adapter/桌面 pending E2E 断言同步更新；真实 aiscoo-admin 渠道 App 内点击验收待用户复核。
 
 - [Todo158：权限审批框完全访问与待执行队列权限同步](todo-158-permission-dialog-full-access-and-queued-mode.md)：已实现，验收尚未全部收口。仅审批框同步当前任务、Composer 和固定待执行队列为 yolo，各自 Plan 保留；包含事务、幂等与投影恢复。必要验证的基线失败、跨端未验证项见 Todo 第 9 节。
 

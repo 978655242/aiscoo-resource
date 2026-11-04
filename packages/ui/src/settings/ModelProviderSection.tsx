@@ -21,9 +21,9 @@ import {
   resolveModelProviderFamilySpecByProviderId,
   resolveProviderFamilyDomainFromOAuthProvider,
   ZAI_PROVIDER_ID,
-  NEW_API_PROVIDER_ID,
+  AISCOO_ADMIN_PROVIDER_ID,
   // XCODE: 设置目标只识别共享精确模型身份，兼容旧导航但不按前缀猜测自配 Provider。
-  isNewApiModelProviderId,
+  isAiscooAdminModelProviderId,
   normalizeAiscooModelProviderId,
 } from "@zcode/shared";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
@@ -343,7 +343,7 @@ export function ModelProviderSection({
     (target: SettingsModelProviderTarget | undefined) => {
       if (!target) return false;
       const nativeProviderId = normalizeAiscooModelProviderId(target.providerId);
-      if (isNewApiModelProviderId(nativeProviderId)) {
+      if (isAiscooAdminModelProviderId(nativeProviderId)) {
         setInvalidProviderTarget(false);
         setTemplatePickerOpen(false);
         setSelectedNodeKey(createCustomProviderNodeKey(nativeProviderId));
@@ -505,7 +505,7 @@ export function ModelProviderSection({
       } = {},
     ) => {
       const providers = await oauthService.getProviders();
-      if (providers.some((provider) => provider.id === NEW_API_PROVIDER_ID)) {
+      if (providers.some((provider) => provider.id === AISCOO_ADMIN_PROVIDER_ID)) {
         const activeProvider = await oauthService.getActiveProvider();
         if (options.shouldApply && !options.shouldApply()) return null;
         setActiveOAuthProvider(activeProvider);

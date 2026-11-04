@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { IChannelServer, IServerChannel } from "@zcode/rpc";
-import type { NewApiSessionBundle } from "@zcode/shared";
+import type { AiscooAdminSessionBundle } from "@zcode/shared";
 import {
-  createBrowserNewApiAccount,
+  createBrowserAiscooAdminAccount,
   registerBrowserAccountChannel,
-  type BrowserNewApiAccountOptions,
+  type BrowserAiscooAdminAccountOptions,
 } from "../src/aiscoo-browser-account/index.js";
 
 class MemoryStorage {
@@ -39,7 +39,7 @@ function deferred<T>() {
 
 const initialTime = 1_800_000_000_000;
 const browserOrigin = "http://127.0.0.1:5173";
-const origin = "https://new-api.example.test";
+const origin = "https://aiscoo-admin.example.test";
 const success = (data: unknown) => Response.json({ success: true, data });
 const failure = (code: string, status: number) =>
   Response.json(
@@ -52,7 +52,7 @@ const failure = (code: string, status: number) =>
     { status },
   );
 
-function bundle(now = initialTime): NewApiSessionBundle {
+function bundle(now = initialTime): AiscooAdminSessionBundle {
   return {
     schema_version: 1,
     server_time: now,
@@ -113,7 +113,7 @@ function fixture() {
       );
     throw new Error(`Unexpected test path ${path}`);
   });
-  const options: BrowserNewApiAccountOptions = {
+  const options: BrowserAiscooAdminAccountOptions = {
     origin,
     browserOrigin,
     localStorage,
@@ -122,8 +122,8 @@ function fixture() {
     fetch,
     now: () => time,
   };
-  const open = (overrides: Partial<BrowserNewApiAccountOptions> = {}) =>
-    createBrowserNewApiAccount({ ...options, ...overrides });
+  const open = (overrides: Partial<BrowserAiscooAdminAccountOptions> = {}) =>
+    createBrowserAiscooAdminAccount({ ...options, ...overrides });
   const account = open();
   const callback = (state: string) =>
     `${browserOrigin}/oauth/callback?provider=new-api&code=${"c".repeat(43)}&state=${state}`;
@@ -149,7 +149,7 @@ function fixture() {
     setTime: (value: number) => {
       time = value;
     },
-    setSession: (value: NewApiSessionBundle) => {
+    setSession: (value: AiscooAdminSessionBundle) => {
       session = value;
     },
     token: (run: () => Promise<Response>) => {
@@ -167,7 +167,7 @@ function fixture() {
   };
 }
 
-function attachAccount(account: ReturnType<typeof createBrowserNewApiAccount>) {
+function attachAccount(account: ReturnType<typeof createBrowserAiscooAdminAccount>) {
   const reload = vi.fn();
   const page = Object.assign(new EventTarget(), { location: { reload } });
   vi.stubGlobal("window", page);
@@ -194,7 +194,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("browser New API account", () => {
+describe("browser Aiscoo account", () => {
   it("admits only the explicit owner-bound reverse invalidation command", async () => {
     const f = fixture();
     await f.login();
@@ -367,7 +367,7 @@ describe("browser New API account", () => {
       bundle().relay_credential.token,
     ])
       expect(stamp).not.toContain(secret);
-    const restored = f.open({ origin: "https://NEW-API.example.test:443/" });
+    const restored = f.open({ origin: "https://AISCOO-ADMIN.example.test:443/" });
     const changes = vi.fn();
     restored.oauth.onDidChangeSession(changes);
     const requests = f.fetch.mock.calls.length;
@@ -591,7 +591,7 @@ describe("browser New API account", () => {
     f.localStorage.setItem("oauth:active_provider", "zai");
     f.localStorage.setItem("oauth:zai:access_token", "upstream-test-token");
     await f.login();
-    const equivalent = f.open({ origin: "https://NEW-API.example.test:443/" });
+    const equivalent = f.open({ origin: "https://AISCOO-ADMIN.example.test:443/" });
     await equivalent.oauth.restoreSession();
     expect(equivalent.getOwner()).toEqual(f.account.getOwner());
     const other = f.open({ origin: "https://other.example.test" });

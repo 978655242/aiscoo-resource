@@ -1,4 +1,4 @@
-import type { NewApiEntitlements } from "./new-api.js";
+import type { AiscooAdminEntitlements } from "./aiscoo-admin.js";
 export type CodingPlanResetType = "FIVE_HOUR" | "WEEK";
 
 export interface CodingPlanResetScopeRequest {
@@ -28,7 +28,7 @@ export interface NativeSinglePeriodResetStatus {
   mode: "native-single-period";
   source: "new-api";
   selfServiceEnabled: false;
-  authorizationStatus: NewApiEntitlements["status"];
+  authorizationStatus: AiscooAdminEntitlements["status"];
   authorizationRevision: string;
   period: "never" | "daily" | "weekly" | "monthly" | "custom" | null;
   lastResetTime: number | null;

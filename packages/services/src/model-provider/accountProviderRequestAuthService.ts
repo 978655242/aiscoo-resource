@@ -9,10 +9,10 @@ import {
   type ZCodeProviderAccountAccess,
   ZAI_PROVIDER_ID,
 } from "@zcode/shared";
-import type { NewApiAccountService } from "../new-api/newApiAccountService.js";
+import type { AiscooAdminAccountService } from "../aiscoo-admin/aiscooAdminAccountService.js";
 import type { AccountProviderConfigSnapshot, ProviderSource } from "@zcode/provider";
 import {
-  isNewApiModelProviderId,
+  isAiscooAdminModelProviderId,
   isBuiltinModelProviderId,
   normalizeAiscooModelProviderId,
 } from "@zcode/shared";
@@ -178,8 +178,8 @@ export function createAccountProviderRequestAuthService(
 }
 
 /** XCODE: 请求凭据绑定 owner/授权代际；能力版本只影响下一轮冻结配置。 */
-export function createNewApiAccountRequestAuthResolver(options: {
-  account: Pick<NewApiAccountService, "isCurrent" | "getRelayCredential">;
+export function createAiscooAdminAccountRequestAuthResolver(options: {
+  account: Pick<AiscooAdminAccountService, "isCurrent" | "getRelayCredential">;
   accountSource: ProviderSource<AccountProviderConfigSnapshot>;
   official: AccountRequestAuthResolver;
 }): AccountRequestAuthResolver {
@@ -192,7 +192,7 @@ export function createNewApiAccountRequestAuthResolver(options: {
     const snapshot = await options.accountSource.read();
     const providerAccess = snapshot.providers.get(providerId)?.access;
     if (
-      !isNewApiModelProviderId(providerId) ||
+      !isAiscooAdminModelProviderId(providerId) ||
       !access.owner ||
       !access.authorizationRevision ||
       !options.account.isCurrent(access.owner) ||
@@ -221,13 +221,13 @@ export function createNewApiAccountRequestAuthResolver(options: {
         return;
       }
       // XCODE: 私有模型身份不能借官方 access 进入另一条凭据路径。
-      if (isNewApiModelProviderId(normalizeAiscooModelProviderId(input.providerId)))
+      if (isAiscooAdminModelProviderId(normalizeAiscooModelProviderId(input.providerId)))
         throw new AccountRequestCredentialUnavailableError(input.providerId);
       await options.official.assertCurrent(input);
     },
     resolveCurrent: async (input) => {
       if (input.accountAccess.type !== "new-api-account") {
-        if (isNewApiModelProviderId(normalizeAiscooModelProviderId(input.providerId)))
+        if (isAiscooAdminModelProviderId(normalizeAiscooModelProviderId(input.providerId)))
           throw new AccountRequestCredentialUnavailableError(input.providerId);
         if (input.reason === "model-request" && isBuiltinModelProviderId(input.providerId))
           throw new Error("XCODE_LEGACY_OFFICIAL_SELECTION_RESELECT_REQUIRED");

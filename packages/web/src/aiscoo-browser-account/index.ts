@@ -1,7 +1,7 @@
-export { createBrowserNewApiAccount } from "./account.js";
+export { createBrowserAiscooAdminAccount } from "./account.js";
 export type {
-  BrowserNewApiAccount,
-  BrowserNewApiAccountOptions,
+  BrowserAiscooAdminAccount,
+  BrowserAiscooAdminAccountOptions,
   BrowserAccountConnectionFailure,
   BrowserAccountWebConnection,
   BrowserAccountWebConnectionOptions,

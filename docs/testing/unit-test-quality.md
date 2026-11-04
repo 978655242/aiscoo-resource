@@ -26,7 +26,7 @@ Web、Provider、RPC、Client、Server 和 Source Server 中的业务 test/spec 
 
 <!-- XCODE: 上游退役范围不包含已批准的下游扩展回归。 -->
 
-Aiscoo 继续保留已有品牌、New API 与 owner/identity 隔离回归，使用独立 `vitest.aiscoo.config.ts` 的精确清单与原生 runner；命令分别为 `pnpm test:aiscoo <文件>` 和 `pnpm test:unit:node`。同步时仅迁出冲突文件中已有的下游场景，不恢复上游 App 套件，不扩大工程 affected 的选择范围。界面交互仍以现行 E2E/浏览器/运行时场景验收。
+Aiscoo 继续保留已有品牌、aiscoo-admin 与 owner/identity 隔离回归，使用独立 `vitest.aiscoo.config.ts` 的精确清单与原生 runner；命令分别为 `pnpm test:aiscoo <文件>` 和 `pnpm test:unit:node`。同步时仅迁出冲突文件中已有的下游场景，不恢复上游 App 套件，不扩大工程 affected 的选择范围。界面交互仍以现行 E2E/浏览器/运行时场景验收。
 
 ## 架构和开发规则
 

@@ -9,7 +9,7 @@ import {
   type OAuthPurpose,
   type OAuthStateRegistration,
   PlatformChannels,
-  parseNewApiAuthorizationCallback,
+  parseAiscooAdminAuthorizationCallback,
 } from "@zcode/shared";
 import {
   extractWorkspaceOpenPath,
@@ -411,7 +411,7 @@ export function handleDeepLink(
   // XCODE: Native 校验与 Host 换码使用同一精确 redirect，未注入采用 parser 的上游默认值。
   if (
     routeTarget.provider === "new-api" &&
-    !parseNewApiAuthorizationCallback(url, desktopIdentity?.oauthRedirectUri)
+    !parseAiscooAdminAuthorizationCallback(url, desktopIdentity?.oauthRedirectUri)
   ) {
     logger.warn("[deep-link] 拒绝非canonical原生授权回调");
     return false;

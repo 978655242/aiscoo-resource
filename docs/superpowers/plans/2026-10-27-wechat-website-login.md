@@ -4,7 +4,7 @@
 
 **Goal:** 实现微信官方网站扫码/快捷登录、首次自动注册、现有账号安全绑定，并复用 XWork 原有浏览器授权与 PKCE。
 
-**Architecture:** 在 New API OAuth 注册表追加 wechat-open，使用独立可空唯一身份字段，复用原生 AuthFlow、Session 和安全验证。浏览器持有单次流程证明，以既有 Web Locks 串行化 Cookie 写入请求，避免迟到响应跨账号污染。XWork 桌面不增加认证协议。
+**Architecture:** 在 aiscoo-admin OAuth 注册表追加 wechat-open，使用独立可空唯一身份字段，复用原生 AuthFlow、Session 和安全验证。浏览器持有单次流程证明，以既有 Web Locks 串行化 Cookie 写入请求，避免迟到响应跨账号污染。XWork 桌面不增加认证协议。
 
 **Tech Stack:** Go/Gin/GORM，React/TypeScript/TanStack/Zustand，Bun/Vitest，官方 WxLogin；无新依赖。
 
@@ -15,7 +15,7 @@
 ## Global Constraints
 
 - Backend worktree: `/Users/timo/ai/new-api-wechat-open`，`feat/wechat-open-login`，从 backend release `d2abf9c` 切出。
-- 原 `/Users/timo/ai/new-api` 与 `/Users/timo/ai/XCode` 的无关改动不动；只写本任务规格/计划与隔离实现文件。
+- 原 `/Users/timo/ai/aiscoo-admin` 与 `/Users/timo/ai/XCode` 的无关改动不动；只写本任务规格/计划与隔离实现文件。
 - 保留 New API / QuantumNous 归属；保留旧公众号微信、其他登录方式、既有 Session/PKCE 语义。
 - SQLite/MySQL/PostgreSQL 真实实例验证迁移与约束，隔离浏览器验证真实响应 headers/body；真实微信验收另受应用资质/密钥/回调域名约束，不伪造通过。
 - 可执行协作接口与所有权清单见 `local://wechat-open-contract.md`；执行证据记入 `local://wechat-open-progress.md`。
@@ -63,7 +63,7 @@
 
 ## Task 4: 验证与交付
 
-**Files:** 上述行为测试、已有数据库测试基础与临时隔离验证程序；规格状态与现有 New API 认证文档同步。
+**Files:** 上述行为测试、已有数据库测试基础与临时隔离验证程序；规格状态与现有 aiscoo-admin 认证文档同步。
 
 - [x] Go 定向回归、Bun typecheck、36 个任务 TS/TSX 文件 lint、11 文件 128 项相关测试与前端生产构建通过；43 个任务前端文件按保护原版权头的方式格式化。全仓 lint 的 226 条诊断和 copyright check 的 24 个非本次文件问题单独保留，不记为通过。
 - [x] SQLite 3.50.4 / MySQL 8.0.46 / PostgreSQL 16.14 新库、release `d2abf9c` 完整用户表升级，每场景实际迁移三次；验证旧数据、索引、NULL、唯一和大小写语义。该旧库 fixture 不是生产全库副本。

@@ -8,7 +8,7 @@
 
 下文 2026-10-30 的自动检查、浏览器观察和管理端结果均是来源分支保存的历史证据，不是本次提取后的重跑。历史管理端结果也不代表本 PR 修改或验证了管理端仓库。当前客户端生产生成与资源检查入口分别为 `scripts/xcode/generate-icons.py` 和 `scripts/xcode/aiscoo-assets.test.py`；UI 资源由 `packages/ui/src/aiscoo/brand/assets` 唯一维护，机器人专项检查为 `scripts/aiscoo/robot-motion.test.py`。
 
-本次只提取品牌资源、生成源、镜像和对应说明；本机浏览器的现行规则以 [浏览器持有凭据规格](../specs/browser-new-api.md) 为准。旧本机 Web 方案及其端口、Host/Origin 验证记录不作为本次品牌验收依据。
+本次只提取品牌资源、生成源、镜像和对应说明；本机浏览器的现行规则以 [浏览器持有凭据规格](../specs/browser-aiscoo-admin.md) 为准。旧本机 Web 方案及其端口、Host/Origin 验证记录不作为本次品牌验收依据。
 
 ## 当前设计：饱满笑眼、整头弹跳与 10 秒循环
 

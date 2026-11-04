@@ -35,7 +35,7 @@ export interface ProviderSettingsFormModel {
   kind: "candidate";
   modelId: string;
   displayName?: string;
-  /** New API 下发的 @lobehub/icons 图标名。 */
+  /** Aiscoo 下发的 @lobehub/icons 图标名。 */
   icon?: string;
   builtin: boolean;
   /** Personal Rule 叠加前的 Built-in Rule 解析结果，用于编辑器表达继承与稀疏覆盖。 */

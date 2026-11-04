@@ -2,7 +2,7 @@ import { ModelSelectionFacade, type ProviderRegistryFacadeSource } from "@zcode/
 import {
   isBuiltinModelProviderId,
   isStartPlanModelProviderId,
-  isNewApiModelProviderId,
+  isAiscooAdminModelProviderId,
   OFF_PEAK_PROVIDER_IDS,
 } from "@zcode/shared";
 import { resolveLegacyReasoningLevel } from "./legacy-reasoning-level.js";
@@ -18,7 +18,7 @@ export function createNodeModelSelectionFacade(
       const native = source
         .getSnapshot()
         ?.resolution.effectiveBuiltinProviders.keys()
-        .some(isNewApiModelProviderId);
+        .some(isAiscooAdminModelProviderId);
       if (isStartPlanModelProviderId(providerId)) return "ordinary";
       if (isBuiltinModelProviderId(providerId)) return native ? "ordinary" : "account-plan";
       if (Object.values(OFF_PEAK_PROVIDER_IDS).some((id) => id === providerId))

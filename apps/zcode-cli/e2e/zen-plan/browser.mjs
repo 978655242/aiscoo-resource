@@ -1,4 +1,4 @@
-// 浏览器驱动：只操作原生 New API 页面（登录、2FA、Passkey、授权页），不绕过任何认证步骤。
+// 浏览器驱动：只操作原生 Aiscoo 页面（登录、2FA、Passkey、授权页），不绕过任何认证步骤。
 import { chromium } from "playwright-core";
 import { freshTotp } from "./totp.mjs";
 

@@ -1,7 +1,7 @@
 import {
   ProviderConfigMap,
   ProviderConfig,
-  NewApiAccountAccessConfig,
+  AiscooAdminAccountAccessConfig,
   ZhipuAccountAccessConfig,
 } from "./config/index.js";
 import type { AccountProviderStates } from "./account-provider-state.js";
@@ -96,7 +96,7 @@ export class AccountProviderService implements ProviderSource<AccountProviderCon
       snapshot.providers.mapConfigs((config) =>
         config.access?.type === "new-api-account"
           ? new ProviderConfig({
-              access: new NewApiAccountAccessConfig({ entitled: false }),
+              access: new AiscooAdminAccountAccessConfig({ entitled: false }),
               builtinModelIds: [],
             })
           : ownerChanged && config.access?.type === "zhipu-account"

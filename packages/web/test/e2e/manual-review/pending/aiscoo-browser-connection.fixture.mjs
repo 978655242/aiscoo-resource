@@ -34,7 +34,7 @@ function gate() {
 
 export async function createNativeFixture(browserOrigin) {
   const { catalog, entitlements } =
-    await import("../../../../../services/test/newApiRegistryFixtures.ts");
+    await import("../../../../../services/test/aiscooAdminRegistryFixtures.ts");
   const users = {
     42: { id: "42", username: "browser-e2e-a", display_name: "Browser E2E A", avatar_url: null },
     84: { id: "84", username: "browser-e2e-c", display_name: "Browser E2E C", avatar_url: null },
@@ -350,7 +350,7 @@ async function runHost() {
       sourceServerId: "aiscoo-browser-connection-e2e",
       zcodeBuiltinProviderConfigFilePath: builtinPath,
       accountPolicy,
-      newApiAccountAuthority: {
+      aiscooAdminAccountAuthority: {
         origin: profile.origin,
         create(onOwnerChanged) {
           bridge = createBrowserAccountBridge(profile.origin, {

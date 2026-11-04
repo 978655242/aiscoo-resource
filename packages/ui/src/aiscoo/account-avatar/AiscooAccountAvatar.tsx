@@ -1,4 +1,4 @@
-import { NEW_API_PROVIDER_ID, type OAuthSessionState, type UserInfo } from "@zcode/shared";
+import { AISCOO_ADMIN_PROVIDER_ID, type OAuthSessionState, type UserInfo } from "@zcode/shared";
 import { User } from "lucide-react";
 import { useEffect, useState, type ComponentType } from "react";
 import { ProfileAvatarFallbackProvider } from "@/profile-avatar/index.js";
@@ -33,7 +33,7 @@ export function AiscooAccountAvatar(props: AiscooAccountAvatarProps) {
 }
 
 function renderAccountAvatar(user: UserInfo) {
-  // 未知 provider 的非数字 ID 原本使用首字回退，不能被误认作 New API 身份。
+  // 未知 provider 的非数字 ID 原本使用首字回退，不能被误认作 Aiscoo 身份。
   if (user.id.trim() && !/^[1-9]\d*$/u.test(user.id.trim())) return null;
   return (
     <AiscooAccountAvatar
@@ -76,9 +76,9 @@ export function createAiscooAccountAvatarRoot<Props extends RootWithOAuth>(
         void (async () => {
           try {
             const providers = await service.getProviders();
-            if (providers.length !== 1 || providers[0]?.id !== NEW_API_PROVIDER_ID) return;
+            if (providers.length !== 1 || providers[0]?.id !== AISCOO_ADMIN_PROVIDER_ID) return;
             const active = await service.getActiveProvider();
-            if (alive && generation === request && active === NEW_API_PROVIDER_ID)
+            if (alive && generation === request && active === AISCOO_ADMIN_PROVIDER_ID)
               setConfirmedService(service);
           } catch {
             // 读取失败时不能推断身份，保持上游 fallback。

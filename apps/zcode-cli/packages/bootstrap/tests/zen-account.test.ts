@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { ZenAccountRuntime } from "../src/zen/index.js";
-import type { NewApiSessionBundle } from "@zcode/shared";
+import type { AiscooAdminSessionBundle } from "@zcode/shared";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { ZenClient, createZenAuthorization } from "@zcode/adapters/auth";
 
 function fixture() {
   const user = { id: "1", username: "test", display_name: "Test", avatar_url: null };
-  const bundle: NewApiSessionBundle = {
+  const bundle: AiscooAdminSessionBundle = {
     schema_version: 1,
     server_time: 1000,
     access_token: "control",
@@ -19,7 +19,7 @@ function fixture() {
     user,
     relay_credential: { token: "sk-test", expires_at: 200000 },
   };
-  let saved: { revision: string; value: NewApiSessionBundle } | null = null;
+  let saved: { revision: string; value: AiscooAdminSessionBundle } | null = null;
   let revoked = 0;
   const store = {
     assertAvailable: async () => {},
@@ -27,7 +27,7 @@ function fixture() {
     compareAndSwap: async (
       _origin: string,
       revision: string | null,
-      next: NewApiSessionBundle | null,
+      next: AiscooAdminSessionBundle | null,
     ) => {
       if ((saved?.revision ?? null) !== revision) return false;
       saved = next ? { revision: "next", value: next } : null;

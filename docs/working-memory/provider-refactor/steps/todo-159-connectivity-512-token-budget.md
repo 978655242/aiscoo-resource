@@ -1,6 +1,6 @@
 # Todo159：连接测试输出预算统一调整（512 → 1,024 Token）
 
-状态：**已实施（2026-10-19）**。2026-09-17 用户确认目标值 512 时仅记录 Todo 未实施；实施前新增证据表明 512 仍低于 New API 原生 Claude 渠道下限，目标值修订为 1,024 后完成实施。本文件名保留 512 历史锚点，当前裁决以本文为准。
+状态：**已实施（2026-10-19）**。2026-09-17 用户确认目标值 512 时仅记录 Todo 未实施；实施前新增证据表明 512 仍低于 aiscoo-admin 原生 Claude 渠道下限，目标值修订为 1,024 后完成实施。本文件名保留 512 历史锚点，当前裁决以本文为准。
 
 ## 问题与实际证据
 
@@ -13,7 +13,7 @@ MacBook Air 的 ZCode 3.12.2 在设置页测试 OpenCode Go（Responses）的 `g
 
 ### 2026-10-19（512 被取代的证据）
 
-用户在 XWork 设置的套餐模型列表点击连通测试，New API 原生 Claude 模型（`claude-opus-5.5`、`claude-sonnet-5.5`）一致报错：
+用户在 XWork 设置的套餐模型列表点击连通测试，aiscoo-admin 原生 Claude 模型（`claude-opus-5.5`、`claude-sonnet-5.5`）一致报错：
 
 ```text
 连接失败： Model 'claude-opus-5.5', field 'max_tokens':
@@ -21,7 +21,7 @@ Requested 1; use a value in [1024, 128000]. Token counts are never clamped.
 ```
 
 - Core 探针固定 `max_tokens=1` 被上游 400 拒绝；该渠道下限 1024 同时高于 Todo144 的 1 与 Todo159 原定的 512，故统一目标值修订为 1,024。
-- 已知各协议下限：New API 原生 Claude 1024、OpenCode/Luna Responses 16、Chat Completions 1。1,024 满足全部已知约束。
+- 已知各协议下限：aiscoo-admin 原生 Claude 1024、OpenCode/Luna Responses 16、Chat Completions 1。1,024 满足全部已知约束。
 
 ## 已确认目标与边界
 
@@ -39,4 +39,4 @@ Requested 1; use a value in [1024, 128000]. Token counts are never clamped.
 - [Core 测试](../../../../apps/zcode-cli/packages/core/tests/workspace-generate-text-streaming.test.ts)先改断言证明旧实现（1）不满足，再修改生产常量为 1,024；钳制用例固定模型上限 512 时绑定 512。最低推理档位、固定 Prompt、无正文 stop/length 成功、流异常／缺少 finish 失败、Git 辅助预算 5,000 断言保留。
 - [Adapter wire 测试](../../../../apps/zcode-cli/packages/adapters/tests/connectivity-probe-wire.test.ts)序列化断言改为 1,024（Anthropic `max_tokens`、Chat `max_completion_tokens`、Responses `max_output_tokens`）。
 - 桌面 pending E2E（`provider-connectivity-prompt.test.ts`、`provider-reasoning-fallback.test.ts`）wire 预算断言同步改为 1,024；保持 pending，未代替人工审阅。
-- 真实 New API 渠道在 App 内点击“测试”的最终验收待用户复核；未消耗用户额度做直接 API 对照。
+- 真实 aiscoo-admin 渠道在 App 内点击“测试”的最终验收待用户复核；未消耗用户额度做直接 API 对照。

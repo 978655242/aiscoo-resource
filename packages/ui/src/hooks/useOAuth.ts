@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { OAuthProviderId, OAuthProviderMeta } from "@zcode/shared";
 import {
   BIGMODEL_PROVIDER_ID,
-  NEW_API_PROVIDER_ID,
+  AISCOO_ADMIN_PROVIDER_ID,
   isCredentialDecryptError,
   resolveSafeTelemetryHostname,
   ZAI_PROVIDER_ID,
@@ -84,7 +84,7 @@ export function useOAuth() {
           state,
           provider: startedProvider,
           purpose,
-        } = provider === NEW_API_PROVIDER_ID
+        } = provider === AISCOO_ADMIN_PROVIDER_ID
           ? await oauthService.startOAuth(provider)
           : await oauthService.startOAuthWithPolling(provider);
 

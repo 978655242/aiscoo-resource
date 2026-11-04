@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { NEW_API_MODEL_PROVIDER_IDS } from "@zcode/shared";
+import { AISCOO_ADMIN_MODEL_PROVIDER_IDS } from "@zcode/shared";
 import type {
   AppUsageRange,
   AppUsageSnapshot,
@@ -7,7 +7,7 @@ import type {
   CodingPlanUsageSnapshot,
   UsageStatsRange,
   UsageStatsSnapshot,
-  NewApiAccountUsageSnapshot,
+  AiscooAdminAccountUsageSnapshot,
   ZCodeAccountAccess,
   ZCodeProviderAccountAccess,
 } from "@zcode/shared";
@@ -20,7 +20,7 @@ import { USAGE_ENTITLEMENT_ACCESS_REFRESH_MS } from "@/lib/usageEntitlementRefre
 
 interface UsageStatsState {
   scopeKey: string | null;
-  snapshot: UsageStatsSnapshot | NewApiAccountUsageSnapshot | null;
+  snapshot: UsageStatsSnapshot | AiscooAdminAccountUsageSnapshot | null;
   loading: boolean;
   error: string | null;
 }
@@ -93,7 +93,9 @@ export function useUsageStats(
   const dataSource = options.dataSource;
   const accountScope = useUsageAccountScope(
     options.preferredProviderId ??
-      (dataSource === "new-api" ? NEW_API_MODEL_PROVIDER_IDS["anthropic-messages"] : undefined),
+      (dataSource === "new-api"
+        ? AISCOO_ADMIN_MODEL_PROVIDER_IDS["anthropic-messages"]
+        : undefined),
     options.accountAccess,
   );
   const enabled =

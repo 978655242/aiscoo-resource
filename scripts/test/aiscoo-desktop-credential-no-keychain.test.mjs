@@ -12,8 +12,8 @@ const files = [
   "packages/desktop/src/main/desktopHostProcess.ts",
   "packages/desktop/src/main/desktopRuntimeEnv.ts",
   "packages/services/src/credential/credentialService.ts",
-  "packages/services/src/new-api/newApiSessionRepo.ts",
-  "packages/services/src/new-api/newApiAccountService.ts",
+  "packages/services/src/aiscoo-admin/aiscooAdminSessionRepo.ts",
+  "packages/services/src/aiscoo-admin/aiscooAdminAccountService.ts",
   "packages/services/src/official-mcp/officialCloudConnectionService.ts",
 ];
 

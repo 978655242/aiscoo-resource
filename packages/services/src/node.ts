@@ -46,10 +46,10 @@ import {
   PERSONAL_PROVIDER_CONFIG_FILE_NAME,
 } from "@zcode/provider-node";
 import { AccountProviderService, validateModelSelectionOptions } from "@zcode/provider";
-import type { NewApiOwner } from "@zcode/shared";
+import type { AiscooAdminOwner } from "@zcode/shared";
 import type { OfficialCloudConnectionHost } from "./official-mcp/officialCloudConnectionService.js";
-import { NewApiClient } from "./new-api/newApiClient.js";
-import { NewApiAccountService } from "./new-api/newApiAccountService.js";
+import { AiscooAdminClient } from "./aiscoo-admin/aiscooAdminClient.js";
+import { AiscooAdminAccountService } from "./aiscoo-admin/aiscooAdminAccountService.js";
 // XCODE: 可选产品策略只在组合层替换端口，未注入保持上游账号默认行为。
 import type { HostAccountPolicy } from "./aiscoo-account-policy/contract.js";
 export {
@@ -61,17 +61,19 @@ export {
 export type { HostAccountPolicy } from "./aiscoo-account-policy/contract.js";
 
 // XCODE: 宿主可注入浏览器凭据权威；现有目录、请求鉴权与 Worker 同步继续复用同一装配。
-export type NewApiAccountAuthority = Pick<
-  NewApiAccountService,
+export type AiscooAdminAccountAuthority = Pick<
+  AiscooAdminAccountService,
   "oauth" | "getOwner" | "isCurrent" | "withControlSession" | "getRelayCredential"
 >;
-export interface NewApiAccountAuthorityFactory {
+export interface AiscooAdminAccountAuthorityFactory {
   origin: string;
-  create(onOwnerChanged: (owner: NewApiOwner | null) => Promise<void>): NewApiAccountAuthority;
+  create(
+    onOwnerChanged: (owner: AiscooAdminOwner | null) => Promise<void>,
+  ): AiscooAdminAccountAuthority;
 }
-import { NewApiSessionRepo } from "./new-api/newApiSessionRepo.js";
-import { NewApiProviderAdapter } from "./oauth/providers/newApiProviderAdapter.js";
-import { createNewApiAccountProviderResolver } from "./new-api/newApiAccountProviderResolution.js";
+import { AiscooAdminSessionRepo } from "./aiscoo-admin/aiscooAdminSessionRepo.js";
+import { AiscooAdminProviderAdapter } from "./oauth/providers/aiscooAdminProviderAdapter.js";
+import { createAiscooAdminAccountProviderResolver } from "./aiscoo-admin/aiscooAdminAccountProviderResolution.js";
 import { IOfficialCloudConnectionService } from "./official-mcp/officialCloudConnection.js";
 import { createOfficialCloudConnectionHost } from "./official-mcp/officialCloudConnectionService.js";
 import {
@@ -182,10 +184,10 @@ export {
   createSettingServiceWithMigrations,
 } from "./setting/settingService.js";
 export { createCredentialService } from "./credential/credentialService.js";
-export { NewApiClient, NewApiClientError } from "./new-api/newApiClient.js";
-export { NewApiAccountService } from "./new-api/newApiAccountService.js";
-export { NewApiSessionRepo } from "./new-api/newApiSessionRepo.js";
-export { createNewApiAccountProviderResolver } from "./new-api/newApiAccountProviderResolution.js";
+export { AiscooAdminClient, AiscooAdminClientError } from "./aiscoo-admin/aiscooAdminClient.js";
+export { AiscooAdminAccountService } from "./aiscoo-admin/aiscooAdminAccountService.js";
+export { AiscooAdminSessionRepo } from "./aiscoo-admin/aiscooAdminSessionRepo.js";
+export { createAiscooAdminAccountProviderResolver } from "./aiscoo-admin/aiscooAdminAccountProviderResolution.js";
 export { createOfficialCloudConnectionHost } from "./official-mcp/officialCloudConnectionService.js";
 export { createBroadcastService } from "./broadcast/broadcastService.js";
 export { createZCodeAgentService } from "./zcode-agent/zcodeAgentService.js";
@@ -524,7 +526,7 @@ import { createAccountProviderCredentialStore } from "./model-provider/accountPr
 import { createAccountProviderCredentialService } from "./model-provider/accountProviderCredentialService.js";
 import {
   createAccountProviderRequestAuthService,
-  createNewApiAccountRequestAuthResolver,
+  createAiscooAdminAccountRequestAuthResolver,
 } from "./model-provider/accountProviderRequestAuthService.js";
 import {
   createAccountProviderConfigSource,
@@ -1281,16 +1283,16 @@ export function createLocalServices(options: {
   /** Desktop Host 请求 Main 登记 Agent 已授权的精确本地视频路径。 */
   authorizeLocalMediaPreviewPath?: (path: string) => Promise<string>;
   /** XCODE: Host显式注入精确渠道回调，未注入保留上游zcode默认。 */
-  newApiRedirectUri?: string;
+  aiscooAdminRedirectUri?: string;
   /** XCODE: 可选凭据权威由入口注入，默认仍由桌面账号实现持有。 */
-  newApiAccountAuthority?: NewApiAccountAuthorityFactory;
+  aiscooAdminAccountAuthority?: AiscooAdminAccountAuthorityFactory;
   /** XCODE: 可选账号策略由产品入口固定注入，禁止缺配置回退为其它账号 owner。 */
   accountPolicy?: HostAccountPolicy;
   /** XCODE: Host-only非秘密分区生命周期；Main负责关闭/清理WebView。 */
-  onNewApiOwnerChanged?: (owner: NewApiOwner | null) => void | Promise<void>;
+  onAiscooAdminOwnerChanged?: (owner: AiscooAdminOwner | null) => void | Promise<void>;
   /** Host-only opaque admission projection for the separate scheduler; never contains credentials. */
   onNativeOffPeakOwnerKeyChanged?: (ownerKey: string | null) => void;
-  authorizeNewApiPlanWebHandoff?: (handoff: {
+  authorizeAiscooAdminPlanWebHandoff?: (handoff: {
     url: string;
     ownerGeneration: number;
   }) => Promise<void>;
@@ -1471,25 +1473,25 @@ export function createLocalServices(options: {
     resolveClientLanguage: options?.resolveClientLanguage,
   });
   // XCODE: 仅显式本机 origin 启用私有组合；原 Web/远程和未配置宿主保留独立身份。
-  const newApiOrigin = options.accountPolicy
-    ? options.accountPolicy.newApiOrigin
+  const aiscooAdminOrigin = options.accountPolicy
+    ? options.accountPolicy.aiscooAdminOrigin
     : // XCODE: 入口显式注入时复用相同 anchors，未注入保留原桌面 gate。
-      (options.newApiAccountAuthority?.origin ??
+      (options.aiscooAdminAccountAuthority?.origin ??
       (options.serviceAuthorityMode === "desktop-local"
         ? process.env.AISCOO_ADMIN_BASE_URL?.trim()
         : undefined));
-  const newApiClient = newApiOrigin
-    ? new NewApiClient(newApiOrigin, {
+  const aiscooAdminClient = aiscooAdminOrigin
+    ? new AiscooAdminClient(aiscooAdminOrigin, {
         fetch: hostApiNetworkTransport.fetch,
         // XCODE: 可选接线让授权与换码绑定同一渠道，不在服务层动态选择环境。
-        redirectUri: options.newApiRedirectUri,
+        redirectUri: options.aiscooAdminRedirectUri,
       })
     : null;
-  const onNewApiOwnerChanged = async (owner: NewApiOwner | null) => {
+  const onAiscooAdminOwnerChanged = async (owner: AiscooAdminOwner | null) => {
     invalidatePluginUiAccounts?.();
     accountProviderConfigSource.invalidateNative(true);
     officialCloudHost?.onPrimaryOwnerChanged(owner);
-    await options.onNewApiOwnerChanged?.(owner);
+    await options.onAiscooAdminOwnerChanged?.(owner);
     // XCODE: 身份落盘锁内只失效；控制读可能撤销/refresh，不能等待它回入同一锁。
     void providerRuntime
       .start()
@@ -1504,18 +1506,18 @@ export function createLocalServices(options: {
       });
   };
   // XCODE: 只替换凭据权威；下游既有目录/请求 resolver 仍使用同一窄接口。
-  const nativeAccount: NewApiAccountAuthority | null = newApiClient
-    ? (options.newApiAccountAuthority?.create(onNewApiOwnerChanged) ??
-      new NewApiAccountService({
-        adapter: new NewApiProviderAdapter(newApiClient),
-        repo: new NewApiSessionRepo(newApiClient.origin),
-        onOwnerChanged: onNewApiOwnerChanged,
+  const nativeAccount: AiscooAdminAccountAuthority | null = aiscooAdminClient
+    ? (options.aiscooAdminAccountAuthority?.create(onAiscooAdminOwnerChanged) ??
+      new AiscooAdminAccountService({
+        adapter: new AiscooAdminProviderAdapter(aiscooAdminClient),
+        repo: new AiscooAdminSessionRepo(aiscooAdminClient.origin),
+        onOwnerChanged: onAiscooAdminOwnerChanged,
       }))
     : (options.accountPolicy?.createUnavailableAccount() ?? null);
   const officialCloudHost: OfficialCloudConnectionHost | null =
     // XCODE: 产品策略禁止时不创建独立官方 owner，旧 namespace 也不触发恢复。
     nativeAccount &&
-    !options.newApiAccountAuthority &&
+    !options.aiscooAdminAccountAuthority &&
     options.accountPolicy?.allowOfficialCloud !== false
       ? createOfficialCloudConnectionHost({
           account: nativeAccount,
@@ -1668,10 +1670,10 @@ export function createLocalServices(options: {
   const clientConfigPlatform = resolveClientConfigPlatform();
   const providerConfigRuntime = createProviderConfigRuntime({
     zcodeBuiltinFilePath: options.zcodeBuiltinProviderConfigFilePath,
-    ...(newApiClient ? { newApiOrigin: newApiClient.origin } : {}),
+    ...(aiscooAdminClient ? { aiscooAdminOrigin: aiscooAdminClient.origin } : {}),
     // XCODE: 产品缺配置时仅保留本地规则与自配模型，不创建会回退官方的远端源。
     zcodeBuiltinEnvironment:
-      options.accountPolicy?.newApiOrigin === null
+      options.accountPolicy?.aiscooAdminOrigin === null
         ? undefined
         : {
             environmentConfigRoot: resolveAppConfigDir(),
@@ -1680,7 +1682,9 @@ export function createLocalServices(options: {
             // XCODE: Built-in 复用上游下载器，产品只注入校验后的配置源，缺配置不得回退官方。
             resolveEndpointOrigin:
               options.accountPolicy?.resolveBuiltinEndpointOrigin ??
-              (newApiClient ? () => newApiClient.origin : resolveCurrentZCodeEndpointOrigin),
+              (aiscooAdminClient
+                ? () => aiscooAdminClient.origin
+                : resolveCurrentZCodeEndpointOrigin),
             onRefreshResult: (event) => {
               if (event.result === "updated")
                 // XCODE: 本地产品配置状态日志投影品牌，远端事件数据不改写。
@@ -1749,12 +1753,12 @@ export function createLocalServices(options: {
     }),
   } satisfies Parameters<typeof createAccountProviderConfigSource>[0];
   const accountProviderConfigSource =
-    nativeAccount && newApiClient
+    nativeAccount && aiscooAdminClient
       ? new AccountProviderService({
           configSource: providerConfigRuntime.configService,
-          resolve: createNewApiAccountProviderResolver({
+          resolve: createAiscooAdminAccountProviderResolver({
             account: nativeAccount,
-            client: newApiClient,
+            client: aiscooAdminClient,
             // XCODE: 独立官方连接只在原桌面装配存在。
             resolveOfficial: officialCloudHost
               ? createOfficialCloudAccountProviderResolver(officialCloudHost)
@@ -1769,7 +1773,7 @@ export function createLocalServices(options: {
         : createAccountProviderConfigSource(legacyAccountProviderSourceOptions);
   const accountRequestAuthService = createAccountRequestAuthService(
     nativeAccount
-      ? createNewApiAccountRequestAuthResolver({
+      ? createAiscooAdminAccountRequestAuthResolver({
           account: nativeAccount,
           accountSource: accountProviderConfigSource,
           // XCODE: 浏览器没有独立官方连接时明确不可用，不借用遗留身份。
@@ -2385,12 +2389,12 @@ export function createLocalServices(options: {
   const ownerCodingPlanSubscriptionService = createCodingPlanSubscriptionService({
     apiClient,
     credentialService,
-    ...(nativeAccount && newApiClient
+    ...(nativeAccount && aiscooAdminClient
       ? {
           native: {
             account: nativeAccount,
-            client: newApiClient,
-            authorizeWebHandoff: options.authorizeNewApiPlanWebHandoff,
+            client: aiscooAdminClient,
+            authorizeWebHandoff: options.authorizeAiscooAdminPlanWebHandoff,
           },
           officialCloudHost: officialCloudHost ?? undefined,
         }
@@ -2720,7 +2724,7 @@ export function createLocalServices(options: {
           personalFilePath: join(resolveAppConfigDir(), PERSONAL_PROVIDER_CONFIG_FILE_NAME),
         }),
         // XCODE: 默认私有origin也必须下发worker，使Host/worker anchors与revision精确一致。
-        ...(newApiClient ? { AISCOO_ADMIN_BASE_URL: newApiClient.origin } : {}),
+        ...(aiscooAdminClient ? { AISCOO_ADMIN_BASE_URL: aiscooAdminClient.origin } : {}),
       };
     },
     ...(!isDesktopAttachedRemote
@@ -2984,8 +2988,8 @@ export function createLocalServices(options: {
     zcodeAgentService,
     officialMcpCredentialSource,
     ...(officialCloudCapability ? { officialCloudHost: officialCloudCapability } : {}),
-    ...(nativeAccount && newApiClient
-      ? { native: { account: nativeAccount, client: newApiClient } }
+    ...(nativeAccount && aiscooAdminClient
+      ? { native: { account: nativeAccount, client: aiscooAdminClient } }
       : {}),
   });
   const usageStatsService =
@@ -3630,7 +3634,7 @@ export async function createServerHostServices(options: {
   zcodeBuiltinProviderConfigFilePath: string;
   providerProvisioningTargetEnabled?: boolean;
   // XCODE: 独立 Web 入口只注入凭据权威，服务与存储身份装配保持原路径。
-  newApiAccountAuthority?: NewApiAccountAuthorityFactory;
+  aiscooAdminAccountAuthority?: AiscooAdminAccountAuthorityFactory;
   // XCODE: 可选产品策略贯穿同一个 Server Host 装配，不创建第二账号 owner。
   accountPolicy?: HostAccountPolicy;
 }) {
@@ -3670,7 +3674,7 @@ export async function createServerHostServices(options: {
     zcodeBuiltinProviderConfigFilePath: options.zcodeBuiltinProviderConfigFilePath,
     providerProvisioningTargetEnabled: options.providerProvisioningTargetEnabled,
     // XCODE: 可选替代凭据来源不修改默认 standalone-server 的权限模式。
-    newApiAccountAuthority: options.newApiAccountAuthority,
+    aiscooAdminAccountAuthority: options.aiscooAdminAccountAuthority,
     // XCODE: 入口提供的限制保持贯穿，未注入的上游默认路径不变。
     accountPolicy: options.accountPolicy,
     serviceAuthorityMode: "standalone-server",

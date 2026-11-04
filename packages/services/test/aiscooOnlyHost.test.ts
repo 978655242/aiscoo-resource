@@ -195,18 +195,18 @@ test("Aiscoo policy keeps the existing configured PKCE owner and unrelated crede
   const home = await mkdtemp(join(tmpdir(), "aiscoo-policy-valid-"));
   const [
     { createAiscooAccountPolicy },
-    { NewApiAccountService },
-    { NewApiSessionRepo },
-    { NewApiClient },
-    { NewApiProviderAdapter },
+    { AiscooAdminAccountService },
+    { AiscooAdminSessionRepo },
+    { AiscooAdminClient },
+    { AiscooAdminProviderAdapter },
     { createCredentialCipherProvider },
     { createTelemetryUserIdLoader, createTelemetryAuthorizationLoader },
   ] = await Promise.all([
     import("../src/aiscoo-account-policy/index.js"),
-    import("../src/new-api/newApiAccountService.js"),
-    import("../src/new-api/newApiSessionRepo.js"),
-    import("../src/new-api/newApiClient.js"),
-    import("../src/oauth/providers/newApiProviderAdapter.js"),
+    import("../src/aiscoo-admin/aiscooAdminAccountService.js"),
+    import("../src/aiscoo-admin/aiscooAdminSessionRepo.js"),
+    import("../src/aiscoo-admin/aiscooAdminClient.js"),
+    import("../src/oauth/providers/aiscooAdminProviderAdapter.js"),
     import("../src/credential/providers/credentialCipherProvider.js"),
     import("../src/node.js"),
   ]);
@@ -216,15 +216,15 @@ test("Aiscoo policy keeps the existing configured PKCE owner and unrelated crede
   const cipherProvider = createCredentialCipherProvider({
     env: { ZCODE_CREDENTIAL_SECRET: randomBytes(32).toString("hex") },
   });
-  const client = new NewApiClient(origin, {
+  const client = new AiscooAdminClient(origin, {
     fetch: async () => {
       throw new Error("Network is forbidden");
     },
     redirectUri: "aiscoo-dev://oauth/callback",
   });
-  const owner = new NewApiAccountService({
-    adapter: new NewApiProviderAdapter(client),
-    repo: new NewApiSessionRepo(origin, { credentialsFile, cipherProvider }),
+  const owner = new AiscooAdminAccountService({
+    adapter: new AiscooAdminProviderAdapter(client),
+    repo: new AiscooAdminSessionRepo(origin, { credentialsFile, cipherProvider }),
   });
   const oauth = policy.wrapOAuth(owner.oauth);
   try {
